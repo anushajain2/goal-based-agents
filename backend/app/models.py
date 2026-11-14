@@ -1,0 +1,274 @@
+"""Database models.
+
+Money is stored as Numeric (Decimal) in USD. Every table that the UI renders as a feed
+(activity) uses a monotonically increasing integer id so clients can resume from the
+last id they saw.
+"""
+
+from __future__ import annotations
+
+import enum
+import uuid
+from datetime import datetime, timezone
+from decimal import Decimal
+
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db import Base
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def new_id() -> str:
+    return uuid.uuid4().hex
+
+
+Money = Numeric(14, 6)
+
+
+class CampaignStatus(str, enum.Enum):
+    draft = "draft"
+    active = "active"
+    paused = "paused"
+    out_of_budget = "out_of_budget"
+    completed = "completed"
+
+
+class RunStatus(str, enum.Enum):
+    queued = "queued"  # ready for a worker to pick up (new or resumed)
+    running = "running"  # a worker holds it
+    waiting = "waiting"  # paused on one or more user requests (approval / login / connect)
+    completed = "completed"
+    failed = "failed"
+    stopped = "stopped"  # campaign paused / budget exhausted / cancelled
+
+
+class RequestKind(str, enum.Enum):
+    action = "action"  # "I'm going to post this - can I go ahead?"
+    login = "login"  # "Please sign in to X in Agent Chrome"
+    connect = "connect"  # "Please connect your HubSpot account" (Composio OAuth link)
+
+
+class RequestStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    cancelled = "cancelled"
+
+
+class LedgerKind(str, enum.Enum):
+    ai_usage = "ai_usage"
+    spend = "spend"
+
+
+class LedgerStatus(str, enum.Enum):
+    reserved = "reserved"
+    settled = "settled"
+    released = "released"
+
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(200))
+    goal_type: Mapped[str] = mapped_column(String(50))  # sales | followers | traffic | leads | awareness | custom
+    goal_description: Mapped[str] = mapped_column(Text)
+    primary_metric: Mapped[str] = mapped_column(String(120))
+    target_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    context: Mapped[str] = mapped_column(Text, default="")  # product, audience, voice, links
+    channels: Mapped[list] = mapped_column(JSONB, default=list)  # app/site hints, e.g. ["twitter", "linkedin"]
+
+    budget_total: Mapped[Decimal] = mapped_column(Money)
+    daily_cap: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    status: Mapped[str] = mapped_column(String(20), default=CampaignStatus.draft.value)
+    strategy: Mapped[str] = mapped_column(Text, default="")  # agent-maintained, plain English
+    cycle_hours: Mapped[float] = mapped_column(Float, default=6.0)
+    next_cycle_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cycles_completed: Mapped[int] = mapped_column(Integer, default=0)
+    # Bumped whenever guardrails change so a running agent picks up the change immediately.
+    guardrail_version: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    exclusions: Mapped[list[ExclusionRule]] = relationship(back_populates="campaign", cascade="all, delete")
+
+
+class ExclusionRule(Base):
+    """Something the agent must not do.
+
+    kind = action_type  -> hard block on a category (e.g. send_message), enforced in code
+    kind = app          -> hard block on a connected app (e.g. "linkedin")
+    kind = site         -> hard block on a website domain (e.g. "reddit.com")
+    kind = text         -> free-text rule, given to the agent and checked by an AI reviewer
+    campaign_id NULL    -> applies to every campaign
+    """
+
+    __tablename__ = "exclusion_rules"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    campaign_id: Mapped[str | None] = mapped_column(
+        ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20))
+    value: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    campaign: Mapped[Campaign | None] = relationship(back_populates="exclusions")
+
+
+class PermissionGrant(Base):
+    """A standing "go ahead and don't ask me next time" permission.
+
+    campaign_id NULL means the grant covers all campaigns. `scope` optionally narrows it to
+    one app or site (e.g. publish_post on "twitter" only). Spending grants carry a per-action
+    limit; actions above it still ask.
+    """
+
+    __tablename__ = "permission_grants"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    campaign_id: Mapped[str | None] = mapped_column(
+        ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    action_type: Mapped[str] = mapped_column(String(50))
+    scope: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    spend_limit_usd: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AgentRun(Base):
+    """One optimization cycle. `messages` is the append-only Claude conversation."""
+
+    __tablename__ = "agent_runs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    cycle_number: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20), default=RunStatus.queued.value, index=True)
+    messages: Mapped[list] = mapped_column(JSONB, default=list)
+    # Set while waiting on user requests: the tool calls of the latest assistant turn and
+    # the results gathered so far (see agent/runner.py).
+    pending: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    guardrail_version_seen: Mapped[int] = mapped_column(Integer, default=0)
+    # Fixed at the start of a run so the tool list never changes mid-conversation.
+    uses_apps: Mapped[bool] = mapped_column(Boolean, default=False)
+    nudges: Mapped[int] = mapped_column(Integer, default=0)
+    model_calls: Mapped[int] = mapped_column(Integer, default=0)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    locked_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class UserRequest(Base):
+    """Something the agent needs from the user: an approval, a sign-in, or an app connection."""
+
+    __tablename__ = "user_requests"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    run_id: Mapped[str | None] = mapped_column(ForeignKey("agent_runs.id", ondelete="SET NULL"), nullable=True)
+    tool_use_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default=RequestStatus.pending.value, index=True)
+
+    action_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    scope: Mapped[str | None] = mapped_column(String(200), nullable=True)  # app slug or site domain
+    title: Mapped[str] = mapped_column(String(300))
+    rationale: Mapped[str] = mapped_column(Text, default="")
+    # What exactly will happen: {"content": "...", "target": "...", "fields": {...}, "url": "...",
+    # "screenshot": "file.png"}. `editable` lists keys of preview.fields the user may edit.
+    preview: Mapped[dict] = mapped_column(JSONB, default=dict)
+    est_spend_usd: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+
+    decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    edited_fields: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    remember: Mapped[bool] = mapped_column(Boolean, default=False)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BrowserAuthorization(Base):
+    """Approval token that lets browser 'commit' clicks (Post / Send / Buy...) through the guard."""
+
+    __tablename__ = "browser_authorizations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(ForeignKey("agent_runs.id", ondelete="CASCADE"), index=True)
+    request_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    action_type: Mapped[str] = mapped_column(String(50))
+    title: Mapped[str] = mapped_column(String(300))
+    uses_remaining: Mapped[int] = mapped_column(Integer, default=3)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Activity(Base):
+    """The user-facing log: one row per key action."""
+
+    __tablename__ = "activity"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"))
+    run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # action | blocked | request | decision | cycle | strategy | metric | note | budget | error | system
+    kind: Mapped[str] = mapped_column(String(20))
+    action_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    channel: Mapped[str | None] = mapped_column(String(100), nullable=True)  # app slug / site / "web"
+    title: Mapped[str] = mapped_column(String(400))
+    # done | failed | blocked | waiting | approved | rejected | info
+    status: Mapped[str] = mapped_column(String(20), default="done")
+    cost_usd: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    details: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (Index("ix_activity_campaign_id_id", "campaign_id", "id"),)
+
+
+class LedgerEntry(Base):
+    __tablename__ = "ledger_entries"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20))
+    amount_usd: Mapped[Decimal] = mapped_column(Money)
+    description: Mapped[str] = mapped_column(String(300))
+    meta: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class MetricSnapshot(Base):
+    __tablename__ = "metric_snapshots"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    metric: Mapped[str] = mapped_column(String(120))
+    value: Mapped[float] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(200), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
