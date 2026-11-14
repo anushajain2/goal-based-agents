@@ -72,7 +72,9 @@ class MeteredClaude:
     def __init__(self, client: anthropic.AsyncAnthropic | None = None):
         settings = get_settings()
         self.settings = settings
-        self.client = client or anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        # A real client needs a key; an injected client (tests) is assumed ready.
+        self.configured = client is not None or bool(settings.anthropic_api_key)
+        self.client = client or anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key or None)
         self.model = settings.agent_model
 
     async def create(

@@ -132,6 +132,11 @@ class CycleRunner:
             await self._save(run_id, messages=messages, uses_apps=uses_apps, guardrail_version_seen=seen_version)
             await self._log(campaign_id, run_id, "cycle", "Started a new optimization cycle", status="info")
 
+        if not self.claude.configured:
+            await self._fail(run_id, campaign_id,
+                             "No Claude API key. Add ANTHROPIC_API_KEY to the .env file and restart the app.")
+            return
+
         tools = all_tools(uses_apps)
 
         while True:
