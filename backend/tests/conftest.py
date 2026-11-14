@@ -1,7 +1,10 @@
 import os
+import tempfile
 
-os.environ.setdefault(
-    "DATABASE_URL", "postgresql+asyncpg://autopilot:autopilot@localhost:5433/autopilot_test"
+# SQLite by default (nothing to install). To test against Postgres:
+#   TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/autopilot_test pytest
+os.environ["DATABASE_URL"] = os.environ.get(
+    "TEST_DATABASE_URL", f"sqlite+aiosqlite:///{tempfile.mkdtemp()}/test.db"
 )
 os.environ["COMPOSIO_API_KEY"] = ""
 os.environ["ANTHROPIC_API_KEY"] = "test-key"
@@ -10,7 +13,7 @@ import pytest
 from sqlalchemy import text
 
 from app import models  # noqa: F401
-from app.db import Base, get_engine
+from app.db import Base, get_engine, is_sqlite
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -27,5 +30,9 @@ async def _schema():
 async def _clean():
     yield
     async with get_engine().begin() as conn:
-        tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
-        await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+        if is_sqlite():
+            for table in reversed(Base.metadata.sorted_tables):
+                await conn.execute(table.delete())
+        else:
+            tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
+            await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))

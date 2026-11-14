@@ -285,16 +285,15 @@ class CycleRunner:
             return brief, campaign.guardrail_version
 
     async def _cycle_ai_cost(self, s, run_id: str) -> Decimal:
-        return Decimal(
-            (
-                await s.execute(
-                    select(func.coalesce(func.sum(LedgerEntry.amount_usd), 0)).where(
-                        LedgerEntry.run_id == run_id, LedgerEntry.kind == LedgerKind.ai_usage.value,
-                        LedgerEntry.status == LedgerStatus.settled.value,
-                    )
+        total = (
+            await s.execute(
+                select(func.coalesce(func.sum(LedgerEntry.amount_usd), 0)).where(
+                    LedgerEntry.run_id == run_id, LedgerEntry.kind == LedgerKind.ai_usage.value,
+                    LedgerEntry.status == LedgerStatus.settled.value,
                 )
-            ).scalar_one()
-        )
+            )
+        ).scalar_one()
+        return Decimal(str(total)).quantize(Decimal("0.000001"))
 
     async def _complete(self, run_id: str, campaign_id: str, finished: dict) -> None:
         async with session_scope() as s:

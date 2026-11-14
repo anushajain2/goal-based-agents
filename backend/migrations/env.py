@@ -24,7 +24,12 @@ from app.config import get_settings  # noqa: E402
 from app import models  # noqa: E402,F401
 from app.db import Base  # noqa: E402
 
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+_url = get_settings().database_url
+if _url.startswith("sqlite"):
+    from pathlib import Path
+
+    Path(_url.split("///", 1)[-1]).parent.mkdir(parents=True, exist_ok=True)
+config.set_main_option("sqlalchemy.url", _url)
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -58,7 +63,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_as_batch=connection.dialect.name == "sqlite",  # SQLite needs batch mode for ALTERs
+    )
 
     with context.begin_transaction():
         context.run_migrations()

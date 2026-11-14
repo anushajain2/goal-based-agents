@@ -1,18 +1,21 @@
 """initial schema
 
-Revision ID: f349902a6b67
+Revision ID: 51f8606a67c9
 Revises: 
-Create Date: 2026-11-14 06:12:15.174411
+Create Date: 2026-11-14 12:49:02.030651
 
 """
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import Text
 from sqlalchemy.dialects import postgresql
 
+import app.dbtypes
+
 # revision identifiers, used by Alembic.
-revision: str = 'f349902a6b67'
+revision: str = '51f8606a67c9'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -29,22 +32,22 @@ def upgrade() -> None:
     sa.Column('primary_metric', sa.String(length=120), nullable=False),
     sa.Column('target_value', sa.Float(), nullable=True),
     sa.Column('context', sa.Text(), nullable=False),
-    sa.Column('channels', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column('channels', sa.JSON().with_variant(postgresql.JSONB(astext_type=Text()), 'postgresql'), nullable=False),
     sa.Column('budget_total', sa.Numeric(precision=14, scale=6), nullable=False),
     sa.Column('daily_cap', sa.Numeric(precision=14, scale=6), nullable=True),
-    sa.Column('end_date', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('end_date', app.dbtypes.UTCDateTime(), nullable=True),
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.Column('strategy', sa.Text(), nullable=False),
     sa.Column('cycle_hours', sa.Float(), nullable=False),
-    sa.Column('next_cycle_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('next_cycle_at', app.dbtypes.UTCDateTime(), nullable=True),
     sa.Column('cycles_completed', sa.Integer(), nullable=False),
     sa.Column('guardrail_version', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', app.dbtypes.UTCDateTime(), nullable=False),
+    sa.Column('updated_at', app.dbtypes.UTCDateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('activity',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('campaign_id', sa.String(length=32), nullable=False),
     sa.Column('run_id', sa.String(length=32), nullable=True),
     sa.Column('kind', sa.String(length=20), nullable=False),
@@ -53,19 +56,21 @@ def upgrade() -> None:
     sa.Column('title', sa.String(length=400), nullable=False),
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.Column('cost_usd', sa.Numeric(precision=14, scale=6), nullable=True),
-    sa.Column('details', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('details', sa.JSON().with_variant(postgresql.JSONB(astext_type=Text()), 'postgresql'), nullable=False),
+    sa.Column('created_at', app.dbtypes.UTCDateTime(), nullable=False),
     sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('ix_activity_campaign_id_id', 'activity', ['campaign_id', 'id'], unique=False)
+    with op.batch_alter_table('activity', schema=None) as batch_op:
+        batch_op.create_index('ix_activity_campaign_id_id', ['campaign_id', 'id'], unique=False)
+
     op.create_table('agent_runs',
     sa.Column('id', sa.String(length=32), nullable=False),
     sa.Column('campaign_id', sa.String(length=32), nullable=False),
     sa.Column('cycle_number', sa.Integer(), nullable=False),
     sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('messages', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-    sa.Column('pending', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column('messages', sa.JSON().with_variant(postgresql.JSONB(astext_type=Text()), 'postgresql'), nullable=False),
+    sa.Column('pending', sa.JSON().with_variant(postgresql.JSONB(astext_type=Text()), 'postgresql'), nullable=True),
     sa.Column('guardrail_version_seen', sa.Integer(), nullable=False),
     sa.Column('uses_apps', sa.Boolean(), nullable=False),
     sa.Column('nudges', sa.Integer(), nullable=False),
@@ -73,24 +78,28 @@ def upgrade() -> None:
     sa.Column('summary', sa.Text(), nullable=True),
     sa.Column('error', sa.Text(), nullable=True),
     sa.Column('locked_by', sa.String(length=100), nullable=True),
-    sa.Column('locked_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('locked_at', app.dbtypes.UTCDateTime(), nullable=True),
+    sa.Column('created_at', app.dbtypes.UTCDateTime(), nullable=False),
+    sa.Column('updated_at', app.dbtypes.UTCDateTime(), nullable=False),
     sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_agent_runs_campaign_id'), 'agent_runs', ['campaign_id'], unique=False)
-    op.create_index(op.f('ix_agent_runs_status'), 'agent_runs', ['status'], unique=False)
+    with op.batch_alter_table('agent_runs', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_agent_runs_campaign_id'), ['campaign_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_agent_runs_status'), ['status'], unique=False)
+
     op.create_table('exclusion_rules',
     sa.Column('id', sa.String(length=32), nullable=False),
     sa.Column('campaign_id', sa.String(length=32), nullable=True),
     sa.Column('kind', sa.String(length=20), nullable=False),
     sa.Column('value', sa.Text(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', app.dbtypes.UTCDateTime(), nullable=False),
     sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_exclusion_rules_campaign_id'), 'exclusion_rules', ['campaign_id'], unique=False)
+    with op.batch_alter_table('exclusion_rules', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_exclusion_rules_campaign_id'), ['campaign_id'], unique=False)
+
     op.create_table('ledger_entries',
     sa.Column('id', sa.String(length=32), nullable=False),
     sa.Column('campaign_id', sa.String(length=32), nullable=False),
@@ -99,37 +108,43 @@ def upgrade() -> None:
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.Column('amount_usd', sa.Numeric(precision=14, scale=6), nullable=False),
     sa.Column('description', sa.String(length=300), nullable=False),
-    sa.Column('meta', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('settled_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('meta', sa.JSON().with_variant(postgresql.JSONB(astext_type=Text()), 'postgresql'), nullable=False),
+    sa.Column('created_at', app.dbtypes.UTCDateTime(), nullable=False),
+    sa.Column('settled_at', app.dbtypes.UTCDateTime(), nullable=True),
     sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_ledger_entries_campaign_id'), 'ledger_entries', ['campaign_id'], unique=False)
+    with op.batch_alter_table('ledger_entries', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_ledger_entries_campaign_id'), ['campaign_id'], unique=False)
+
     op.create_table('metric_snapshots',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('campaign_id', sa.String(length=32), nullable=False),
     sa.Column('metric', sa.String(length=120), nullable=False),
     sa.Column('value', sa.Float(), nullable=False),
     sa.Column('source', sa.String(length=200), nullable=False),
     sa.Column('note', sa.Text(), nullable=False),
-    sa.Column('recorded_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('recorded_at', app.dbtypes.UTCDateTime(), nullable=False),
     sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_metric_snapshots_campaign_id'), 'metric_snapshots', ['campaign_id'], unique=False)
+    with op.batch_alter_table('metric_snapshots', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_metric_snapshots_campaign_id'), ['campaign_id'], unique=False)
+
     op.create_table('permission_grants',
     sa.Column('id', sa.String(length=32), nullable=False),
     sa.Column('campaign_id', sa.String(length=32), nullable=True),
     sa.Column('action_type', sa.String(length=50), nullable=False),
     sa.Column('scope', sa.String(length=200), nullable=True),
     sa.Column('spend_limit_usd', sa.Numeric(precision=14, scale=6), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('revoked_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('created_at', app.dbtypes.UTCDateTime(), nullable=False),
+    sa.Column('revoked_at', app.dbtypes.UTCDateTime(), nullable=True),
     sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_permission_grants_campaign_id'), 'permission_grants', ['campaign_id'], unique=False)
+    with op.batch_alter_table('permission_grants', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_permission_grants_campaign_id'), ['campaign_id'], unique=False)
+
     op.create_table('browser_authorizations',
     sa.Column('id', sa.String(length=32), nullable=False),
     sa.Column('run_id', sa.String(length=32), nullable=False),
@@ -137,12 +152,14 @@ def upgrade() -> None:
     sa.Column('action_type', sa.String(length=50), nullable=False),
     sa.Column('title', sa.String(length=300), nullable=False),
     sa.Column('uses_remaining', sa.Integer(), nullable=False),
-    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('expires_at', app.dbtypes.UTCDateTime(), nullable=False),
+    sa.Column('created_at', app.dbtypes.UTCDateTime(), nullable=False),
     sa.ForeignKeyConstraint(['run_id'], ['agent_runs.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_browser_authorizations_run_id'), 'browser_authorizations', ['run_id'], unique=False)
+    with op.batch_alter_table('browser_authorizations', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_browser_authorizations_run_id'), ['run_id'], unique=False)
+
     op.create_table('user_requests',
     sa.Column('id', sa.String(length=32), nullable=False),
     sa.Column('campaign_id', sa.String(length=32), nullable=False),
@@ -154,42 +171,60 @@ def upgrade() -> None:
     sa.Column('scope', sa.String(length=200), nullable=True),
     sa.Column('title', sa.String(length=300), nullable=False),
     sa.Column('rationale', sa.Text(), nullable=False),
-    sa.Column('preview', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column('preview', sa.JSON().with_variant(postgresql.JSONB(astext_type=Text()), 'postgresql'), nullable=False),
     sa.Column('est_spend_usd', sa.Numeric(precision=14, scale=6), nullable=True),
     sa.Column('decision_note', sa.Text(), nullable=True),
-    sa.Column('edited_fields', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column('edited_fields', sa.JSON().with_variant(postgresql.JSONB(astext_type=Text()), 'postgresql'), nullable=True),
     sa.Column('remember', sa.Boolean(), nullable=False),
-    sa.Column('decided_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('decided_at', app.dbtypes.UTCDateTime(), nullable=True),
+    sa.Column('created_at', app.dbtypes.UTCDateTime(), nullable=False),
     sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['run_id'], ['agent_runs.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_user_requests_campaign_id'), 'user_requests', ['campaign_id'], unique=False)
-    op.create_index(op.f('ix_user_requests_status'), 'user_requests', ['status'], unique=False)
+    with op.batch_alter_table('user_requests', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_user_requests_campaign_id'), ['campaign_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_user_requests_status'), ['status'], unique=False)
+
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_index(op.f('ix_user_requests_status'), table_name='user_requests')
-    op.drop_index(op.f('ix_user_requests_campaign_id'), table_name='user_requests')
+    with op.batch_alter_table('user_requests', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_user_requests_status'))
+        batch_op.drop_index(batch_op.f('ix_user_requests_campaign_id'))
+
     op.drop_table('user_requests')
-    op.drop_index(op.f('ix_browser_authorizations_run_id'), table_name='browser_authorizations')
+    with op.batch_alter_table('browser_authorizations', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_browser_authorizations_run_id'))
+
     op.drop_table('browser_authorizations')
-    op.drop_index(op.f('ix_permission_grants_campaign_id'), table_name='permission_grants')
+    with op.batch_alter_table('permission_grants', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_permission_grants_campaign_id'))
+
     op.drop_table('permission_grants')
-    op.drop_index(op.f('ix_metric_snapshots_campaign_id'), table_name='metric_snapshots')
+    with op.batch_alter_table('metric_snapshots', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_metric_snapshots_campaign_id'))
+
     op.drop_table('metric_snapshots')
-    op.drop_index(op.f('ix_ledger_entries_campaign_id'), table_name='ledger_entries')
+    with op.batch_alter_table('ledger_entries', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_ledger_entries_campaign_id'))
+
     op.drop_table('ledger_entries')
-    op.drop_index(op.f('ix_exclusion_rules_campaign_id'), table_name='exclusion_rules')
+    with op.batch_alter_table('exclusion_rules', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_exclusion_rules_campaign_id'))
+
     op.drop_table('exclusion_rules')
-    op.drop_index(op.f('ix_agent_runs_status'), table_name='agent_runs')
-    op.drop_index(op.f('ix_agent_runs_campaign_id'), table_name='agent_runs')
+    with op.batch_alter_table('agent_runs', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_agent_runs_status'))
+        batch_op.drop_index(batch_op.f('ix_agent_runs_campaign_id'))
+
     op.drop_table('agent_runs')
-    op.drop_index('ix_activity_campaign_id_id', table_name='activity')
+    with op.batch_alter_table('activity', schema=None) as batch_op:
+        batch_op.drop_index('ix_activity_campaign_id_id')
+
     op.drop_table('activity')
     op.drop_table('campaigns')
     # ### end Alembic commands ###

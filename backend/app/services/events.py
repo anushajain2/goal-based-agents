@@ -1,8 +1,8 @@
-"""Live updates via Postgres LISTEN/NOTIFY.
+"""Live updates.
 
-Writers call `notify()` inside their transaction; Postgres delivers the notification on
-commit, so listeners never see an event for data that was rolled back. The API's SSE
-endpoint listens on one channel and fans events out to browser clients.
+On Postgres, writers call `notify()` inside their transaction and Postgres delivers it on
+commit (LISTEN/NOTIFY). On SQLite there is no such channel: `notify()` does nothing and
+the API instead watches the database for changes (see api/events.py).
 """
 
 import json
@@ -14,5 +14,7 @@ CHANNEL = "autopilot_events"
 
 
 async def notify(session: AsyncSession, campaign_id: str | None, event_type: str, **data) -> None:
+    if session.bind.dialect.name != "postgresql":
+        return
     payload = json.dumps({"campaign_id": campaign_id, "type": event_type, **data}, default=str)
     await session.execute(text("SELECT pg_notify(:channel, :payload)"), {"channel": CHANNEL, "payload": payload})

@@ -17,7 +17,8 @@
 
 | Decision | Why |
 |---|---|
-| **Python backend (FastAPI, async SQLAlchemy, Postgres) and a Next.js/TypeScript UI.** | As requested. The async Python stack handles many long-running agent runs well, and Postgres is the single source of truth. |
+| **Python backend (FastAPI, async SQLAlchemy) and a Next.js/TypeScript UI.** | As requested. The async Python stack handles many long-running agent runs well. |
+| **SQLite by default, Postgres when scaling.** Same code; set `DATABASE_URL` to switch. | Running locally needs nothing installed (no Docker). Postgres adds parallel workers and instant live updates when hosting. |
 | **Our own Claude tool loop** on the Messages API, not a hosted agent product. | An approval can take days, so each run must park and resume from the database across restarts. Every tool call must pass through our own guardrail, budget and logging pipeline. |
 | **Append-only conversation history.** Guardrail changes mid-run are *appended* as system messages, and the tool list is fixed for a whole run. | Keeps the prompt cache warm (cheaper) and keeps Claude's earlier reasoning valid. |
 | **Budget ledger with reservations.** Each model call reserves its worst-case cost first (in a short transaction holding a row lock), then settles at the real cost from `usage`. | It makes overspending impossible rather than unlikely, even with several workers. |
@@ -26,7 +27,7 @@
 | **Pages read as text with numbered elements**; screenshots only on demand and for approval previews. | Cheaper and more reliable than vision-only browsing, which matters because most of the budget is AI usage. |
 | **The click guard runs in code**: commit buttons and submit keys need an authorization from an approved `browser_declare_action` (3 uses, 20 minutes). Password and card fields are never typed into. | Approving an *intent* is practical; approving every click is not. The guard stops the agent drifting from the approved intent, and stops prompt injection on a web page from getting past approvals. |
 | **Manual sign-in mode** relaunches the profile without remote control. | Some sites (e.g. Google) refuse sign-ins in a remote-controlled browser. |
-| **Postgres `FOR UPDATE SKIP LOCKED` job claiming, and LISTEN/NOTIFY for live UI updates.** | Horizontal scaling (run more workers) and real-time updates without adding Redis or another queue. |
+| **Job claiming that is safe with many workers** (`FOR UPDATE SKIP LOCKED` on Postgres), **live UI updates** via LISTEN/NOTIFY on Postgres or a light poll on SQLite. | Horizontal scaling (run more workers) and real-time updates without adding Redis or another queue. |
 
 ## Build order (done)
 

@@ -131,7 +131,7 @@ async def budget_state(session: AsyncSession, campaign: Campaign) -> BudgetState
     ).all()
     settled = reserved = ai = spend = Decimal(0)
     for kind, status, amount in rows:
-        amount = Decimal(amount)
+        amount = _q(Decimal(str(amount)))  # SQLite returns floats
         if status == LedgerStatus.settled.value:
             settled += amount
         else:
@@ -155,7 +155,7 @@ async def budget_state(session: AsyncSession, campaign: Campaign) -> BudgetState
         reserved=reserved,
         ai_usage=ai,
         spend=spend,
-        today=Decimal(today),
+        today=_q(Decimal(str(today))),
         daily_cap=Decimal(campaign.daily_cap) if campaign.daily_cap is not None else None,
     )
 

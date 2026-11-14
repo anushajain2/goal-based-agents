@@ -13,9 +13,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    BigInteger,
     Boolean,
-    DateTime,
     Float,
     ForeignKey,
     Index,
@@ -24,10 +22,10 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.dbtypes import BigIntPK, JSONType, UTCDateTime
 
 
 def utcnow() -> datetime:
@@ -92,22 +90,22 @@ class Campaign(Base):
     primary_metric: Mapped[str] = mapped_column(String(120))
     target_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     context: Mapped[str] = mapped_column(Text, default="")  # product, audience, voice, links
-    channels: Mapped[list] = mapped_column(JSONB, default=list)  # app/site hints, e.g. ["twitter", "linkedin"]
+    channels: Mapped[list] = mapped_column(JSONType, default=list)  # app/site hints, e.g. ["twitter", "linkedin"]
 
     budget_total: Mapped[Decimal] = mapped_column(Money)
     daily_cap: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
-    end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_date: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     status: Mapped[str] = mapped_column(String(20), default=CampaignStatus.draft.value)
     strategy: Mapped[str] = mapped_column(Text, default="")  # agent-maintained, plain English
     cycle_hours: Mapped[float] = mapped_column(Float, default=6.0)
-    next_cycle_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_cycle_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     cycles_completed: Mapped[int] = mapped_column(Integer, default=0)
     # Bumped whenever guardrails change so a running agent picks up the change immediately.
     guardrail_version: Mapped[int] = mapped_column(Integer, default=0)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow)
 
     exclusions: Mapped[list[ExclusionRule]] = relationship(back_populates="campaign", cascade="all, delete")
 
@@ -130,7 +128,7 @@ class ExclusionRule(Base):
     )
     kind: Mapped[str] = mapped_column(String(20))
     value: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
     campaign: Mapped[Campaign | None] = relationship(back_populates="exclusions")
 
@@ -152,8 +150,8 @@ class PermissionGrant(Base):
     action_type: Mapped[str] = mapped_column(String(50))
     scope: Mapped[str | None] = mapped_column(String(200), nullable=True)
     spend_limit_usd: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class AgentRun(Base):
@@ -165,10 +163,10 @@ class AgentRun(Base):
     campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
     cycle_number: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(20), default=RunStatus.queued.value, index=True)
-    messages: Mapped[list] = mapped_column(JSONB, default=list)
+    messages: Mapped[list] = mapped_column(JSONType, default=list)
     # Set while waiting on user requests: the tool calls of the latest assistant turn and
     # the results gathered so far (see agent/runner.py).
-    pending: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    pending: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     guardrail_version_seen: Mapped[int] = mapped_column(Integer, default=0)
     # Fixed at the start of a run so the tool list never changes mid-conversation.
     uses_apps: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -177,9 +175,9 @@ class AgentRun(Base):
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     locked_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    locked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow)
 
 
 class UserRequest(Base):
@@ -200,14 +198,14 @@ class UserRequest(Base):
     rationale: Mapped[str] = mapped_column(Text, default="")
     # What exactly will happen: {"content": "...", "target": "...", "fields": {...}, "url": "...",
     # "screenshot": "file.png"}. `editable` lists keys of preview.fields the user may edit.
-    preview: Mapped[dict] = mapped_column(JSONB, default=dict)
+    preview: Mapped[dict] = mapped_column(JSONType, default=dict)
     est_spend_usd: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
 
     decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    edited_fields: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    edited_fields: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     remember: Mapped[bool] = mapped_column(Boolean, default=False)
-    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
 
 class BrowserAuthorization(Base):
@@ -221,8 +219,8 @@ class BrowserAuthorization(Base):
     action_type: Mapped[str] = mapped_column(String(50))
     title: Mapped[str] = mapped_column(String(300))
     uses_remaining: Mapped[int] = mapped_column(Integer, default=3)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
 
 class Activity(Base):
@@ -230,7 +228,7 @@ class Activity(Base):
 
     __tablename__ = "activity"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
     campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"))
     run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # action | blocked | request | decision | cycle | strategy | metric | note | budget | error | system
@@ -241,8 +239,8 @@ class Activity(Base):
     # done | failed | blocked | waiting | approved | rejected | info
     status: Mapped[str] = mapped_column(String(20), default="done")
     cost_usd: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
-    details: Mapped[dict] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    details: Mapped[dict] = mapped_column(JSONType, default=dict)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
     __table_args__ = (Index("ix_activity_campaign_id_id", "campaign_id", "id"),)
 
@@ -257,18 +255,18 @@ class LedgerEntry(Base):
     status: Mapped[str] = mapped_column(String(20))
     amount_usd: Mapped[Decimal] = mapped_column(Money)
     description: Mapped[str] = mapped_column(String(300))
-    meta: Mapped[dict] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    meta: Mapped[dict] = mapped_column(JSONType, default=dict)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    settled_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class MetricSnapshot(Base):
     __tablename__ = "metric_snapshots"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
     campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
     metric: Mapped[str] = mapped_column(String(120))
     value: Mapped[float] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(200), default="")
     note: Mapped[str] = mapped_column(Text, default="")
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    recorded_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)

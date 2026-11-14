@@ -4,7 +4,7 @@
 
 Loops forever:
   * starts a new cycle for every active campaign whose next check-in is due,
-  * claims queued runs (Postgres `FOR UPDATE SKIP LOCKED`, so any number of workers can
+  * claims queued runs (with Postgres, any number of workers can
     run side by side) and drives them with the CycleRunner,
   * recovers runs whose worker died mid-step.
 """
@@ -17,7 +17,7 @@ import os
 import socket
 from datetime import timedelta
 
-from sqlalchemy import and_, select, text, update
+from sqlalchemy import and_, select, update
 
 from app.agent.runner import CycleRunner
 from app.config import get_settings
@@ -75,23 +75,24 @@ async def schedule_due_cycles() -> int:
 
 
 async def claim_run(worker_id: str) -> str | None:
+    """Atomically take the oldest queued run. Postgres: SKIP LOCKED lets workers claim in
+    parallel. SQLite: transactions are serialized, and the status check in the UPDATE makes
+    a double claim impossible either way."""
     async with session_scope() as s:
-        row = (
+        run_id = (
             await s.execute(
-                text(
-                    """
-                    UPDATE agent_runs SET status = 'running', locked_by = :worker, locked_at = now()
-                    WHERE id = (
-                        SELECT id FROM agent_runs WHERE status = 'queued'
-                        ORDER BY updated_at FOR UPDATE SKIP LOCKED LIMIT 1
-                    )
-                    RETURNING id
-                    """
-                ),
-                {"worker": worker_id},
+                select(AgentRun.id).where(AgentRun.status == RunStatus.queued.value)
+                .order_by(AgentRun.updated_at).limit(1).with_for_update(skip_locked=True)
             )
-        ).first()
-        return row[0] if row else None
+        ).scalar_one_or_none()
+        if not run_id:
+            return None
+        result = await s.execute(
+            update(AgentRun)
+            .where(AgentRun.id == run_id, AgentRun.status == RunStatus.queued.value)
+            .values(status=RunStatus.running.value, locked_by=worker_id, locked_at=utcnow())
+        )
+        return run_id if result.rowcount == 1 else None
 
 
 async def recover_stale_runs() -> None:

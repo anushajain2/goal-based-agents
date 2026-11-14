@@ -14,7 +14,9 @@ class Settings(BaseSettings):
     )
 
     # --- Database -----------------------------------------------------------
-    database_url: str = "postgresql+asyncpg://autopilot:autopilot@localhost:5433/autopilot"
+    # Local default: a SQLite file, nothing to install. For many workers / hosting, point this
+    # at Postgres, e.g. postgresql+asyncpg://user:pass@host:5432/autopilot
+    database_url: str = f"sqlite+aiosqlite:///{REPO_ROOT / 'data' / 'autopilot.db'}"
 
     # --- Claude -------------------------------------------------------------
     anthropic_api_key: str | None = None
