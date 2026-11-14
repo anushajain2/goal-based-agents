@@ -34,6 +34,13 @@ fi
 if [ ! -f .env ]; then
   cp .env.example .env
 fi
+# Older .env files pointed at a Docker Postgres that is no longer used: switch them to the
+# built-in local database.
+if grep -q '^DATABASE_URL=postgresql+asyncpg://autopilot:autopilot@localhost:5433/autopilot' .env; then
+  sed -i.bak 's|^DATABASE_URL=postgresql+asyncpg://autopilot:autopilot@localhost:5433/autopilot|# (old Docker setting, no longer needed) &|' .env
+  rm -f .env.bak
+  echo "Updated .env to use the built-in local database (Docker is no longer needed)."
+fi
 if ! grep -qE '^ANTHROPIC_API_KEY=.+' .env; then
   echo
   echo "Note: no ANTHROPIC_API_KEY in .env yet. The app will open, but the agent can't run until you"
