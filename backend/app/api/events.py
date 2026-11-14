@@ -27,7 +27,7 @@ class Broadcaster:
         try:
             self._conn = await asyncpg.connect(dsn)
             await self._conn.add_listener(CHANNEL, self._on_notify)
-        except Exception:  # noqa: BLE001 - the UI falls back to polling
+        except Exception:
             log.warning("could not start LISTEN for live updates", exc_info=True)
 
     async def stop(self) -> None:
@@ -65,7 +65,7 @@ async def events(request: Request, campaign_id: str | None = None):
             while not await request.is_disconnected():
                 try:
                     event = await asyncio.wait_for(q.get(), timeout=15)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield {"event": "ping", "data": "{}"}
                     continue
                 if campaign_id and event.get("campaign_id") not in (campaign_id, None):

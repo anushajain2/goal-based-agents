@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.services.policy import ACTION_TYPES
 from app.services.rule_check import BUILT_IN_RULES
@@ -67,7 +67,7 @@ def campaign_brief(
     connections: list[dict] | None,
     apps_enabled: bool,
 ) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     blocked = [r for r in rules if r.kind != "text"]
     text_rules = [r.value for r in rules if r.kind == "text"]
     lines = [

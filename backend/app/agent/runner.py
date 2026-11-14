@@ -243,7 +243,7 @@ class CycleRunner:
         if uses_apps:
             try:
                 connections = await self.hub.connected_apps()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.warning("could not list Composio connections", exc_info=True)
         async with session_scope() as s:
             campaign = await s.get(Campaign, campaign_id)

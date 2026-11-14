@@ -10,7 +10,7 @@ daily cap, it is refused and the caller pauses. After the fact the reservation i
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select
@@ -22,10 +22,10 @@ MTOK = Decimal(1_000_000)
 
 # USD per million tokens: (input, output, cache write (5 min), cache read)
 PRICES: dict[str, tuple[Decimal, Decimal, Decimal, Decimal]] = {
-    "claude-opus-5-5": (Decimal("4"), Decimal("20"), Decimal("5"), Decimal("0.20")),
-    "claude-opus-5": (Decimal("5"), Decimal("25"), Decimal("6.25"), Decimal("0.50")),
-    "claude-opus-4-8": (Decimal("5"), Decimal("25"), Decimal("6.25"), Decimal("0.50")),
-    "claude-sonnet-5-5": (Decimal("2"), Decimal("10"), Decimal("2.50"), Decimal("0.10")),
+    "claude-opus-5-5": (Decimal(4), Decimal(20), Decimal(5), Decimal("0.20")),
+    "claude-opus-5": (Decimal(5), Decimal(25), Decimal("6.25"), Decimal("0.50")),
+    "claude-opus-4-8": (Decimal(5), Decimal(25), Decimal("6.25"), Decimal("0.50")),
+    "claude-sonnet-5-5": (Decimal(2), Decimal(10), Decimal("2.50"), Decimal("0.10")),
     "claude-haiku-5-5": (Decimal("0.10"), Decimal("0.50"), Decimal("0.125"), Decimal("0.01")),
 }
 WEB_SEARCH_USD_PER_REQUEST = Decimal("0.01")  # $10 per 1,000 searches
@@ -141,7 +141,7 @@ async def budget_state(session: AsyncSession, campaign: Campaign) -> BudgetState
         else:
             spend += amount
 
-    start_of_day = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    start_of_day = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     today = (
         await session.execute(
             select(func.coalesce(func.sum(LedgerEntry.amount_usd), 0)).where(

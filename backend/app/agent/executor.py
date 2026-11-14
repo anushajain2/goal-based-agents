@@ -20,8 +20,8 @@ from typing import Any
 from sqlalchemy import select
 
 from app.agent.llm import MeteredClaude
-from app.browser.controller import BrowserError, get_controller, is_commit
 from app.browser import chrome
+from app.browser.controller import BrowserError, get_controller, is_commit
 from app.connectors.composio_hub import get_hub
 from app.db import session_scope
 from app.models import (
@@ -86,7 +86,7 @@ class ToolExecutor:
         except ledger.BudgetExceeded as e:
             await self._log("budget", f"Blocked by budget: {e}", status="blocked")
             return Outcome(f"Not enough budget for this: {e}", is_error=True)
-        except Exception as e:  # noqa: BLE001 - surface tool failures to the model, not the worker
+        except Exception as e:
             log.exception("tool %s failed", name)
             return Outcome(f"{name} failed: {type(e).__name__}: {e}", is_error=True)
 

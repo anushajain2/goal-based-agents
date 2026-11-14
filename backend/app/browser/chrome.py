@@ -182,7 +182,7 @@ async def stop_agent_chrome() -> None:
                 cdp = await browser.new_browser_cdp_session()
                 # Ask Chrome to quit cleanly so cookies/sign-ins are flushed to disk.
                 await cdp.send("Browser.close")
-        except Exception:  # noqa: BLE001 - best effort, fall through to SIGTERM
+        except Exception:
             log.debug("graceful Chrome close failed", exc_info=True)
         for _ in range(30):
             if not await cdp_ready():

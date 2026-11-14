@@ -106,7 +106,7 @@ async def recover_stale_runs() -> None:
 async def _drive(runner: CycleRunner, run_id: str) -> None:
     try:
         await runner.run(run_id)
-    except Exception as e:  # noqa: BLE001 - one broken run must not take the worker down
+    except Exception as e:
         log.exception("run %s crashed", run_id)
         async with session_scope() as s:
             run = await s.get(AgentRun, run_id)
@@ -145,7 +145,7 @@ async def main() -> None:
                 task = asyncio.create_task(_drive(runner, run_id))
                 tasks.add(task)
                 task.add_done_callback(tasks.discard)
-        except Exception:  # noqa: BLE001
+        except Exception:
             log.exception("worker loop error")
         await asyncio.sleep(settings.worker_poll_seconds)
 
