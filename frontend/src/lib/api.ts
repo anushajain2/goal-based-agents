@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Empty = same origin: Next.js proxies /api/* to the backend (see next.config.mjs).
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export type Budget = {
   total: number;
