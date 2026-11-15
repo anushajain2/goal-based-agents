@@ -108,7 +108,7 @@ export function ListEditor({
           <li key={i.id} className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5 text-sm">
             <span className="flex-1">{i.value}</span>
             {i.locked ? (
-              <span className="text-xs text-muted">all campaigns</span>
+              <span className="text-xs text-muted">all goals</span>
             ) : (
               <button type="button" onClick={() => onRemove(i.id)} className="text-muted hover:text-red-600" aria-label="Remove">
                 <Trash2 size={14} />

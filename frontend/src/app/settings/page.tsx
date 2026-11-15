@@ -22,8 +22,9 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-4xl space-y-5">
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-muted">Connections, sign-ins and the permissions you have given the agent.</p>
+        <p className="text-sm text-muted">How Autopilot works, what it&apos;s connected to, and the permissions you&apos;ve given it.</p>
       </div>
+      <Staffing />
       <AppConnections />
       <AgentChrome />
       <Permissions />
@@ -166,6 +167,30 @@ function AgentChrome() {
   );
 }
 
+const ROLE_INFO: { role: "planner" | "worker" | "checker"; title: string; text: string }[] = [
+  { role: "planner", title: "Plans each work session", text: "Reviews results and decides what to do next. One call per session, so the most capable model is worth it here." },
+  { role: "worker", title: "Does the work", text: "Carries out the plan step by step: research, browsing, writing, using apps. Most of the calls, so a fast, cheaper model." },
+  { role: "checker", title: "Checks every outgoing action", text: "A quick yes/no review against your guardrails before anything is posted, sent or spent." },
+];
+
+function Staffing() {
+  const { data } = useApi<{ models: Record<string, string> }>("/api/status", { live: false });
+  return (
+    <Card>
+      <CardHeader title="How Autopilot is staffed" subtitle="Each job uses the cheapest Claude model that does it well. Change them in the .env file." />
+      <div className="grid gap-3 p-4 sm:grid-cols-3">
+        {ROLE_INFO.map((r) => (
+          <div key={r.role} className="rounded-lg bg-gray-50 p-3">
+            <div className="text-[13px] font-semibold">{r.title}</div>
+            <div className="mt-1 font-mono text-xs text-brand-700">{data?.models?.[r.role] ?? "…"}</div>
+            <p className="mt-1.5 text-xs text-muted">{r.text}</p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function Permissions() {
   const { data, reload } = useApi<Grant[]>("/api/grants");
   return (
@@ -185,7 +210,7 @@ function Permissions() {
                 {g.scope ? <> on {g.scope}</> : " anywhere"}
                 {g.spend_limit_usd ? ` · up to ${usd(g.spend_limit_usd)} each` : ""}
                 <span className="block text-xs text-muted">
-                  {g.campaign_name ? `Campaign: ${g.campaign_name}` : "All campaigns"} · since {new Date(g.created_at).toLocaleDateString()}
+                  {g.campaign_name ? `Goal: ${g.campaign_name}` : "All goals"} · since {new Date(g.created_at).toLocaleDateString()}
                 </span>
               </span>
               <Button size="sm" variant="danger" onClick={async () => { await api(`/api/grants/${g.id}`, { method: "DELETE" }); reload(); }}>
@@ -213,7 +238,7 @@ function GlobalGuardrails() {
   };
   return (
     <Card>
-      <CardHeader title="Guardrails for all campaigns" subtitle="Applied on top of each campaign's own guardrails." />
+      <CardHeader title="Guardrails for all goals" subtitle="Applied on top of each goal's own guardrails." />
       <div className="grid gap-5 p-4 md:grid-cols-3">
         <div>
           <div className="mb-1.5 text-[13px] font-semibold">Blocked apps</div>

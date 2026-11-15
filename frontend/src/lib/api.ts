@@ -23,6 +23,12 @@ export type Campaign = {
   goal_description: string;
   primary_metric: string;
   target_value: number | null;
+  done_when: string;
+  category: string;
+  use_case: string;
+  client_name: string;
+  actions_taken: number;
+  last_activity: { title: string; kind: string; at: string } | null;
   status: "draft" | "active" | "paused" | "out_of_budget" | "completed";
   channels: string[];
   budget: Budget;
@@ -44,6 +50,7 @@ export type Campaign = {
 
 export type ActivityItem = {
   id: number;
+  campaign_name?: string | null;
   campaign_id: string;
   run_id: string | null;
   kind: string;
@@ -83,6 +90,32 @@ export type UserRequest = {
   created_at: string;
 };
 
+export type Session = {
+  id: string;
+  number: number;
+  status: string;
+  summary: string | null;
+  error: string | null;
+  started_at: string;
+  updated_at: string;
+  cost_usd: number;
+  ai_calls: number;
+  counts: Record<string, number>;
+};
+
+export type Overview = {
+  goals: { total: number; active: number };
+  working_on: string[];
+  waiting_on_you: number;
+  waiting_goals: string[];
+  now: ActivityItem | null;
+  next_check_in: string | null;
+  spend_this_month: { total: number; ai_usage: number; other: number };
+  budget_total: number;
+  actions_this_week: number;
+  steps_this_week: number;
+};
+
 export type Exclusion = { id: string; campaign_id: string | null; kind: string; value: string; label: string | null };
 export type Grant = {
   id: string;
@@ -118,20 +151,49 @@ export async function api<T = unknown>(path: string, init?: RequestInit & { json
 }
 
 /** Subscribe to live server events (activity, requests, campaign changes). */
-export function useLiveEvents(onEvent: (e: { type: string; campaign_id: string | null }) => void, campaignId?: string) {
+type LiveEvent = { type: string; campaign_id: string | null };
+type Listener = (e: LiveEvent) => void;
+
+// One shared connection for the whole tab. Browsers allow only ~6 connections per site, so
+// one EventSource per panel would starve normal requests and hang the page.
+const listeners = new Set<Listener>();
+let shared: EventSource | null = null;
+
+function subscribe(fn: Listener): () => void {
+  listeners.add(fn);
+  if (!shared) {
+    shared = new EventSource(API_URL + "/api/events");
+    const handler = (ev: MessageEvent) => {
+      let e: LiveEvent;
+      try {
+        e = JSON.parse(ev.data);
+      } catch {
+        return;
+      }
+      listeners.forEach((l) => l(e));
+    };
+    for (const t of ["activity", "request", "campaign", "run", "metric", "guardrails"]) shared.addEventListener(t, handler);
+  }
+  return () => {
+    listeners.delete(fn);
+    if (!listeners.size && shared) {
+      shared.close();
+      shared = null;
+    }
+  };
+}
+
+export function useLiveEvents(onEvent: Listener, campaignId?: string) {
   const ref = useRef(onEvent);
   ref.current = onEvent;
-  useEffect(() => {
-    const url = API_URL + "/api/events" + (campaignId ? `?campaign_id=${campaignId}` : "");
-    const es = new EventSource(url);
-    const handler = (ev: MessageEvent) => {
-      try {
-        ref.current(JSON.parse(ev.data));
-      } catch {}
-    };
-    for (const t of ["activity", "request", "campaign", "run", "metric", "guardrails"]) es.addEventListener(t, handler);
-    return () => es.close();
-  }, [campaignId]);
+  useEffect(
+    () =>
+      subscribe((e) => {
+        // campaign_id null means "something changed somewhere": every panel refreshes.
+        if (!campaignId || !e.campaign_id || e.campaign_id === campaignId) ref.current(e);
+      }),
+    [campaignId],
+  );
 }
 
 /** Fetch JSON, refetch on live events (debounced) and every `pollMs` as a fallback. */

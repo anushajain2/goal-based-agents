@@ -9,5 +9,12 @@ const nextConfig = {
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${backend}/api/:path*` }];
   },
+  // Old links from before goals were called goals.
+  async redirects() {
+    return [
+      { source: "/campaigns/new", destination: "/goals/new", permanent: false },
+      { source: "/campaigns/:id", destination: "/goals/:id", permanent: false },
+    ];
+  },
 };
 export default nextConfig;

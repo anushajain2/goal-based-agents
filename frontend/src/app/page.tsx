@@ -1,139 +1,176 @@
 "use client";
 
-import { Plus, Rocket } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { CampaignStatus, Card, Empty, ErrorNote, Toggle } from "@/components/ui";
-import { api, Campaign, num, timeAgo, usd, useApi } from "@/lib/api";
+import { ApprovalCard } from "@/components/ApprovalCard";
+import { GoalProgress, GoalStatus } from "@/components/goal";
+import { EmployeeAvatar } from "@/components/Shell";
+import { Card, CardHeader, ErrorNote } from "@/components/ui";
+import { CATEGORY_ICON, UseCaseCard } from "@/components/UseCaseLibrary";
+import { ViewToggle, WorkLog } from "@/components/WorkLog";
+import { ActivityItem, Campaign, num, Overview, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
+import { CATEGORIES, FEATURED, findUseCase } from "@/lib/useCases";
 
-export default function CampaignsPage() {
-  const { data, error, reload } = useApi<Campaign[]>("/api/campaigns");
-  const [busy, setBusy] = useState<string | null>(null);
+export default function HomePage() {
+  const router = useRouter();
+  const { data: ov, error } = useApi<Overview>("/api/overview");
+  const { data: goals } = useApi<Campaign[]>("/api/campaigns");
+  const { data: requests, reload: reloadRequests } = useApi<UserRequest[]>("/api/requests?status=pending");
+  const { data: log } = useApi<ActivityItem[]>("/api/activity?limit=60");
+  const [view, setView] = useState<"highlights" | "everything">("highlights");
 
-  async function toggle(c: Campaign, on: boolean) {
-    setBusy(c.id);
-    try {
-      const action = on ? (c.status === "draft" ? "launch" : "resume") : "pause";
-      await api(`/api/campaigns/${c.id}/${action}`, { method: "POST" });
-      await reload();
-    } catch (e) {
-      alert((e as Error).message);
-    } finally {
-      setBusy(null);
-    }
-  }
+  if (error) return <ErrorNote>Can&apos;t reach the backend ({error}). Is <code>./scripts/dev.sh</code> running?</ErrorNote>;
+  if (!ov || !goals) return <p className="text-muted">Loading…</p>;
 
-  const totals = (data || []).reduce(
-    (t, c) => ({ spent: t.spent + c.budget.spent, budget: t.budget + c.budget.total, pending: t.pending + c.pending_requests }),
-    { spent: 0, budget: 0, pending: 0 },
-  );
+  const pick = (id: string) => router.push(`/goals/new?uc=${id}`);
 
+  if (goals.length === 0) return <FirstRun onPick={pick} />;
+
+  const state = ov.working_on.length ? "working" : ov.waiting_on_you ? "waiting" : "idle";
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Campaigns</h1>
-          <p className="text-sm text-muted">Set a goal and a budget. The agent works toward it and checks with you on what matters.</p>
-        </div>
-        <Link
-          href="/campaigns/new"
-          className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-sm font-semibold text-white hover:bg-emerald-700"
-        >
-          <Plus size={16} /> Create
-        </Link>
-      </div>
-
-      {error && <ErrorNote>Can&apos;t reach the backend ({error}). Is it running on port 8000?</ErrorNote>}
-
-      <Card className="overflow-hidden">
-        <div className="flex flex-wrap gap-6 border-b border-line bg-gray-50/60 px-4 py-2.5 text-xs text-muted">
-          <span>
-            <b className="text-ink tabular">{data?.length ?? 0}</b> campaigns
-          </span>
-          <span>
-            Spent <b className="text-ink tabular">{usd(totals.spent)}</b> of {usd(totals.budget)}
-          </span>
-          {totals.pending > 0 && (
-            <Link href="/approvals" className="font-semibold text-red-600">
-              {totals.pending} waiting for your approval
-            </Link>
+    <div className="space-y-6">
+      {/* The employee, at a glance */}
+      <Card className="flex flex-wrap items-center gap-4 p-5">
+        <EmployeeAvatar state={state} size={52} />
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-semibold text-muted">Autopilot · your AI employee</div>
+          <div className="mt-0.5 text-xl font-bold leading-snug">
+            {state === "working" ? <>Working on {ov.working_on.join(", ")}</>
+              : state === "waiting" ? <>Waiting on you for {ov.waiting_on_you} {ov.waiting_on_you === 1 ? "decision" : "decisions"}</>
+              : ov.goals.active ? <>Between work sessions{ov.next_check_in ? <>: next check-in {timeAgo(ov.next_check_in)}</> : null}</>
+              : <>No active goals right now</>}
+          </div>
+          {ov.now && state === "working" && (
+            <div className="mt-1 flex items-center gap-2 text-sm text-brand-700">
+              <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-brand-500" />
+              <span className="truncate">{ov.now.title}</span>
+            </div>
           )}
         </div>
-        {data && data.length === 0 ? (
-          <Empty icon={<Rocket size={36} />} title="No campaigns yet">
-            Create one: pick a goal like &quot;grow my followers on X&quot;, set a budget, and choose what the agent may do on its own.
-          </Empty>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-left text-[13px]">
-              <thead className="border-b border-line text-xs font-semibold text-muted">
-                <tr>
-                  <th className="w-14 px-4 py-2.5">On/Off</th>
-                  <th className="px-2 py-2.5">Campaign</th>
-                  <th className="px-2 py-2.5">Status</th>
-                  <th className="px-2 py-2.5 text-right">Results</th>
-                  <th className="px-2 py-2.5 text-right">Cost per result</th>
-                  <th className="px-2 py-2.5 text-right">Amount spent</th>
-                  <th className="px-2 py-2.5 text-right">Budget</th>
-                  <th className="px-2 py-2.5 text-right">Approvals</th>
-                  <th className="px-4 py-2.5 text-right">Next check-in</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data || []).map((c) => {
-                  const on = c.status === "active";
-                  const canToggle = c.status !== "completed" && c.status !== "out_of_budget";
-                  const r = c.results.results;
-                  return (
-                    <tr key={c.id} className="border-b border-line/70 last:border-0 hover:bg-brand-50/40">
-                      <td className="px-4 py-3">
-                        <Toggle on={on} disabled={!canToggle || busy === c.id} onChange={(v) => toggle(c, v)} label={`Turn ${c.name} ${on ? "off" : "on"}`} />
-                      </td>
-                      <td className="px-2 py-3">
-                        <Link href={`/campaigns/${c.id}`} className="font-semibold text-brand-600 hover:underline">
-                          {c.name}
-                        </Link>
-                        <div className="max-w-xs truncate text-xs text-muted">{c.goal_description}</div>
-                      </td>
-                      <td className="px-2 py-3">
-                        <CampaignStatus status={c.status} />
-                        {c.current_run && ["running", "queued"].includes(c.current_run.status) && on && (
-                          <div className="text-xs text-brand-600">Working · cycle {c.current_run.cycle_number}</div>
-                        )}
-                        {c.current_run?.status === "waiting" && <div className="text-xs text-amber-700">Waiting on you</div>}
-                      </td>
-                      <td className="px-2 py-3 text-right tabular">
-                        <div className="font-semibold">{r === null ? "—" : `${r >= 0 ? "+" : ""}${num(r)}`}</div>
-                        <div className="text-xs text-muted">{c.primary_metric}</div>
-                      </td>
-                      <td className="px-2 py-3 text-right tabular">{usd(c.cost_per_result)}</td>
-                      <td className="px-2 py-3 text-right tabular">
-                        <div>{usd(c.budget.spent)}</div>
-                        <div className="text-xs text-muted">AI {usd(c.budget.ai_usage)}</div>
-                      </td>
-                      <td className="px-2 py-3 text-right tabular">
-                        <div>{usd(c.budget.total)}</div>
-                        <div className="text-xs text-muted">{c.daily_cap ? `${usd(c.daily_cap)}/day` : "Lifetime"}</div>
-                      </td>
-                      <td className="px-2 py-3 text-right">
-                        {c.pending_requests > 0 ? (
-                          <Link href={`/campaigns/${c.id}?tab=approvals`} className="font-semibold text-red-600">
-                            {c.pending_requests} pending
-                          </Link>
-                        ) : (
-                          <span className="text-muted">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right text-muted">{on ? timeAgo(c.next_cycle_at) : "—"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <Link href="/goals/new" className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600">
+          <Plus size={16} /> Give it a new goal
+        </Link>
       </Card>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Spent this month" value={usd(ov.spend_this_month.total)} sub={`AI ${usd(ov.spend_this_month.ai_usage)} · other ${usd(ov.spend_this_month.other)}`} />
+        <Stat label="Actions this week" value={num(ov.actions_this_week)} sub={`${num(ov.steps_this_week)} ${ov.steps_this_week === 1 ? "step" : "steps"} in total`} />
+        <Stat label="Active goals" value={`${ov.goals.active}`} sub={`${ov.goals.total} in total`} />
+        <Stat label="Needs you" value={`${ov.waiting_on_you}`} sub={ov.waiting_on_you ? "Approvals and sign-ins" : "Nothing waiting"} highlight={ov.waiting_on_you > 0} />
+      </div>
+
+      {requests && requests.length > 0 && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-[15px] font-bold">Needs you</h2>
+            {requests.length > 2 && <Link href="/approvals" className="text-sm font-semibold text-brand-600">All {requests.length} →</Link>}
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {requests.slice(0, 2).map((r) => <ApprovalCard key={r.id} req={r} onDone={reloadRequests} showCampaign />)}
+          </div>
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <Card>
+          <CardHeader
+            title="Work log"
+            subtitle="Everything Autopilot has done recently, across all goals"
+            action={<ViewToggle value={view} onChange={setView} />}
+          />
+          <div className="p-3">
+            <WorkLog items={log || []} showGoal view={view} />
+          </div>
+          <Link href="/work" className="flex items-center justify-center gap-1 border-t border-line py-2.5 text-sm font-semibold text-brand-600 hover:bg-gray-50">
+            Full work log <ArrowRight size={14} />
+          </Link>
+        </Card>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader title="Goals" action={<Link href="/goals" className="text-sm font-semibold text-brand-600">All →</Link>} />
+            <ul className="divide-y divide-line">
+              {goals.slice(0, 6).map((c) => (
+                <li key={c.id}>
+                  <Link href={`/goals/${c.id}`} className="block px-4 py-3 hover:bg-gray-50">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13.5px] font-semibold">{c.name}</span>
+                        {c.client_name && <span className="text-xs text-muted">for {c.client_name}</span>}
+                      </span>
+                      <GoalStatus c={c} />
+                    </div>
+                    <div className="mt-2 grid grid-cols-[1fr_auto] items-end gap-3">
+                      <GoalProgress c={c} compact />
+                      <span className="tabular text-xs text-muted">{usd(c.budget.spent)} / {usd(c.budget.total)}</span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          <Card>
+            <CardHeader title="More it can do" subtitle="Ideas founders and agencies hire Autopilot for" action={<Link href="/capabilities" className="text-sm font-semibold text-brand-600">Browse →</Link>} />
+            <ul className="divide-y divide-line">
+              {FEATURED.slice(0, 4).map((id) => {
+                const uc = findUseCase(id)!;
+                return (
+                  <li key={id}>
+                    <button onClick={() => pick(id)} className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-50">
+                      <span className="mt-0.5 text-gray-400">{CATEGORY_ICON[uc.categoryKey]}</span>
+                      <span className="text-[13px] leading-snug">{uc.goal}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
+  return (
+    <Card className={highlight ? "border-amber-300 bg-amber-50/50 p-4" : "p-4"}>
+      <div className="text-xs font-semibold text-muted">{label}</div>
+      <div className="tabular mt-1 text-2xl font-bold">{value}</div>
+      {sub && <div className="mt-0.5 text-xs text-muted">{sub}</div>}
+    </Card>
+  );
+}
+
+function FirstRun({ onPick }: { onPick: (id: string) => void }) {
+  return (
+    <div className="space-y-8">
+      <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 p-8 text-white">
+        <EmployeeAvatar size={56} />
+        <h1 className="mt-4 text-3xl font-bold tracking-tight">Meet Autopilot, your AI employee</h1>
+        <p className="mt-2 max-w-2xl text-white/85">
+          Give it a goal with a clear finish line and a budget, like &quot;book 20 qualified meetings&quot; or &quot;get 500 waitlist signups&quot;. It plans,
+          does the work, asks before anything important, and logs every step so you always know what it did and what it cost.
+        </p>
+        <Link href="/goals/new" className="mt-5 inline-flex h-10 items-center gap-1.5 rounded-lg bg-white px-4 text-sm font-semibold text-brand-700 hover:bg-white/90">
+          <Plus size={16} /> Give it its first goal
+        </Link>
+      </div>
+      <section>
+        <div className="mb-3 flex items-end justify-between">
+          <div>
+            <h2 className="text-lg font-bold">Popular first goals</h2>
+            <p className="text-sm text-muted">Pick one to start; you can change everything before it begins.</p>
+          </div>
+          <Link href="/capabilities" className="text-sm font-semibold text-brand-600">See all {CATEGORIES.length} areas →</Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {FEATURED.map((id) => <UseCaseCard key={id} uc={findUseCase(id)!} onPick={(u) => onPick(u.id)} />)}
+        </div>
+      </section>
     </div>
   );
 }

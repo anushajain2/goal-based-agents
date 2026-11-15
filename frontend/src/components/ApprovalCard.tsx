@@ -75,7 +75,7 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
       )}
       {req.scope && <Badge>{req.scope}</Badge>}
       {showCampaign && req.campaign_name && (
-        <Link href={`/campaigns/${req.campaign_id}`} className="font-semibold text-brand-600 hover:underline">
+        <Link href={`/goals/${req.campaign_id}`} className="font-semibold text-brand-600 hover:underline">
           {req.campaign_name}
         </Link>
       )}
@@ -119,7 +119,7 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
           )}
           {req.est_spend_usd !== null && (
             <p className="text-sm">
-              Will spend up to <b>{usd(req.est_spend_usd)}</b> from the campaign budget.
+              Will spend up to <b>{usd(req.est_spend_usd)}</b> from this goal's budget.
             </p>
           )}
         </div>
@@ -190,8 +190,8 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
           <div>
             <div className="mb-1 text-xs font-semibold text-muted">Applies to</div>
             <Select value={scopeAll ? "all" : "campaign"} onChange={(e) => setScopeAll(e.target.value === "all")}>
-              <option value="campaign">This campaign</option>
-              <option value="all">All campaigns</option>
+              <option value="campaign">This goal</option>
+              <option value="all">All goals</option>
             </Select>
           </div>
           {req.scope && (
