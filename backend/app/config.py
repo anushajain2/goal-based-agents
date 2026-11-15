@@ -48,13 +48,49 @@ class Settings(BaseSettings):
     # --- Files ------------------------------------------------------------------
     data_dir: Path = REPO_ROOT / "data"
 
+    # --- Sign-in ---------------------------------------------------------------------
+    # Signs sign-in state and hashes login codes. Generated and saved to data/secret_key when unset.
+    secret_key: str | None = None
+    # Google sign-in (optional): an OAuth client of type "Web application" from Google Cloud.
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    # Email for sign-in codes (optional): any SMTP service (Gmail, Resend, Postmark, SES...).
+    # When unset, codes are printed in the backend's terminal instead (fine for local use).
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None  # e.g. "Autopilot <login@yourdomain.com>"
+    smtp_ssl: bool = False  # True for port 465 (implicit TLS); False uses STARTTLS
+
     # --- Misc ---------------------------------------------------------------------
+    # The address people open in their browser. Google redirects back here after sign-in.
     frontend_origin: str = "http://localhost:3000"
     worker_poll_seconds: float = 2.0
 
     @property
     def screenshots_dir(self) -> Path:
         return self.data_dir / "screenshots"
+
+    @property
+    def google_enabled(self) -> bool:
+        return bool(self.google_client_id and self.google_client_secret)
+
+    @property
+    def smtp_enabled(self) -> bool:
+        return bool(self.smtp_host)
+
+    def secret(self) -> bytes:
+        if self.secret_key:
+            return self.secret_key.encode()
+        path = self.data_dir / "secret_key"
+        if not path.exists():
+            import secrets
+
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(secrets.token_urlsafe(48))
+            path.chmod(0o600)
+        return path.read_text().strip().encode()
 
     @property
     def composio_enabled(self) -> bool:

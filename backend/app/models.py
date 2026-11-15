@@ -86,8 +86,25 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)  # stored lower-case
     name: Mapped[str] = mapped_column(String(200), default="")
-    password_hash: Mapped[str] = mapped_column(String(300))
+    # Google account id ("sub"), set when the user signs in with Google.
+    google_sub: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    # Unused since sign-in became passwordless; kept so older databases upgrade cleanly.
+    password_hash: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class LoginCode(Base):
+    """A one-time sign-in code sent by email. Only a keyed hash of the code is stored."""
+
+    __tablename__ = "login_codes"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    email: Mapped[str] = mapped_column(String(320), index=True)
+    code_hash: Mapped[str] = mapped_column(String(64))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class AuthSession(Base):

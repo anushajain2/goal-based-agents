@@ -44,3 +44,17 @@ def _reset_sign_in_throttle():
 
     auth._attempts.clear()
     yield
+
+
+@pytest.fixture(autouse=True)
+def _capture_sign_in_codes(monkeypatch):
+    from app import auth
+    from tests.helpers import SENT_CODES
+
+    async def fake_send(to: str, code: str) -> str:
+        SENT_CODES[to] = code
+        return "email"
+
+    monkeypatch.setattr(auth, "send_login_code", fake_send)
+    SENT_CODES.clear()
+    yield

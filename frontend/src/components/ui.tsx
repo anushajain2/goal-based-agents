@@ -1,6 +1,6 @@
 "use client";
 
-import { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { ButtonHTMLAttributes, ComponentProps, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
@@ -105,7 +105,7 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
 const inputCls =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+export function Input(props: ComponentProps<"input">) {
   return <input {...props} className={cx(inputCls, props.className)} />;
 }
 export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {

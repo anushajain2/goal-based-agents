@@ -19,9 +19,16 @@ You need Python 3.11+, Node.js 18+ and Google Chrome. There is nothing else to i
 ./scripts/dev.sh
 ```
 
-The first run creates `.env` and installs everything, which takes a few minutes. Put your `ANTHROPIC_API_KEY` in `.env` (and optionally `COMPOSIO_API_KEY`), then run the script again. Open http://localhost:3000, create an account, pick a goal from "What it can do" and start it. If you used Autopilot before accounts existed, the first account you create takes over your existing goals. A Chrome window ("Agent Chrome") opens when the agent first uses the browser; sign in to sites there when it asks.
+The first run creates `.env` and installs everything, which takes a few minutes. Put your `ANTHROPIC_API_KEY` in `.env` (and optionally `COMPOSIO_API_KEY`), then run the script again. Open http://localhost:3000, sign in, pick a goal from "What it can do" and start it. If you used Autopilot before accounts existed, the first account you create takes over your existing goals. A Chrome window ("Agent Chrome") opens when the agent first uses the browser; sign in to sites there when it asks.
 
 To scale up later (many workers, hosting), set `DATABASE_URL` to a Postgres database. The code supports both.
+
+### Signing in
+
+There are no passwords. People sign in with **Google** or with a **6-digit code sent to their email**; the first sign-in with a new email creates the account.
+
+- **Email codes** work out of the box. Until you set up email sending, the code is printed in the terminal running `./scripts/dev.sh`. To email codes, fill in the `SMTP_*` settings in `.env`. Any SMTP service works, e.g. Gmail with an app password, Resend, Postmark or Amazon SES.
+- **Google** is optional. In Google Cloud Console, go to APIs & Services → Credentials → Create OAuth client ID → Web application. Add the authorised redirect URI `http://localhost:3000/api/auth/google/callback` (your real address once hosted), then put the client ID and secret in `.env`. The "Continue with Google" button appears once they're set.
 
 <details><summary>Running the pieces by hand</summary>
 
@@ -56,7 +63,7 @@ The tests use a temporary SQLite database; set `TEST_DATABASE_URL` to run them a
 frontend/  Next.js + TypeScript + Tailwind        public landing page and login; signed-in app: home, goals, goal pages with work sessions,
                                                  work log, needs-you inbox, use-case library, settings
 backend/   FastAPI + SQLAlchemy (async); SQLite file locally, Postgres when you scale
-  app/auth.py      accounts: scrypt password hashing, httpOnly session cookies, sign-up / log-in / log-out
+  app/auth.py      passwordless sign-in: Google (OAuth + PKCE) and emailed one-time codes; httpOnly session cookies
   app/api/         REST API + Server-Sent Events for live updates; every endpoint scoped to the signed-in user
   app/worker.py    agent workers: schedule cycles, claim runs, recover stale runs
   app/agent/       runner (persisted, resumable Claude tool loop), executor (guardrail pipeline), tools, prompts
