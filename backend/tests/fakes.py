@@ -37,17 +37,22 @@ class FakeAnthropic:
     which defaults to "no rule broken".
     """
 
-    def __init__(self, script: Callable[[dict], list[dict]], reviewer: Callable[[dict], dict] | None = None):
+    def __init__(self, script: Callable[[dict], list[dict]], reviewer: Callable[[dict], dict] | None = None,
+                 planner: Callable[[dict], dict] | None = None):
         self.script = script
         self.reviewer = reviewer or (lambda kw: {"violates": False, "rule": "", "explanation": ""})
+        self.planner = planner or (lambda kw: {"assessment": "Fresh start.", "plan": ["Research", "Post once"],
+                                               "strategy": ""})
         self.calls: list[dict] = []
         self.beta = Obj(messages=Obj(create=self._create))
 
     async def _create(self, **kwargs):
         kwargs = copy.deepcopy(kwargs)  # snapshot: the runner keeps appending to its lists
         self.calls.append(kwargs)
-        if kwargs.get("output_config", {}).get("format"):
-            content = [text(json.dumps(self.reviewer(kwargs)))]
+        fmt = kwargs.get("output_config", {}).get("format")
+        if fmt:
+            answer = self.planner if "plan" in fmt["schema"]["properties"] else self.reviewer
+            content = [text(json.dumps(answer(kwargs)))]
             stop = "end_turn"
         else:
             content = self.script(kwargs)

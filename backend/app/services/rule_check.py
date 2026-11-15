@@ -74,8 +74,8 @@ async def check_action(
         purpose="guardrail check",
         system=_SYSTEM,
         messages=[{"role": "user", "content": prompt}],
+        role="checker",
         max_tokens=4000,
-        effort=claude.settings.checker_effort,
         output_format=_SCHEMA,
     )
     if result.stop_reason == "refusal":

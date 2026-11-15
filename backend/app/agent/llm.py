@@ -2,7 +2,7 @@
 
 Every model call goes through `MeteredClaude.create()`, which:
   1. reserves the call's worst-case cost from the campaign budget (refusing if it won't fit),
-  2. makes the call (Claude Opus 5.5, adaptive thinking, server-side refusal fallback),
+  2. makes the call with the model for its role (planner / worker / checker),
   3. settles the reservation at the real cost computed from `usage`.
 
 The reserve and settle steps each run in their own short transaction so no database lock is
@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 CONTEXT_MGMT_BETA = "context-management-2025-06-27"
 THINKING_BINDING_BETA = "thinking-binding-controls-2026-08-01"
+DISPLAY_UPDATES_BETA = "thinking-display-updates-2026-08-18"
 
 
 @dataclass
@@ -68,6 +69,14 @@ def estimate_input_tokens(*parts: Any) -> int:
     return sum(len(json.dumps(p, default=str)) for p in parts if p is not None) // 3 + 500
 
 
+ROLES = ("planner", "worker", "checker")
+
+
+def _supports_server_fallback(model: str) -> bool:
+    # Haiku has no server-side refusal fallback; Opus and Sonnet do.
+    return model.startswith(("claude-opus", "claude-sonnet", "claude-fable"))
+
+
 class MeteredClaude:
     def __init__(self, client: anthropic.AsyncAnthropic | None = None):
         settings = get_settings()
@@ -75,7 +84,14 @@ class MeteredClaude:
         # A real client needs a key; an injected client (tests) is assumed ready.
         self.configured = client is not None or bool(settings.anthropic_api_key)
         self.client = client or anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key or None)
-        self.model = settings.agent_model
+
+    def model_for(self, role: str) -> tuple[str, str]:
+        s = self.settings
+        return {
+            "planner": (s.planner_model, s.planner_effort),
+            "worker": (s.worker_model, s.worker_effort),
+            "checker": (s.checker_model, s.checker_effort),
+        }[role]
 
     async def create(
         self,
@@ -83,32 +99,33 @@ class MeteredClaude:
         campaign_id: str,
         run_id: str | None,
         purpose: str,
+        role: str,
         messages: list[dict],
         system: str | list[dict] | None = None,
         tools: list[dict] | None = None,
         max_tokens: int | None = None,
-        effort: str | None = None,
         output_format: dict | None = None,
         max_web_searches: int = 0,
         agent_loop: bool = False,
     ) -> CallResult:
+        model, effort = self.model_for(role)
         max_tokens = max_tokens or self.settings.agent_max_tokens
         est_in = estimate_input_tokens(system, tools, messages)
-        worst = ledger.worst_case_cost(self.model, est_in, max_tokens, max_web_searches)
+        worst = ledger.worst_case_cost(model, est_in, max_tokens, max_web_searches)
 
         async with session_scope() as s:
             entry = await ledger.reserve(
                 s, campaign_id, LedgerKind.ai_usage, worst, f"AI: {purpose}", run_id=run_id,
-                meta={"model": self.model, "purpose": purpose},
+                meta={"model": model, "role": role, "purpose": purpose},
             )
             entry_id = entry.id
 
         params: dict[str, Any] = {
-            "model": self.model,
+            "model": model,
             "max_tokens": max_tokens,
             "messages": messages,
             "thinking": {"type": "adaptive"},
-            "output_config": {"effort": effort or self.settings.agent_effort},
+            "output_config": {"effort": effort},
             "cache_control": {"type": "ephemeral"},
         }
         if system is not None:
@@ -118,19 +135,31 @@ class MeteredClaude:
         if output_format:
             params["output_config"]["format"] = output_format
 
-        optional = {"betas": [FALLBACK_BETA], "fallbacks": "default"}
+        optional: dict[str, Any] = {"betas": []}
+        if _supports_server_fallback(model):
+            optional["betas"].append(FALLBACK_BETA)
+            optional["fallbacks"] = "default"
         if agent_loop:
-            optional["betas"] += [CONTEXT_MGMT_BETA, THINKING_BINDING_BETA]
+            optional["betas"] += [CONTEXT_MGMT_BETA, THINKING_BINDING_BETA, DISPLAY_UPDATES_BETA]
             optional["context_management"] = {"edits": [{"type": "clear_tool_uses_20250919"}]}
-            params["thinking"] = {"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "drop_block"}}
+            # "updates": short progress notes between tool calls, shown in the work log.
+            params["thinking"] = {
+                "type": "adaptive",
+                "display": "updates",
+                "block_binding": {"prefix_mismatch_behavior": "drop_block"},
+            }
+        if not optional["betas"]:
+            optional.pop("betas")
 
         try:
             try:
                 response = await self.client.beta.messages.create(**params, **optional)
             except anthropic.BadRequestError as e:
+                if not optional:
+                    raise
                 # The optional betas are conveniences (refusal fallback, context clearing,
-                # lenient thinking replay). If the API rejects one of them, retry once
-                # without them rather than failing the whole cycle.
+                # progress notes, lenient thinking replay). If the API rejects one of them,
+                # retry once without them rather than failing the whole session.
                 log.warning("Claude rejected optional features (%s); retrying without them", e.message)
                 params["thinking"] = {"type": "adaptive"}
                 response = await self.client.beta.messages.create(**params)
@@ -139,7 +168,7 @@ class MeteredClaude:
                 await ledger.release(s, await s.get(LedgerEntry, entry_id))
             raise
 
-        served_by = getattr(response, "model", None) or self.model
+        served_by = getattr(response, "model", None) or model
         cost = ledger.cost_from_usage(served_by, response.usage)
         async with session_scope() as s:
             await ledger.settle(

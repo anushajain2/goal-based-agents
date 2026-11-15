@@ -33,7 +33,11 @@ async def status():
         "chrome_path": chrome.find_chrome(),
         "agent_chrome_running": await chrome.cdp_ready(),
         "manual_signin_mode": chrome.manual_mode_active(),
-        "model": settings.agent_model,
+        "models": {
+            "planner": settings.planner_model,
+            "worker": settings.worker_model,
+            "checker": settings.checker_model,
+        },
     }
 
 

@@ -20,6 +20,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.agent import prompts
 from app.agent.executor import Outcome, Pending, ToolExecutor
 from app.agent.llm import MeteredClaude
+from app.agent.planner import make_plan
 from app.agent.tools import MAX_WEB_SEARCHES_PER_CALL, all_tools
 from app.config import get_settings
 from app.connectors.composio_hub import get_hub
@@ -125,17 +126,28 @@ class CycleRunner:
                 await self._complete(run_id, campaign_id, pending["finished"])
                 return
 
-        if not messages:
-            uses_apps = self.hub.enabled
-            brief, seen_version = await self._brief(campaign_id, run_id, uses_apps)
-            messages = [{"role": "user", "content": brief}]
-            await self._save(run_id, messages=messages, uses_apps=uses_apps, guardrail_version_seen=seen_version)
-            await self._log(campaign_id, run_id, "cycle", "Started a new optimization cycle", status="info")
-
         if not self.claude.configured:
             await self._fail(run_id, campaign_id,
                              "No Claude API key. Add ANTHROPIC_API_KEY to the .env file and restart the app.")
             return
+
+        if not messages:
+            uses_apps = self.hub.enabled
+            brief, seen_version = await self._brief(campaign_id, run_id, uses_apps)
+            await self._log(campaign_id, run_id, "cycle", "Started a work session", status="info")
+            try:
+                plan = await make_plan(self.claude, campaign_id=campaign_id, run_id=run_id, brief=brief)
+            except ledger.BudgetExceeded as e:
+                await self._out_of_budget(run_id, campaign_id, str(e))
+                return
+            except anthropic.APIError as e:
+                await self._fail(run_id, campaign_id, f"Claude API error: {getattr(e, 'message', e)}")
+                return
+            if plan:
+                brief += "\n\n## The strategist's plan for this session\n" + plan.as_text()
+                await self._record_plan(campaign_id, run_id, plan)
+            messages = [{"role": "user", "content": brief}]
+            await self._save(run_id, messages=messages, uses_apps=uses_apps, guardrail_version_seen=seen_version)
 
         tools = all_tools(uses_apps)
 
@@ -147,13 +159,13 @@ class CycleRunner:
                 return
             if model_calls >= self.settings.max_model_calls_per_cycle:
                 await self._complete(run_id, campaign_id, {
-                    "summary": f"Stopped this cycle after {model_calls} steps (the per-cycle limit).",
+                    "summary": f"Paused this session after {model_calls} steps (the per-session limit).",
                     "hours": 1.0})
                 return
 
             try:
                 result = await self.claude.create(
-                    campaign_id=campaign_id, run_id=run_id, purpose="agent step",
+                    campaign_id=campaign_id, run_id=run_id, purpose="agent step", role="worker",
                     system=prompts.SYSTEM_PROMPT, tools=tools, messages=messages,
                     max_web_searches=MAX_WEB_SEARCHES_PER_CALL, agent_loop=True,
                 )
@@ -167,13 +179,14 @@ class CycleRunner:
             model_calls += 1
             messages.append({"role": "assistant", "content": result.content})
             await self._save(run_id, messages=messages, model_calls=model_calls)
+            await self._log_narration(campaign_id, run_id, result.content, result.cost)
 
             tool_uses = [b for b in result.content if b.get("type") == "tool_use"]
 
             if result.stop_reason == "refusal":
-                await self._log(campaign_id, run_id, "error", "Claude declined to continue this cycle",
+                await self._log(campaign_id, run_id, "error", "The AI declined to continue this session",
                                 status="failed")
-                await self._complete(run_id, campaign_id, {"summary": "Cycle ended early (model declined).",
+                await self._complete(run_id, campaign_id, {"summary": "Session ended early (the AI declined to continue).",
                                                            "hours": 6.0})
                 return
             if result.stop_reason == "pause_turn":
@@ -181,7 +194,7 @@ class CycleRunner:
             if not tool_uses:
                 if nudges >= MAX_NUDGES:
                     text = " ".join(b.get("text", "") for b in result.content if b.get("type") == "text")
-                    await self._complete(run_id, campaign_id, {"summary": text[:500] or "Cycle ended.",
+                    await self._complete(run_id, campaign_id, {"summary": text[:500] or "Session ended.",
                                                                "hours": 6.0})
                     return
                 nudges += 1
@@ -215,6 +228,46 @@ class CycleRunner:
                 return
 
     # ------------------------------------------------------------------ pieces
+
+    async def _record_plan(self, campaign_id: str, run_id: str, plan) -> None:
+        async with session_scope() as s:
+            await activity.log(
+                s, campaign_id, "plan", plan.assessment or "Planned this session", run_id=run_id, status="info",
+                details={"plan": plan.steps, "assessment": plan.assessment},
+            )
+            if plan.strategy:
+                campaign = await s.get(Campaign, campaign_id)
+                campaign.strategy = plan.strategy[:5000]
+                await activity.log(s, campaign_id, "strategy", "Updated the strategy", run_id=run_id,
+                                   status="info", details={"strategy": campaign.strategy})
+            await notify(s, campaign_id, "campaign")
+
+    async def _log_narration(self, campaign_id: str, run_id: str, content: list[dict], cost) -> None:
+        """Log what the agent says it is doing, and its web searches, as work-log steps."""
+        entries: list[tuple[str, str, str | None, dict]] = []
+        for b in content:
+            t = b.get("type")
+            if t in ("text", "thinking"):
+                note = (b.get("text") if t == "text" else b.get("thinking")) or ""
+                note = " ".join(note.split())
+                if note and "interrupted before it finished" not in note:
+                    entries.append(("update", note[:400], None, {}))
+            elif t == "server_tool_use":
+                inp = b.get("input") or {}
+                if b.get("name") == "web_search":
+                    entries.append(("step", f'Searched the web for "{inp.get("query", "")}"', "web", {}))
+                elif b.get("name") == "web_fetch":
+                    url = inp.get("url", "")
+                    entries.append(("step", f"Read {url}", policy.domain_of(url) if url else "web", {"url": url}))
+        if not entries:
+            return
+        async with session_scope() as s:
+            for i, (kind, title, channel, details) in enumerate(entries):
+                await activity.log(
+                    s, campaign_id, kind, title, run_id=run_id, status="info", channel=channel, details=details,
+                    # Attribute this AI call's cost to the first note it produced.
+                    cost_usd=cost if i == 0 else None,
+                )
 
     async def _resolve_pending(self, run_id: str, executor: ToolExecutor, pending: dict) -> bool:
         """Finish parked calls the user has decided on. True when nothing is left waiting."""
@@ -309,12 +362,15 @@ class CycleRunner:
             run.pending = None
             campaign.cycles_completed = max(campaign.cycles_completed, run.cycle_number)
             now = utcnow()
-            campaign.next_cycle_at = now + timedelta(hours=float(finished.get("hours") or campaign.cycle_hours))
+            # The agent picks when to check in next, within 0.5x-2x of the owner's preferred rhythm.
+            wanted = float(finished.get("hours") or campaign.cycle_hours)
+            hours = min(max(wanted, campaign.cycle_hours / 2, 0.5), campaign.cycle_hours * 2, 72)
+            campaign.next_cycle_at = now + timedelta(hours=hours)
             if campaign.end_date and campaign.end_date <= now:
                 campaign.status = CampaignStatus.completed.value
             cost = await self._cycle_ai_cost(s, run_id)
             await activity.log(
-                s, campaign_id, "cycle", f"Cycle {run.cycle_number} complete: {run.summary}", run_id=run_id,
+                s, campaign_id, "cycle", f"Session {run.cycle_number} done: {run.summary}", run_id=run_id,
                 status="info", cost_usd=cost,
                 details={"next_check_in": campaign.next_cycle_at.isoformat(), "model_calls": run.model_calls},
             )

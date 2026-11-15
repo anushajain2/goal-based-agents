@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.serializers import activity_json, campaign_json
@@ -18,6 +18,7 @@ from app.models import (
     Campaign,
     CampaignStatus,
     ExclusionRule,
+    LedgerEntry,
     PermissionGrant,
     RunStatus,
     utcnow,
@@ -55,6 +56,10 @@ class CampaignIn(BaseModel):
     goal_description: str = Field(min_length=1)
     primary_metric: str = Field(min_length=1, max_length=120)
     target_value: float | None = None
+    done_when: str = ""
+    category: str = ""
+    use_case: str = ""
+    client_name: str = ""
     context: str = ""
     channels: list[str] = []
     budget_total: Decimal = Field(gt=0)
@@ -71,6 +76,8 @@ class CampaignPatch(BaseModel):
     goal_description: str | None = None
     primary_metric: str | None = None
     target_value: float | None = None
+    done_when: str | None = None
+    client_name: str | None = None
     context: str | None = None
     channels: list[str] | None = None
     budget_total: Decimal | None = Field(default=None, gt=0)
@@ -82,7 +89,7 @@ class CampaignPatch(BaseModel):
 async def _get(s: AsyncSession, campaign_id: str) -> Campaign:
     c = await s.get(Campaign, campaign_id)
     if not c:
-        raise HTTPException(404, "Campaign not found")
+        raise HTTPException(404, "Goal not found")
     return c
 
 
@@ -113,6 +120,7 @@ async def create_campaign(body: CampaignIn, s: AsyncSession = Depends(get_sessio
     c = Campaign(
         name=body.name, goal_type=body.goal_type, goal_description=body.goal_description,
         primary_metric=body.primary_metric, target_value=body.target_value, context=body.context,
+        done_when=body.done_when, category=body.category, use_case=body.use_case, client_name=body.client_name,
         channels=body.channels, budget_total=body.budget_total, daily_cap=body.daily_cap,
         end_date=body.end_date, cycle_hours=body.cycle_hours,
     )
@@ -123,7 +131,7 @@ async def create_campaign(body: CampaignIn, s: AsyncSession = Depends(get_sessio
     for g in body.grants:
         s.add(PermissionGrant(campaign_id=c.id, action_type=g.action_type, scope=g.scope,
                               spend_limit_usd=g.spend_limit_usd))
-    await activity.log(s, c.id, "system", "Campaign created", status="info")
+    await activity.log(s, c.id, "system", "Goal created", status="info")
     if body.launch:
         await _launch(s, c)
     await s.flush()
@@ -143,7 +151,8 @@ async def patch_campaign(campaign_id: str, body: CampaignPatch, s: AsyncSession 
         setattr(c, k, v)
     if "budget_total" in changes and c.status == CampaignStatus.out_of_budget.value:
         c.status = CampaignStatus.paused.value  # the user can resume now that there is budget
-    await activity.log(s, c.id, "system", "Campaign settings updated: " + ", ".join(changes), status="info")
+    await activity.log(s, c.id, "system", "Goal settings updated: " + ", ".join(changes).replace("_", " "),
+                       status="info")
     await notify(s, c.id, "campaign")
     return await campaign_json(s, c, full=True)
 
@@ -157,7 +166,7 @@ async def delete_campaign(campaign_id: str, s: AsyncSession = Depends(get_sessio
 async def _launch(s: AsyncSession, c: Campaign) -> None:
     c.status = CampaignStatus.active.value
     c.next_cycle_at = utcnow()
-    await activity.log(s, c.id, "system", "Campaign launched", status="info")
+    await activity.log(s, c.id, "system", "Started working on this goal", status="info")
     await notify(s, c.id, "campaign")
 
 
@@ -165,7 +174,7 @@ async def _launch(s: AsyncSession, c: Campaign) -> None:
 async def launch(campaign_id: str, s: AsyncSession = Depends(get_session)):
     c = await _get(s, campaign_id)
     if c.status not in (CampaignStatus.draft.value, CampaignStatus.paused.value):
-        raise HTTPException(400, f"Cannot launch a campaign that is {c.status}")
+        raise HTTPException(400, f"Cannot start a goal that is {c.status}")
     await _launch(s, c)
     return await campaign_json(s, c)
 
@@ -174,7 +183,7 @@ async def launch(campaign_id: str, s: AsyncSession = Depends(get_session)):
 async def pause(campaign_id: str, s: AsyncSession = Depends(get_session)):
     c = await _get(s, campaign_id)
     c.status = CampaignStatus.paused.value
-    await activity.log(s, c.id, "system", "Campaign paused", status="info")
+    await activity.log(s, c.id, "system", "Paused by you", status="info")
     await notify(s, c.id, "campaign")
     return await campaign_json(s, c)
 
@@ -183,7 +192,7 @@ async def pause(campaign_id: str, s: AsyncSession = Depends(get_session)):
 async def resume(campaign_id: str, s: AsyncSession = Depends(get_session)):
     c = await _get(s, campaign_id)
     if c.status == CampaignStatus.completed.value:
-        raise HTTPException(400, "This campaign has finished")
+        raise HTTPException(400, "This goal has finished")
     c.status = CampaignStatus.active.value
     # Continue an interrupted cycle if there is one, otherwise start a new one now.
     interrupted = (
@@ -197,7 +206,7 @@ async def resume(campaign_id: str, s: AsyncSession = Depends(get_session)):
     ).all()
     if not interrupted and not c.next_cycle_at:
         c.next_cycle_at = utcnow()
-    await activity.log(s, c.id, "system", "Campaign resumed", status="info")
+    await activity.log(s, c.id, "system", "Resumed by you", status="info")
     await notify(s, c.id, "campaign")
     return await campaign_json(s, c)
 
@@ -206,7 +215,7 @@ async def resume(campaign_id: str, s: AsyncSession = Depends(get_session)):
 async def run_now(campaign_id: str, s: AsyncSession = Depends(get_session)):
     c = await _get(s, campaign_id)
     if c.status != CampaignStatus.active.value:
-        raise HTTPException(400, "Launch or resume the campaign first")
+        raise HTTPException(400, "Start or resume the goal first")
     c.next_cycle_at = utcnow()
     await notify(s, c.id, "campaign")
     return await campaign_json(s, c)
@@ -228,3 +237,42 @@ async def campaign_activity(
     if after_id is None:
         rows = list(reversed(rows))
     return [activity_json(a) for a in rows]
+
+
+@router.get("/{campaign_id}/sessions")
+async def campaign_sessions(campaign_id: str, s: AsyncSession = Depends(get_session)):
+    """Work sessions (one per optimization cycle) with their cost and step counts."""
+    runs = (
+        await s.execute(
+            select(AgentRun).where(AgentRun.campaign_id == campaign_id).order_by(AgentRun.cycle_number.desc())
+        )
+    ).scalars().all()
+    if not runs:
+        return []
+    ids = [r.id for r in runs]
+    costs = dict(
+        (
+            await s.execute(
+                select(LedgerEntry.run_id, func.coalesce(func.sum(LedgerEntry.amount_usd), 0))
+                .where(LedgerEntry.run_id.in_(ids), LedgerEntry.status.in_(["settled", "reserved"]))
+                .group_by(LedgerEntry.run_id)
+            )
+        ).all()
+    )
+    counts: dict[str, dict[str, int]] = {}
+    for run_id, kind, n in (
+        await s.execute(
+            select(Activity.run_id, Activity.kind, func.count()).where(Activity.run_id.in_(ids))
+            .group_by(Activity.run_id, Activity.kind)
+        )
+    ).all():
+        counts.setdefault(run_id, {})[kind] = n
+    return [
+        {
+            "id": r.id, "number": r.cycle_number, "status": r.status, "summary": r.summary, "error": r.error,
+            "started_at": r.created_at.isoformat(), "updated_at": r.updated_at.isoformat(),
+            "cost_usd": float(costs.get(r.id, 0) or 0), "ai_calls": r.model_calls,
+            "counts": counts.get(r.id, {}),
+        }
+        for r in runs
+    ]

@@ -1,5 +1,6 @@
 """End-to-end agent cycles against a scripted Claude: approvals, grants, blocks, budget."""
 
+from datetime import UTC
 from decimal import Decimal
 
 import httpx
@@ -148,7 +149,8 @@ async def test_approval_then_dont_ask_again(api):
     log = await titles(cid)
     assert any(t.startswith("request:waiting:Waiting for you: Post v2 launch tweet") for t in log)
     assert any("Approved (edited): Post v2 launch tweet" in t and "won't ask again" in t for t in log)
-    assert any(t.startswith("cycle:info:Cycle 1 complete") for t in log)
+    assert any(t.startswith("cycle:info:Session 1 done") for t in log)
+    assert any(t.startswith("plan:info:Fresh start.") for t in log)
     assert any(t.startswith("metric:info:followers: 100") for t in log)
 
     detail = (await api.get(f"/api/campaigns/{cid}")).json()
@@ -260,3 +262,32 @@ async def test_user_request_rows_link_to_run(api):
     async with session_scope() as s:
         req = (await s.execute(select(UserRequest))).scalar_one()
         assert req.run_id == run_id and req.tool_use_id
+
+
+async def test_each_role_uses_its_model_and_checkin_follows_preference(api):
+    cid = await make_campaign(api, cycle_hours=6, done_when="Follower gained from the target audience",
+                              client_name="Acme")
+    state: dict = {}
+    fake = FakeAnthropic(scripted_cycle(state))
+    runner = CycleRunner(MeteredClaude(client=fake))
+    await run_next_cycle(runner)
+    models = [(c["model"], (c.get("output_config") or {}).get("format") is not None) for c in fake.calls]
+    planner_calls = [m for m, structured in models if structured and m == "claude-opus-5-5"]
+    worker_calls = [m for m, structured in models if not structured]
+    checker_calls = [m for m, structured in models if structured and m == "claude-haiku-5-5"]
+    assert len(planner_calls) == 1 and checker_calls and set(worker_calls) == {"claude-sonnet-5-5"}
+    # Haiku gets no server-side fallback parameter; Opus and Sonnet do.
+    assert all("fallbacks" not in c for c in fake.calls if c["model"] == "claude-haiku-5-5")
+    assert all(c.get("fallbacks") == "default" for c in fake.calls if c["model"] != "claude-haiku-5-5")
+    # The worker sees the finish line, the client and the strategist's plan.
+    brief = fake.agent_calls()[0]["messages"][0]["content"]
+    assert "Follower gained from the target audience" in brief and "Acme" in brief
+    assert "The strategist's plan for this session" in brief
+
+    req = (await api.get("/api/requests")).json()[0]
+    await api.post(f"/api/requests/{req['id']}/decide", json={"decision": "approve"})
+    await resume(runner)  # finish_cycle asks for 4h; preference 6h allows 3h-12h -> 4h
+    detail = (await api.get(f"/api/campaigns/{cid}")).json()
+    from datetime import datetime
+    hours = (datetime.fromisoformat(detail["next_cycle_at"]) - datetime.now(UTC)).total_seconds() / 3600
+    assert 3.9 < hours < 4.1

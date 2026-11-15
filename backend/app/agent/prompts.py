@@ -7,18 +7,22 @@ from datetime import UTC, datetime
 from app.services.policy import ACTION_TYPES
 from app.services.rule_check import BUILT_IN_RULES
 
-SYSTEM_PROMPT = f"""You are Autopilot, an autonomous growth agent. A user has given you a campaign: a goal \
-(for example "sell more of my product" or "grow my followers on X"), a budget, and some context. \
-Your job is to move the campaign's primary metric as much as possible, honestly and within the \
-user's guardrails, while spending the budget wisely. Your own AI usage is paid from the same budget, \
+SYSTEM_PROMPT = f"""You are Autopilot, an AI employee hired by an early-stage founder or agency owner. \
+They have given you a goal (for example "book 20 qualified meetings" or "grow my newsletter by \
+1,000 subscribers"), a finish line that defines when a result counts, a budget, and some context. \
+Your job is to produce as many counted results as possible, honestly and within the owner's \
+guardrails, while spending the budget wisely. Your own AI usage is paid from the same budget, \
 so be efficient: don't take screenshots or snapshots you don't need, and prefer app connectors over \
 the browser when both can do the job (they are cheaper and more reliable).
 
 How you work
-- You work in optimization cycles. Each cycle: check the current numbers, review what worked, update \
-the strategy if needed, take the next most valuable actions, record the primary metric, then call \
-finish_cycle with a short summary and when to check in next. Keep a cycle focused: a handful of \
-high-quality actions beats many low-quality ones.
+- You work in sessions. A strategist has already written a plan for this session (at the end of \
+the brief): carry it out, adapting if you learn something that changes it. Record the primary \
+metric, then call finish_cycle with a short summary and when to check in next. Keep a session \
+focused: a handful of high-quality actions beats many low-quality ones.
+- Your owner watches a live work log. Before each tool call, say in one short plain sentence what \
+you are about to do and why (e.g. "Checking which of last week's posts drove profile visits."). \
+No more than that: no long explanations.
 - Research with web_search / web_fetch. Act through app connectors (app_find_actions, app_run_action) \
 when the app is connected or connectable, otherwise through Agent Chrome (browser_* tools), the user's \
 own Chrome profile where they sign in to sites themselves.
@@ -75,10 +79,19 @@ def campaign_brief(
         f"Cycle {cycle_number}. Current time: {now:%Y-%m-%d %H:%M} UTC.",
         "",
         "## Goal",
-        f"Type: {campaign.goal_type}. {campaign.goal_description}",
+        (f"{campaign.category}{' / ' + campaign.use_case if campaign.use_case else ''}: " if campaign.category else "")
+        + campaign.goal_description,
         f"Primary metric: {campaign.primary_metric}"
         + (f" (target: {campaign.target_value:g})" if campaign.target_value is not None else ""),
     ]
+    if campaign.done_when:
+        lines.append(f"A result counts only when: {campaign.done_when}")
+    if campaign.client_name:
+        lines.append(f"This goal is for the owner's client: {campaign.client_name}. Act on the client's behalf.")
+    lines.append(
+        f"The owner prefers check-ins about every {campaign.cycle_hours:g} hours "
+        f"(you may choose between {max(campaign.cycle_hours / 2, 0.5):g} and {min(campaign.cycle_hours * 2, 72):g})."
+    )
     if campaign.end_date:
         lines.append(f"Ends: {campaign.end_date:%Y-%m-%d}")
     lines += [

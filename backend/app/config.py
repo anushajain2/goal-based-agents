@@ -20,9 +20,15 @@ class Settings(BaseSettings):
 
     # --- Claude -------------------------------------------------------------
     anthropic_api_key: str | None = None
-    agent_model: str = "claude-opus-5-5"
-    # Effort for the main agent loop and for cheap side-calls (rule checks).
-    agent_effort: str = "high"
+    # Each job gets the cheapest model that does it well:
+    #   planner - reviews results and plans each work session (one call per session)
+    #   worker  - carries out the plan step by step (most calls)
+    #   checker - checks each outgoing action against the guardrails (a yes/no judgement)
+    planner_model: str = "claude-opus-5-5"
+    planner_effort: str = "medium"
+    worker_model: str = "claude-sonnet-5-5"
+    worker_effort: str = "medium"
+    checker_model: str = "claude-haiku-5-5"
     checker_effort: str = "low"
     agent_max_tokens: int = 16000
     # Hard ceiling on model calls in a single optimization cycle (runaway guard).

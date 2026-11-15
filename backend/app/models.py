@@ -88,6 +88,11 @@ class Campaign(Base):
     goal_type: Mapped[str] = mapped_column(String(50))  # sales | followers | traffic | leads | awareness | custom
     goal_description: Mapped[str] = mapped_column(Text)
     primary_metric: Mapped[str] = mapped_column(String(120))
+    # When a result counts as done, in plain words (e.g. "Meeting held on calendar").
+    done_when: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[str] = mapped_column(String(80), default="")  # use-case category, e.g. "Sales"
+    use_case: Mapped[str] = mapped_column(String(120), default="")  # sub-category, e.g. "Cold outbound"
+    client_name: Mapped[str] = mapped_column(String(200), default="")  # agencies: who this goal is for
     target_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     context: Mapped[str] = mapped_column(Text, default="")  # product, audience, voice, links
     channels: Mapped[list] = mapped_column(JSONType, default=list)  # app/site hints, e.g. ["twitter", "linkedin"]

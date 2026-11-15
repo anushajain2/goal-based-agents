@@ -14,8 +14,9 @@ def _f(x):
     return float(x) if x is not None else None
 
 
-def activity_json(a: Activity) -> dict:
+def activity_json(a: Activity, campaign_name: str | None = None) -> dict:
     return {
+        "campaign_name": campaign_name,
         "id": a.id, "campaign_id": a.campaign_id, "run_id": a.run_id, "kind": a.kind,
         "action_type": a.action_type, "channel": a.channel, "title": a.title, "status": a.status,
         "cost_usd": _f(a.cost_usd), "details": a.details, "created_at": a.created_at.isoformat(),
@@ -69,10 +70,25 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False) -> dic
             select(AgentRun).where(AgentRun.campaign_id == c.id).order_by(AgentRun.created_at.desc()).limit(1)
         )
     ).scalar_one_or_none()
+    actions_taken = (
+        await s.execute(
+            select(func.count()).select_from(Activity)
+            .where(Activity.campaign_id == c.id, Activity.kind == "action", Activity.status == "done")
+        )
+    ).scalar_one()
+    last = (
+        await s.execute(
+            select(Activity).where(Activity.campaign_id == c.id, Activity.kind.notin_(["system", "metric"]))
+            .order_by(Activity.id.desc()).limit(1)
+        )
+    ).scalar_one_or_none()
     r = results["results"]
     data = {
         "id": c.id, "name": c.name, "goal_type": c.goal_type, "goal_description": c.goal_description,
         "primary_metric": c.primary_metric, "target_value": c.target_value, "status": c.status,
+        "done_when": c.done_when, "category": c.category, "use_case": c.use_case, "client_name": c.client_name,
+        "actions_taken": actions_taken,
+        "last_activity": {"title": last.title, "kind": last.kind, "at": last.created_at.isoformat()} if last else None,
         "channels": c.channels, "budget": budget, "results": results,
         "cost_per_result": (budget["spent"] / r) if r and r > 0 else None,
         "pending_requests": pending, "cycles_completed": c.cycles_completed,

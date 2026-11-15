@@ -79,6 +79,7 @@ class ToolExecutor:
         try:
             return await handler(tool_input or {}, tool_use_id)
         except BrowserError as e:
+            await self._step(f"Browser step didn't work: {e}"[:300], channel="browser", status="failed")
             return Outcome(str(e), is_error=True)
         except chrome.ChromeUnavailable as e:
             await self._log("error", f"Agent Chrome unavailable: {e}", status="failed", channel="browser")
@@ -88,6 +89,7 @@ class ToolExecutor:
             return Outcome(f"Not enough budget for this: {e}", is_error=True)
         except Exception as e:
             log.exception("tool %s failed", name)
+            await self._step(f"{name.replace('_', ' ')} failed: {type(e).__name__}"[:300], status="failed")
             return Outcome(f"{name} failed: {type(e).__name__}: {e}", is_error=True)
 
     async def resume(self, stored: dict, request: UserRequest) -> Outcome:
@@ -131,6 +133,11 @@ class ToolExecutor:
 
     async def _campaign(self, s) -> Campaign:
         return await s.get(Campaign, self.campaign_id)
+
+    async def _step(self, title: str, *, channel: str | None = None, status: str = "info",
+                    details: dict | None = None) -> None:
+        """A small step for the work log (shown under "all steps")."""
+        await self._log("step", title, channel=channel, status=status, details=details)
 
     async def _log(self, kind: str, title: str, **kw) -> None:
         async with session_scope() as s:
@@ -193,6 +200,8 @@ class ToolExecutor:
         if not self.hub.enabled:
             return Outcome("App connectors are not configured. Use the browser instead.", is_error=True)
         actions = await self.hub.search_actions(inp["query"], inp.get("app"))
+        await self._step(f'Looked up how to "{inp["query"]}" in {inp.get("app") or "connected apps"}',
+                         channel=inp.get("app") or "apps")
         if not actions:
             return Outcome("No matching app actions. Try other words, or use the browser.")
         return Outcome(_json([a.for_agent() for a in actions], 20000))
@@ -281,7 +290,8 @@ class ToolExecutor:
                 else:
                     await ledger.release(s, entry)
             await activity.log(
-                s, self.campaign_id, "action", stored["summary"], run_id=self.run_id,
+                s, self.campaign_id, "step" if stored["action_type"] in policy.READ_ONLY else "action",
+                stored["summary"], run_id=self.run_id,
                 status="done" if result["successful"] else "failed", action_type=stored["action_type"],
                 channel=stored["app"], cost_usd=spend if result["successful"] else None,
                 details={"action": stored["slug"], "arguments": args, "approved_by_user": approved,
@@ -312,6 +322,7 @@ class ToolExecutor:
                             channel=policy.domain_of(url), details={"reason": block.reason})
             return Outcome(f"Blocked by the user's guardrails: {block.reason}", is_error=True)
         final = await self.browser.open(self.run_id, url)
+        await self._step(f"Opened {final[:150]}", channel=policy.domain_of(final), details={"url": final})
         if policy.domain_of(final) != policy.domain_of(url):
             block = await self._site_block(final)
             if block:
@@ -323,7 +334,10 @@ class ToolExecutor:
         return await self._snapshot_outcome()
 
     async def t_browser_screenshot(self, inp: dict, _id: str) -> Outcome:
-        _, b64 = await self.browser.screenshot(self.run_id)
+        name, b64 = await self.browser.screenshot(self.run_id)
+        url = await self.browser.current_url(self.run_id)
+        await self._step(f"Took a screenshot of {policy.domain_of(url)}", channel=policy.domain_of(url),
+                         details={"screenshot": name, "url": url})
         return Outcome([
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
             {"type": "text", "text": f"Screenshot of {await self.browser.current_url(self.run_id)}"},
@@ -377,6 +391,8 @@ class ToolExecutor:
             return Outcome(f"That link leads to a blocked site: {block.reason}", is_error=True)
         if commit_title:
             await self._commit_log(commit_title, f'clicked "{info["name"]}"', url)
+        else:
+            await self._step(f'Clicked "{info["name"] or "a link"}"', channel=policy.domain_of(url))
         return await self._snapshot_outcome(f'Clicked [{ref}] "{info["name"]}".\n\n')
 
     async def t_browser_type(self, inp: dict, _id: str) -> Outcome:
@@ -385,6 +401,7 @@ class ToolExecutor:
         if info.get("type") == "password" or "password" in info.get("autocomplete", "") or "cc-" in info.get(
             "autocomplete", ""
         ):
+            await self._log("blocked", "Refused to type into a password or card field", status="blocked")
             return Outcome(
                 "Blocked: you never type passwords or card details. Use browser_request_login so the user "
                 "signs in themselves.", is_error=True,
@@ -397,6 +414,9 @@ class ToolExecutor:
             commit_title = msg
         await self.browser.type(self.run_id, ref, inp["text"])
         url = await self.browser.current_url(self.run_id)
+        field = info.get("name") or "a text box"
+        await self._step(f'Typed into "{field[:60]}"', channel=policy.domain_of(url),
+                         details={"content": inp["text"][:2000]})
         if inp.get("submit"):
             await self.browser.press(self.run_id, "Enter")
             if commit_title:

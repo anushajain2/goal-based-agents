@@ -53,7 +53,7 @@ _SNAPSHOT_JS = r"""
   const lines = [];
   let n = 0;
   for (const el of document.querySelectorAll(sel)) {
-    if (n >= 300) break;
+    if (n >= 200) break;
     if (!visible(el)) continue;
     n += 1;
     el.setAttribute('data-agent-ref', String(n));
@@ -150,7 +150,7 @@ class BrowserController:
 
     # --- reading ---------------------------------------------------------------------
 
-    async def snapshot(self, run_id: str, max_chars: int = 6000) -> str:
+    async def snapshot(self, run_id: str, max_chars: int = 3500) -> str:
         page = await self.page(run_id)
         try:
             await page.wait_for_load_state("domcontentloaded", timeout=10000)
