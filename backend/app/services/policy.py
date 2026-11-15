@@ -22,10 +22,22 @@ from dataclasses import dataclass
 from decimal import Decimal
 from urllib.parse import urlparse
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ExclusionRule, PermissionGrant
+from app.models import Campaign, ExclusionRule, PermissionGrant
+
+
+def _owner_of(campaign_id: str):
+    return select(Campaign.owner_id).where(Campaign.id == campaign_id).scalar_subquery()
+
+
+def applies_to(model, campaign_id: str):
+    """Rows for this goal, plus the owner's rows that apply to all of their goals."""
+    return or_(
+        model.campaign_id == campaign_id,
+        and_(model.campaign_id.is_(None), model.owner_id.is_not_distinct_from(_owner_of(campaign_id))),
+    )
 
 
 @dataclass(frozen=True)
@@ -116,9 +128,7 @@ async def exclusions_for(session: AsyncSession, campaign_id: str) -> list[Exclus
     return list(
         (
             await session.execute(
-                select(ExclusionRule).where(
-                    or_(ExclusionRule.campaign_id == campaign_id, ExclusionRule.campaign_id.is_(None))
-                )
+                select(ExclusionRule).where(applies_to(ExclusionRule, campaign_id))
             )
         ).scalars()
     )
@@ -160,7 +170,7 @@ async def find_grant(
             select(PermissionGrant).where(
                 PermissionGrant.action_type == action_type,
                 PermissionGrant.revoked_at.is_(None),
-                or_(PermissionGrant.campaign_id == campaign_id, PermissionGrant.campaign_id.is_(None)),
+                applies_to(PermissionGrant, campaign_id),
             )
         )
     ).scalars()

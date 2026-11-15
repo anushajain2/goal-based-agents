@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.serializers import request_json
+from app.auth import current_user
 from app.db import get_session
 from app.models import (
     AgentRun,
@@ -18,6 +19,7 @@ from app.models import (
     RequestKind,
     RequestStatus,
     RunStatus,
+    User,
     UserRequest,
     utcnow,
 )
@@ -41,8 +43,12 @@ class Decision(BaseModel):
 
 @router.get("")
 async def list_requests(status: str | None = "pending", campaign_id: str | None = None, limit: int = 100,
-                        s: AsyncSession = Depends(get_session)):
-    q = select(UserRequest, Campaign.name).join(Campaign, Campaign.id == UserRequest.campaign_id)
+                        s: AsyncSession = Depends(get_session), user: User = Depends(current_user)):
+    q = (
+        select(UserRequest, Campaign.name)
+        .join(Campaign, Campaign.id == UserRequest.campaign_id)
+        .where(Campaign.owner_id == user.id)
+    )
     if status:
         q = q.where(UserRequest.status == status)
     if campaign_id:
@@ -52,11 +58,13 @@ async def list_requests(status: str | None = "pending", campaign_id: str | None 
 
 
 @router.post("/{request_id}/decide")
-async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_session)):
+async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_session),
+                 user: User = Depends(current_user)):
     req = (
         await s.execute(select(UserRequest).where(UserRequest.id == request_id).with_for_update())
     ).scalar_one_or_none()
-    if not req:
+    campaign = await s.get(Campaign, req.campaign_id) if req else None
+    if not req or not campaign or campaign.owner_id != user.id:
         raise HTTPException(404, "Request not found")
     if req.status != RequestStatus.pending.value:
         raise HTTPException(409, f"Already {req.status}")
@@ -73,7 +81,6 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
             raise HTTPException(400, f"These fields cannot be edited: {', '.join(sorted(bad))}")
         req.edited_fields = body.edited_fields
 
-    campaign = await s.get(Campaign, req.campaign_id)
     grant_note = ""
     if approved and body.remember and req.kind == RequestKind.action.value and req.action_type:
         if req.action_type == "spend_money":
@@ -84,6 +91,7 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
             limit = None
         req.remember = True
         s.add(PermissionGrant(
+            owner_id=user.id,
             campaign_id=None if body.remember_scope == "all" else req.campaign_id,
             action_type=req.action_type,
             scope=None if body.remember_any_channel else req.scope,
@@ -93,7 +101,7 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
         where = "" if body.remember_any_channel or not req.scope else f" on {req.scope}"
         grant_note = f' · won\'t ask again for "{label}"{where}'
         if body.remember_scope == "all":
-            for c in (await s.execute(select(Campaign))).scalars():
+            for c in (await s.execute(select(Campaign).where(Campaign.owner_id == user.id))).scalars():
                 c.guardrail_version += 1
         else:
             campaign.guardrail_version += 1

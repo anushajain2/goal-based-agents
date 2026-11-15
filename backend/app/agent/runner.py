@@ -14,7 +14,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 import anthropic
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.agent import prompts
@@ -64,8 +64,7 @@ async def _active_grants(s, campaign_id: str) -> list[PermissionGrant]:
         (
             await s.execute(
                 select(PermissionGrant).where(
-                    PermissionGrant.revoked_at.is_(None),
-                    or_(PermissionGrant.campaign_id == campaign_id, PermissionGrant.campaign_id.is_(None)),
+                    PermissionGrant.revoked_at.is_(None), policy.applies_to(PermissionGrant, campaign_id)
                 )
             )
         ).scalars()
@@ -100,6 +99,7 @@ class CycleRunner:
             run = await s.get(AgentRun, run_id)
             campaign = await s.get(Campaign, run.campaign_id)
             campaign_id = campaign.id
+            owner_id = campaign.owner_id
             if campaign.status != CampaignStatus.active.value:
                 run.status = RunStatus.stopped.value
                 return
@@ -110,7 +110,7 @@ class CycleRunner:
             nudges = run.nudges
             seen_version = run.guardrail_version_seen
 
-        executor = ToolExecutor(self.claude, campaign_id, run_id)
+        executor = ToolExecutor(self.claude, campaign_id, run_id, owner_id)
 
         if pending:
             done = await self._resolve_pending(run_id, executor, pending)
@@ -133,7 +133,7 @@ class CycleRunner:
 
         if not messages:
             uses_apps = self.hub.enabled
-            brief, seen_version = await self._brief(campaign_id, run_id, uses_apps)
+            brief, seen_version = await self._brief(campaign_id, run_id, uses_apps, owner_id)
             await self._log(campaign_id, run_id, "cycle", "Started a work session", status="info")
             try:
                 plan = await make_plan(self.claude, campaign_id=campaign_id, run_id=run_id, brief=brief)
@@ -296,11 +296,12 @@ class CycleRunner:
             messages.append({"role": "system", "content": prompts.guardrail_update_message(rules, grants)})
             return campaign.guardrail_version
 
-    async def _brief(self, campaign_id: str, run_id: str, uses_apps: bool) -> tuple[str, int]:
+    async def _brief(self, campaign_id: str, run_id: str, uses_apps: bool,
+                     owner_id: str | None = None) -> tuple[str, int]:
         connections = None
         if uses_apps:
             try:
-                connections = await self.hub.connected_apps()
+                connections = await self.hub.connected_apps(owner_id)
             except Exception:
                 log.warning("could not list Composio connections", exc_info=True)
         async with session_scope() as s:

@@ -96,9 +96,9 @@ class ComposioHub:
 
         return Composio(api_key=self.settings.composio_api_key)
 
-    @property
-    def user_id(self) -> str:
-        return self.settings.composio_user_id
+    def user_id(self, owner_id: str | None) -> str:
+        """Composio keeps each Autopilot user's connected accounts separate."""
+        return f"autopilot-{owner_id}" if owner_id else self.settings.composio_user_id
 
     async def search_actions(self, query: str, app: str | None = None, limit: int = 8) -> list[AppAction]:
         def _run():
@@ -121,11 +121,11 @@ class ComposioHub:
         self._schema_cache[slug] = action
         return action
 
-    async def execute(self, slug: str, arguments: dict) -> dict:
+    async def execute(self, slug: str, arguments: dict, owner_id: str | None = None) -> dict:
         action = await self.get_action(slug)
 
         def _run():
-            kwargs: dict[str, Any] = {"user_id": self.user_id}
+            kwargs: dict[str, Any] = {"user_id": self.user_id(owner_id)}
             if action.version and action.version != "latest":
                 kwargs["version"] = action.version
             else:
@@ -139,9 +139,9 @@ class ComposioHub:
             "error": _get(result, "error"),
         }
 
-    async def connected_apps(self) -> list[dict]:
+    async def connected_apps(self, owner_id: str | None = None) -> list[dict]:
         def _run():
-            return self._client.connected_accounts.list(user_ids=[self.user_id])
+            return self._client.connected_accounts.list(user_ids=[self.user_id(owner_id)])
 
         response = await asyncio.to_thread(_run)
         out = []
@@ -155,10 +155,12 @@ class ComposioHub:
             )
         return out
 
-    async def is_connected(self, app: str) -> bool:
-        return any(c["app"] == app.lower() and c["status"] == "ACTIVE" for c in await self.connected_apps())
+    async def is_connected(self, app: str, owner_id: str | None = None) -> bool:
+        return any(
+            c["app"] == app.lower() and c["status"] == "ACTIVE" for c in await self.connected_apps(owner_id)
+        )
 
-    async def connect_link(self, app: str, callback_url: str | None = None) -> dict:
+    async def connect_link(self, app: str, owner_id: str | None = None, callback_url: str | None = None) -> dict:
         """Start Composio-managed OAuth for an app; returns the link the user opens."""
 
         def _run():
@@ -172,7 +174,7 @@ class ComposioHub:
                     client.auth_configs.create(app.lower(), {"type": "use_composio_managed_auth"}), "id"
                 )
             request = client.connected_accounts.link(
-                self.user_id, auth_config_id, callback_url=callback_url, allow_multiple=True
+                self.user_id(owner_id), auth_config_id, callback_url=callback_url, allow_multiple=True
             )
             return {"connection_id": request.id, "redirect_url": request.redirect_url}
 

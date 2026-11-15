@@ -80,10 +80,34 @@ class LedgerStatus(str, enum.Enum):
     released = "released"
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)  # stored lower-case
+    name: Mapped[str] = mapped_column(String(200), default="")
+    password_hash: Mapped[str] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class AuthSession(Base):
+    """A signed-in browser. Only a hash of the token is stored; the token lives in an httpOnly cookie."""
+
+    __tablename__ = "auth_sessions"
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
+
+
 class Campaign(Base):
     __tablename__ = "campaigns"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    owner_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(200))
     goal_type: Mapped[str] = mapped_column(String(50))  # sales | followers | traffic | leads | awareness | custom
     goal_description: Mapped[str] = mapped_column(Text)
@@ -122,12 +146,16 @@ class ExclusionRule(Base):
     kind = app          -> hard block on a connected app (e.g. "linkedin")
     kind = site         -> hard block on a website domain (e.g. "reddit.com")
     kind = text         -> free-text rule, given to the agent and checked by an AI reviewer
-    campaign_id NULL    -> applies to every campaign
+    campaign_id NULL    -> applies to every goal of that owner
     """
 
     __tablename__ = "exclusion_rules"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    # Whose rule this is. Needed for rules that apply to all of a user's goals (campaign_id NULL).
+    owner_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     campaign_id: Mapped[str | None] = mapped_column(
         ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True
     )
@@ -141,7 +169,7 @@ class ExclusionRule(Base):
 class PermissionGrant(Base):
     """A standing "go ahead and don't ask me next time" permission.
 
-    campaign_id NULL means the grant covers all campaigns. `scope` optionally narrows it to
+    campaign_id NULL means the grant covers all of the owner's goals. `scope` optionally narrows it to
     one app or site (e.g. publish_post on "twitter" only). Spending grants carry a per-action
     limit; actions above it still ask.
     """
@@ -149,6 +177,9 @@ class PermissionGrant(Base):
     __tablename__ = "permission_grants"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    owner_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     campaign_id: Mapped[str | None] = mapped_column(
         ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True
     )

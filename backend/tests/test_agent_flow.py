@@ -32,6 +32,8 @@ def _no_real_browser(monkeypatch):
 @pytest.fixture
 async def api():
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
+        r = await client.post("/api/auth/signup", json={"email": "owner@example.com", "password": "correct horse 1"})
+        assert r.status_code == 200, r.text
         yield client
 
 

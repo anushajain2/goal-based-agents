@@ -11,6 +11,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.serializers import activity_json, campaign_json
+from app.auth import current_user
 from app.db import get_session
 from app.models import (
     Activity,
@@ -21,6 +22,7 @@ from app.models import (
     LedgerEntry,
     PermissionGrant,
     RunStatus,
+    User,
     utcnow,
 )
 from app.services import activity
@@ -86,9 +88,9 @@ class CampaignPatch(BaseModel):
     cycle_hours: float | None = Field(default=None, ge=0.5, le=72)
 
 
-async def _get(s: AsyncSession, campaign_id: str) -> Campaign:
+async def _get(s: AsyncSession, campaign_id: str, user: User) -> Campaign:
     c = await s.get(Campaign, campaign_id)
-    if not c:
+    if not c or c.owner_id != user.id:
         raise HTTPException(404, "Goal not found")
     return c
 
@@ -105,19 +107,24 @@ async def meta():
 
 
 @router.get("")
-async def list_campaigns(s: AsyncSession = Depends(get_session)):
-    campaigns = (await s.execute(select(Campaign).order_by(Campaign.created_at.desc()))).scalars().all()
+async def list_campaigns(s: AsyncSession = Depends(get_session),
+                  user: User = Depends(current_user)):
+    campaigns = (
+        await s.execute(select(Campaign).where(Campaign.owner_id == user.id).order_by(Campaign.created_at.desc()))
+    ).scalars().all()
     return [await campaign_json(s, c) for c in campaigns]
 
 
 @router.post("")
-async def create_campaign(body: CampaignIn, s: AsyncSession = Depends(get_session)):
+async def create_campaign(body: CampaignIn, s: AsyncSession = Depends(get_session),
+                  user: User = Depends(current_user)):
     for g in body.grants:
         if g.action_type not in ACTION_TYPES:
             raise HTTPException(400, f"Unknown action type {g.action_type}")
         if g.action_type == "spend_money" and g.spend_limit_usd is None:
             raise HTTPException(400, "A spending permission needs a per-action limit")
     c = Campaign(
+        owner_id=user.id,
         name=body.name, goal_type=body.goal_type, goal_description=body.goal_description,
         primary_metric=body.primary_metric, target_value=body.target_value, context=body.context,
         done_when=body.done_when, category=body.category, use_case=body.use_case, client_name=body.client_name,
@@ -127,9 +134,9 @@ async def create_campaign(body: CampaignIn, s: AsyncSession = Depends(get_sessio
     s.add(c)
     await s.flush()
     for e in body.exclusions:
-        s.add(ExclusionRule(campaign_id=c.id, kind=e.kind, value=e.value.strip()))
+        s.add(ExclusionRule(campaign_id=c.id, owner_id=user.id, kind=e.kind, value=e.value.strip()))
     for g in body.grants:
-        s.add(PermissionGrant(campaign_id=c.id, action_type=g.action_type, scope=g.scope,
+        s.add(PermissionGrant(campaign_id=c.id, owner_id=user.id, action_type=g.action_type, scope=g.scope,
                               spend_limit_usd=g.spend_limit_usd))
     await activity.log(s, c.id, "system", "Goal created", status="info")
     if body.launch:
@@ -139,13 +146,15 @@ async def create_campaign(body: CampaignIn, s: AsyncSession = Depends(get_sessio
 
 
 @router.get("/{campaign_id}")
-async def get_campaign(campaign_id: str, s: AsyncSession = Depends(get_session)):
-    return await campaign_json(s, await _get(s, campaign_id), full=True)
+async def get_campaign(campaign_id: str, s: AsyncSession = Depends(get_session),
+                  user: User = Depends(current_user)):
+    return await campaign_json(s, await _get(s, campaign_id, user), full=True)
 
 
 @router.patch("/{campaign_id}")
-async def patch_campaign(campaign_id: str, body: CampaignPatch, s: AsyncSession = Depends(get_session)):
-    c = await _get(s, campaign_id)
+async def patch_campaign(campaign_id: str, body: CampaignPatch, s: AsyncSession = Depends(get_session),
+                  user: User = Depends(current_user)):
+    c = await _get(s, campaign_id, user)
     changes = body.model_dump(exclude_unset=True)
     for k, v in changes.items():
         setattr(c, k, v)
@@ -158,8 +167,9 @@ async def patch_campaign(campaign_id: str, body: CampaignPatch, s: AsyncSession 
 
 
 @router.delete("/{campaign_id}")
-async def delete_campaign(campaign_id: str, s: AsyncSession = Depends(get_session)):
-    await s.delete(await _get(s, campaign_id))
+async def delete_campaign(campaign_id: str, s: AsyncSession = Depends(get_session),
+                  user: User = Depends(current_user)):
+    await s.delete(await _get(s, campaign_id, user))
     return {"ok": True}
 
 
@@ -171,8 +181,9 @@ async def _launch(s: AsyncSession, c: Campaign) -> None:
 
 
 @router.post("/{campaign_id}/launch")
-async def launch(campaign_id: str, s: AsyncSession = Depends(get_session)):
-    c = await _get(s, campaign_id)
+async def launch(campaign_id: str, s: AsyncSession = Depends(get_session),
+                  user: User = Depends(current_user)):
+    c = await _get(s, campaign_id, user)
     if c.status not in (CampaignStatus.draft.value, CampaignStatus.paused.value):
         raise HTTPException(400, f"Cannot start a goal that is {c.status}")
     await _launch(s, c)
@@ -180,8 +191,9 @@ async def launch(campaign_id: str, s: AsyncSession = Depends(get_session)):
 
 
 @router.post("/{campaign_id}/pause")
-async def pause(campaign_id: str, s: AsyncSession = Depends(get_session)):
-    c = await _get(s, campaign_id)
+async def pause(campaign_id: str, s: AsyncSession = Depends(get_session),
+                  user: User = Depends(current_user)):
+    c = await _get(s, campaign_id, user)
     c.status = CampaignStatus.paused.value
     await activity.log(s, c.id, "system", "Paused by you", status="info")
     await notify(s, c.id, "campaign")
@@ -189,8 +201,9 @@ async def pause(campaign_id: str, s: AsyncSession = Depends(get_session)):
 
 
 @router.post("/{campaign_id}/resume")
-async def resume(campaign_id: str, s: AsyncSession = Depends(get_session)):
-    c = await _get(s, campaign_id)
+async def resume(campaign_id: str, s: AsyncSession = Depends(get_session),
+                  user: User = Depends(current_user)):
+    c = await _get(s, campaign_id, user)
     if c.status == CampaignStatus.completed.value:
         raise HTTPException(400, "This goal has finished")
     c.status = CampaignStatus.active.value
@@ -212,8 +225,9 @@ async def resume(campaign_id: str, s: AsyncSession = Depends(get_session)):
 
 
 @router.post("/{campaign_id}/run-now")
-async def run_now(campaign_id: str, s: AsyncSession = Depends(get_session)):
-    c = await _get(s, campaign_id)
+async def run_now(campaign_id: str, s: AsyncSession = Depends(get_session),
+                  user: User = Depends(current_user)):
+    c = await _get(s, campaign_id, user)
     if c.status != CampaignStatus.active.value:
         raise HTTPException(400, "Start or resume the goal first")
     c.next_cycle_at = utcnow()
@@ -224,8 +238,9 @@ async def run_now(campaign_id: str, s: AsyncSession = Depends(get_session)):
 @router.get("/{campaign_id}/activity")
 async def campaign_activity(
     campaign_id: str, after_id: int | None = None, before_id: int | None = None, limit: int = 100,
-    s: AsyncSession = Depends(get_session),
+    s: AsyncSession = Depends(get_session), user: User = Depends(current_user),
 ):
+    await _get(s, campaign_id, user)
     q = select(Activity).where(Activity.campaign_id == campaign_id)
     if after_id is not None:
         q = q.where(Activity.id > after_id).order_by(Activity.id.asc())
@@ -240,8 +255,10 @@ async def campaign_activity(
 
 
 @router.get("/{campaign_id}/sessions")
-async def campaign_sessions(campaign_id: str, s: AsyncSession = Depends(get_session)):
+async def campaign_sessions(campaign_id: str, s: AsyncSession = Depends(get_session),
+                  user: User = Depends(current_user)):
     """Work sessions (one per optimization cycle) with their cost and step counts."""
+    await _get(s, campaign_id, user)
     runs = (
         await s.execute(
             select(AgentRun).where(AgentRun.campaign_id == campaign_id).order_by(AgentRun.cycle_number.desc())

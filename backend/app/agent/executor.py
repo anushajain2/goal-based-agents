@@ -63,10 +63,11 @@ def _json(data: Any, limit: int = 12000) -> str:
 
 
 class ToolExecutor:
-    def __init__(self, claude: MeteredClaude, campaign_id: str, run_id: str):
+    def __init__(self, claude: MeteredClaude, campaign_id: str, run_id: str, owner_id: str | None = None):
         self.claude = claude
         self.campaign_id = campaign_id
         self.run_id = run_id
+        self.owner_id = owner_id
         self.browser = get_controller()
         self.hub = get_hub()
 
@@ -106,7 +107,7 @@ class ToolExecutor:
         if kind == "connect":
             if request.status != RequestStatus.approved.value:
                 return Outcome(f"The user declined to connect {stored['app']}.", is_error=True)
-            connected = await self.hub.is_connected(stored["app"])
+            connected = await self.hub.is_connected(stored["app"], self.owner_id)
             return Outcome(
                 f"{stored['app']} is now connected." if connected
                 else f"{stored['app']} is still not connected (the sign-in may not have finished).",
@@ -209,13 +210,13 @@ class ToolExecutor:
     async def t_app_list_connections(self, inp: dict, _id: str) -> Outcome:
         if not self.hub.enabled:
             return Outcome("App connectors are not configured. Use the browser instead.")
-        return Outcome(_json(await self.hub.connected_apps()))
+        return Outcome(_json(await self.hub.connected_apps(self.owner_id)))
 
     async def t_app_request_connection(self, inp: dict, tool_use_id: str) -> Outcome | Pending:
         if not self.hub.enabled:
             return Outcome("App connectors are not configured. Use the browser instead.", is_error=True)
         app = inp["app"].lower()
-        if await self.hub.is_connected(app):
+        if await self.hub.is_connected(app, self.owner_id):
             return Outcome(f"{app} is already connected.")
         async with session_scope() as s:
             rules = await policy.exclusions_for(s, self.campaign_id)
@@ -224,7 +225,7 @@ class ToolExecutor:
             await self._log("blocked", f"Blocked: connect {app}", status="blocked", channel=app,
                             details={"reason": block.reason})
             return Outcome(f"Blocked by the user's guardrails: {block.reason}", is_error=True)
-        link = await self.hub.connect_link(app)
+        link = await self.hub.connect_link(app, self.owner_id)
         request_id = await self._create_request(
             kind=RequestKind.connect, tool_use_id=tool_use_id, title=f"Connect {app}",
             rationale=inp.get("reason", ""), scope=app, preview={"url": link["redirect_url"], "app": app},
@@ -279,7 +280,7 @@ class ToolExecutor:
                     meta={"app": stored["app"], "action": stored["slug"]},
                 )
                 entry_id = entry.id
-        result = await self.hub.execute(stored["slug"], args)
+        result = await self.hub.execute(stored["slug"], args, self.owner_id)
         async with session_scope() as s:
             if entry_id:
                 from app.models import LedgerEntry

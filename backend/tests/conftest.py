@@ -36,3 +36,11 @@ async def _clean():
         else:
             tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
             await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+
+
+@pytest.fixture(autouse=True)
+def _reset_sign_in_throttle():
+    from app import auth
+
+    auth._attempts.clear()
+    yield

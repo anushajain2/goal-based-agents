@@ -9,8 +9,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.serializers import activity_json
+from app.auth import current_user
 from app.db import get_session
-from app.models import Activity, AgentRun, Campaign, LedgerEntry, UserRequest, utcnow
+from app.models import Activity, AgentRun, Campaign, LedgerEntry, User, UserRequest, utcnow
 
 router = APIRouter(prefix="/api", tags=["overview"])
 
@@ -18,17 +19,19 @@ LIVE_KINDS = ["update", "step", "action", "plan", "request", "blocked"]
 
 
 @router.get("/overview")
-async def overview(s: AsyncSession = Depends(get_session)):
+async def overview(s: AsyncSession = Depends(get_session), user: User = Depends(current_user)):
     now = utcnow()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     week_ago = now - timedelta(days=7)
 
-    campaigns = (await s.execute(select(Campaign))).scalars().all()
+    campaigns = (await s.execute(select(Campaign).where(Campaign.owner_id == user.id))).scalars().all()
     names = {c.id: c.name for c in campaigns}
+    mine = list(names) or ["-"]
     active = [c for c in campaigns if c.status == "active"]
 
     open_runs = (
-        await s.execute(select(AgentRun).where(AgentRun.status.in_(["queued", "running", "waiting"])))
+        await s.execute(select(AgentRun).where(AgentRun.campaign_id.in_(mine),
+                                   AgentRun.status.in_(["queued", "running", "waiting"])))
     ).scalars().all()
     working = [r for r in open_runs if r.status in ("queued", "running")]
     waiting = [r for r in open_runs if r.status == "waiting"]
@@ -49,7 +52,8 @@ async def overview(s: AsyncSession = Depends(get_session)):
         (
             await s.execute(
                 select(LedgerEntry.kind, func.coalesce(func.sum(LedgerEntry.amount_usd), 0))
-                .where(LedgerEntry.status == "settled", LedgerEntry.created_at >= month_start)
+                .where(LedgerEntry.campaign_id.in_(mine), LedgerEntry.status == "settled",
+                       LedgerEntry.created_at >= month_start)
                 .group_by(LedgerEntry.kind)
             )
         ).all()
@@ -57,17 +61,20 @@ async def overview(s: AsyncSession = Depends(get_session)):
     actions_week = (
         await s.execute(
             select(func.count()).select_from(Activity)
-            .where(Activity.kind == "action", Activity.status == "done", Activity.created_at >= week_ago)
+            .where(Activity.campaign_id.in_(mine), Activity.kind == "action", Activity.status == "done",
+                   Activity.created_at >= week_ago)
         )
     ).scalar_one()
     steps_week = (
         await s.execute(
             select(func.count()).select_from(Activity)
-            .where(Activity.kind.in_(["action", "step"]), Activity.created_at >= week_ago)
+            .where(Activity.campaign_id.in_(mine), Activity.kind.in_(["action", "step"]),
+                   Activity.created_at >= week_ago)
         )
     ).scalar_one()
     pending = (
-        await s.execute(select(func.count()).select_from(UserRequest).where(UserRequest.status == "pending"))
+        await s.execute(select(func.count()).select_from(UserRequest)
+                        .where(UserRequest.campaign_id.in_(mine), UserRequest.status == "pending"))
     ).scalar_one()
     next_check = min((c.next_cycle_at for c in active if c.next_cycle_at), default=None)
 
@@ -95,9 +102,14 @@ async def all_activity(
     before_id: int | None = None,
     limit: int = 150,
     s: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
 ):
     """The work log across goals, newest first."""
-    query = select(Activity, Campaign.name).join(Campaign, Campaign.id == Activity.campaign_id)
+    query = (
+        select(Activity, Campaign.name)
+        .join(Campaign, Campaign.id == Activity.campaign_id)
+        .where(Campaign.owner_id == user.id)
+    )
     if campaign_id:
         query = query.where(Activity.campaign_id == campaign_id)
     if kinds:
