@@ -1,17 +1,17 @@
 "use client";
 
-import { Bot, Hand, Home, ListTree, Settings, Sparkles, Target } from "lucide-react";
+import { Bot, Hand, Home, ListTree, LogOut, Settings, Sparkles, Target } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 
-import { Overview, usd, useApi } from "@/lib/api";
+import { api, Overview, usd, useApi, User } from "@/lib/api";
 import { cx, Dot } from "./ui";
 
 type Status = { anthropic_configured: boolean; composio_enabled: boolean; chrome_path: string | null; agent_chrome_running: boolean };
 
 const NAV = [
-  { href: "/", label: "Home", icon: Home, match: (p: string) => p === "/" },
+  { href: "/home", label: "Home", icon: Home, match: (p: string) => p === "/home" },
   { href: "/goals", label: "Goals", icon: Target, match: (p: string) => p.startsWith("/goals") },
   { href: "/work", label: "Work log", icon: ListTree, match: (p: string) => p.startsWith("/work") },
   { href: "/approvals", label: "Needs you", icon: Hand, match: (p: string) => p.startsWith("/approvals") },
@@ -39,13 +39,19 @@ export function Shell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const { data: ov } = useApi<Overview>("/api/overview");
   const { data: status } = useApi<Status>("/api/status", { pollMs: 30000, live: false });
+  const { data: me } = useApi<User>("/api/auth/me", { pollMs: 300000, live: false });
+
+  async function logout() {
+    await api("/api/auth/logout", { method: "POST" }).catch(() => null);
+    window.location.href = "/";
+  }
   const pending = ov?.waiting_on_you || 0;
   const state = ov ? (ov.working_on.length ? "working" : pending ? "waiting" : "idle") : undefined;
 
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-white md:flex">
-        <Link href="/" className="flex items-center gap-3 px-4 pb-3 pt-4">
+        <Link href="/home" className="flex items-center gap-3 px-4 pb-3 pt-4">
           <EmployeeAvatar state={state} />
           <span className="leading-tight">
             <span className="block text-[16px] font-bold tracking-tight">Autopilot</span>
@@ -83,6 +89,20 @@ export function Shell({ children }: { children: ReactNode }) {
           <StatusLine ok={!!status?.composio_enabled} label="App connectors" optional />
           <StatusLine ok={!!status?.chrome_path} label="Agent Chrome" />
         </div>
+        {me && (
+          <div className="flex items-center gap-2.5 border-t border-line px-4 py-3">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-100 text-xs font-bold uppercase text-gray-600">
+              {(me.name || me.email).slice(0, 1)}
+            </span>
+            <span className="min-w-0 flex-1 leading-tight">
+              {me.name && <span className="block truncate text-[13px] font-semibold">{me.name}</span>}
+              <span className="block truncate text-xs text-muted">{me.email}</span>
+            </span>
+            <button onClick={logout} title="Log out" aria-label="Log out" className="rounded-md p-1.5 text-muted hover:bg-gray-100 hover:text-ink">
+              <LogOut size={16} />
+            </button>
+          </div>
+        )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -91,6 +111,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <EmployeeAvatar state={state} size={28} />
             <span className="font-bold">Autopilot</span>
             <span className="tabular ml-auto text-xs text-muted">{usd(ov?.spend_this_month.total ?? 0)} this month</span>
+            <button onClick={logout} aria-label="Log out" className="rounded-md p-1 text-muted hover:text-ink"><LogOut size={16} /></button>
           </div>
           <nav className="flex gap-1 overflow-x-auto px-2 pb-2">
             {NAV.map((n) => (

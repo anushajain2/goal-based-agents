@@ -129,7 +129,20 @@ export type Grant = {
 };
 export type ActionType = { key: string; label: string; description: string; default: "auto" | "ask" };
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  constructor(message: string, public status = 0) {
+    super(message);
+  }
+}
+
+export type User = { id: string; email: string; name: string };
+
+/** Signed out (or the session expired) while using the app: go to the login page, then come back. */
+function toLogin() {
+  if (typeof window === "undefined" || window.location.pathname.startsWith("/login")) return;
+  const next = window.location.pathname + window.location.search;
+  window.location.href = `/login?next=${encodeURIComponent(next)}`;
+}
 
 export async function api<T = unknown>(path: string, init?: RequestInit & { json?: unknown }): Promise<T> {
   const { json, ...rest } = init || {};
@@ -145,7 +158,8 @@ export async function api<T = unknown>(path: string, init?: RequestInit & { json
       const body = await res.json();
       msg = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail ?? body);
     } catch {}
-    throw new ApiError(msg);
+    if (res.status === 401 && !path.startsWith("/api/auth/")) toLogin();
+    throw new ApiError(msg, res.status);
   }
   return res.json() as Promise<T>;
 }

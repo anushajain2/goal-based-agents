@@ -24,7 +24,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.db import get_session
+from app.db import get_session, session_scope
 from app.models import AuthSession, Campaign, ExclusionRule, PermissionGrant, User, utcnow
 
 COOKIE = "autopilot_session"
@@ -100,6 +100,23 @@ async def current_user(
         )
     ).first()
     if not row or row[1].expires_at < utcnow():
+        raise HTTPException(401, "Your session has expired. Please sign in again.")
+    return row[0]
+
+
+async def current_user_brief(autopilot_session: str | None = Cookie(default=None)) -> str:
+    """Like current_user, but for long-lived responses (live updates): checks the session in its
+    own short transaction instead of holding one open for the whole stream. Returns the user id."""
+    if not autopilot_session:
+        raise HTTPException(401, "Please sign in")
+    async with session_scope() as s:
+        row = (
+            await s.execute(
+                select(AuthSession.user_id, AuthSession.expires_at)
+                .where(AuthSession.token_hash == _token_hash(autopilot_session))
+            )
+        ).first()
+    if not row or row[1] < utcnow():
         raise HTTPException(401, "Your session has expired. Please sign in again.")
     return row[0]
 

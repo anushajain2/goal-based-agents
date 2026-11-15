@@ -79,3 +79,24 @@ async def test_first_account_claims_goals_made_before_accounts_existed():
         await second.post("/api/auth/signup", json={"email": "second@example.com", "password": "longenough1"})
         assert [g["name"] for g in (await first.get("/api/campaigns")).json()] == ["Old"]
         assert (await second.get("/api/campaigns")).json() == []
+
+
+async def test_live_updates_need_sign_in_and_do_not_hold_the_database():
+    """The event stream must not keep a transaction open (on SQLite that would lock every request)."""
+    import asyncio
+
+    async with client() as c:
+        assert (await c.get("/api/events")).status_code == 401
+        await c.post("/api/auth/signup", json={"email": "live@example.com", "password": "longenough1"})
+
+        async def open_stream():
+            async with c.stream("GET", "/api/events") as r:
+                assert r.status_code == 200
+                await asyncio.sleep(2)
+
+        stream = asyncio.create_task(open_stream())
+        await asyncio.sleep(0.3)
+        # While the stream is open, normal writes still go through quickly.
+        r = await asyncio.wait_for(c.post("/api/campaigns", json=GOAL), timeout=5)
+        assert r.status_code == 200
+        stream.cancel()

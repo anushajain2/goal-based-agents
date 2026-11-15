@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import text
 from sse_starlette.sse import EventSourceResponse
 
-from app.auth import current_user
+from app.auth import current_user_brief
 from app.config import get_settings
 from app.db import is_sqlite, session_scope
 from app.services.events import CHANNEL
@@ -22,7 +22,7 @@ from app.services.events import CHANNEL
 log = logging.getLogger(__name__)
 # Signed-in users only. Events carry ids, not data; each tab refetches through the
 # owner-scoped endpoints, so nobody sees another user's data.
-router = APIRouter(prefix="/api", tags=["events"], dependencies=[Depends(current_user)])
+router = APIRouter(prefix="/api", tags=["events"], dependencies=[Depends(current_user_brief)])
 
 
 class Broadcaster:
