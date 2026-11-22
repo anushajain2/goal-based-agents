@@ -150,3 +150,13 @@ def guardrail_update_message(rules: list, grants: list) -> str:
         "earlier.\nCurrent guardrails: " + ("; ".join(blocked + text) or "none") +
         "\nStanding permissions: " + (", ".join(granted) or "none")
     )
+
+
+def identity_line(agent: str | None, department: str | None, org: str | None, approvers: list[str]) -> str:
+    if not agent:
+        return "You are Autopilot."
+    who = ", ".join(approvers[:6]) or "the organization's admins"
+    return (
+        f"You are {agent}, an AI employee in the {department or 'company'} department"
+        f"{' at ' + org if org else ''}. Anything that needs approval goes to: {who}."
+    )

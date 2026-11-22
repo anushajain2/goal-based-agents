@@ -25,18 +25,29 @@ from urllib.parse import urlparse
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Campaign, ExclusionRule, PermissionGrant
+from app.models import Agent, Campaign, ExclusionRule, PermissionGrant
 
 
-def _owner_of(campaign_id: str):
-    return select(Campaign.owner_id).where(Campaign.id == campaign_id).scalar_subquery()
+def _org_of(campaign_id: str):
+    return select(Campaign.org_id).where(Campaign.id == campaign_id).scalar_subquery()
+
+
+def _department_of(campaign_id: str):
+    return (
+        select(Agent.department_id).join(Campaign, Campaign.agent_id == Agent.id)
+        .where(Campaign.id == campaign_id).scalar_subquery()
+    )
 
 
 def applies_to(model, campaign_id: str):
-    """Rows for this goal, plus the owner's rows that apply to all of their goals."""
+    """Rules/permissions that cover this goal: set on the goal itself, on its AI employee's
+    department, or on the whole organization."""
     return or_(
         model.campaign_id == campaign_id,
-        and_(model.campaign_id.is_(None), model.owner_id.is_not_distinct_from(_owner_of(campaign_id))),
+        and_(model.campaign_id.is_(None), model.department_id.is_not(None),
+             model.department_id == _department_of(campaign_id)),
+        and_(model.campaign_id.is_(None), model.department_id.is_(None),
+             model.org_id.is_not_distinct_from(_org_of(campaign_id))),
     )
 
 

@@ -15,7 +15,7 @@ from app.main import app
 from app.models import Activity, AgentRun, Campaign, LedgerEntry, PermissionGrant, UserRequest
 from app.worker import claim_run, schedule_due_cycles
 from tests.fakes import FakeAnthropic, text, tool_use
-from tests.helpers import sign_in
+from tests.helpers import sign_in_with_org
 
 
 @pytest.fixture(autouse=True)
@@ -33,7 +33,7 @@ def _no_real_browser(monkeypatch):
 @pytest.fixture
 async def api():
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
-        await sign_in(client, "owner@example.com")
+        await sign_in_with_org(client, "owner@example.com")
         yield client
 
 
@@ -149,8 +149,8 @@ async def test_approval_then_dont_ask_again(api):
         assert ai and all(e.status == "settled" for e in ai)
         assert sum(e.amount_usd for e in ai) > 0
     log = await titles(cid)
-    assert any(t.startswith("request:waiting:Waiting for you: Post v2 launch tweet") for t in log)
-    assert any("Approved (edited): Post v2 launch tweet" in t and "won't ask again" in t for t in log)
+    assert any(t.startswith("request:waiting:Asked the Sales team: Post v2 launch tweet") for t in log)
+    assert any("Approved (edited) by owner@example.com: Post v2 launch tweet" in t and "won't ask again" in t for t in log)
     assert any(t.startswith("cycle:info:Session 1 done") for t in log)
     assert any(t.startswith("plan:info:Fresh start.") for t in log)
     assert any(t.startswith("metric:info:followers: 100") for t in log)

@@ -5,7 +5,16 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Activity, AgentRun, Campaign, MetricSnapshot, PermissionGrant, UserRequest
+from app.models import (
+    Activity,
+    Agent,
+    AgentRun,
+    Campaign,
+    Department,
+    MetricSnapshot,
+    PermissionGrant,
+    UserRequest,
+)
 from app.services import ledger
 from app.services.policy import ACTION_TYPES
 
@@ -56,7 +65,7 @@ async def results_for(s: AsyncSession, c: Campaign) -> dict:
     return {"baseline": first.value, "current": last.value, "results": last.value - first.value}
 
 
-async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False) -> dict:
+async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=None) -> dict:
     budget = (await ledger.budget_state(s, c)).as_dict()
     results = await results_for(s, c)
     pending = (
@@ -82,8 +91,13 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False) -> dic
             .order_by(Activity.id.desc()).limit(1)
         )
     ).scalar_one_or_none()
+    agent = await s.get(Agent, c.agent_id) if c.agent_id else None
+    dept = await s.get(Department, agent.department_id) if agent else None
     r = results["results"]
     data = {
+        "agent": {"id": agent.id, "name": agent.name, "title": agent.title} if agent else None,
+        "department": {"id": dept.id, "name": dept.name} if dept else None,
+        "can_manage": me.in_department(dept.id if dept else None) if me is not None else None,
         "id": c.id, "name": c.name, "goal_type": c.goal_type, "goal_description": c.goal_description,
         "primary_metric": c.primary_metric, "target_value": c.target_value, "status": c.status,
         "done_when": c.done_when, "category": c.category, "use_case": c.use_case, "client_name": c.client_name,

@@ -18,7 +18,7 @@ from app.db import session_scope
 from app.main import app
 from app.models import Campaign, LoginCode, utcnow
 from app.services import activity
-from tests.helpers import SENT_CODES, sign_in
+from tests.helpers import SENT_CODES, sign_in, sign_in_with_org
 
 
 def client() -> httpx.AsyncClient:
@@ -215,8 +215,8 @@ async def test_app_endpoints_need_sign_in(path):
 
 async def test_users_only_see_their_own_goals():
     async with client() as a, client() as b:
-        await sign_in(a, "a@example.com")
-        await sign_in(b, "b@example.com")
+        await sign_in_with_org(a, "a@example.com", org="A Co")
+        await sign_in_with_org(b, "b@example.com", org="B Co")
         goal = (await a.post("/api/campaigns", json=GOAL)).json()
         await a.post("/api/exclusions", json={"campaign_id": None, "kind": "text", "value": "A's rule"})
         await a.post("/api/grants", json={"campaign_id": None, "action_type": "engage"})
@@ -245,15 +245,18 @@ async def test_first_account_claims_goals_made_before_accounts_existed():
     async with client() as first, client() as second:
         await sign_in(first, "first@example.com")
         await sign_in(second, "second@example.com")
+        # The first account's existing goal moved into its own new organization...
         assert [g["name"] for g in (await first.get("/api/campaigns")).json()] == ["Old"]
-        assert (await second.get("/api/campaigns")).json() == []
+        # ...and the second person has no organization yet, so the app asks them to set one up.
+        r = await second.get("/api/campaigns")
+        assert r.status_code == 409 and r.json()["detail"] == "no_organization"
 
 
 async def test_live_updates_need_sign_in_and_do_not_hold_the_database():
     """The event stream must not keep a transaction open (on SQLite that would lock every request)."""
     async with client() as c:
         assert (await c.get("/api/events")).status_code == 401
-        await sign_in(c, "live@example.com")
+        await sign_in_with_org(c, "live@example.com")
 
         async def open_stream():
             async with c.stream("GET", "/api/events") as r:

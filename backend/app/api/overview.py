@@ -9,9 +9,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.serializers import activity_json
-from app.auth import current_user
 from app.db import get_session
-from app.models import Activity, AgentRun, Campaign, LedgerEntry, User, UserRequest, utcnow
+from app.models import Activity, Agent, AgentRun, Campaign, LedgerEntry, UserRequest, utcnow
+from app.org import Member, current_member, departments_without_people, routed_to_me
 
 router = APIRouter(prefix="/api", tags=["overview"])
 
@@ -19,12 +19,16 @@ LIVE_KINDS = ["update", "step", "action", "plan", "request", "blocked"]
 
 
 @router.get("/overview")
-async def overview(s: AsyncSession = Depends(get_session), user: User = Depends(current_user)):
+async def overview(department_id: str | None = None, s: AsyncSession = Depends(get_session),
+                   me: Member = Depends(current_member)):
     now = utcnow()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     week_ago = now - timedelta(days=7)
 
-    campaigns = (await s.execute(select(Campaign).where(Campaign.owner_id == user.id))).scalars().all()
+    q = select(Campaign).where(Campaign.org_id == me.org_id)
+    if department_id:
+        q = q.where(Campaign.agent_id.in_(select(Agent.id).where(Agent.department_id == department_id)))
+    campaigns = (await s.execute(q)).scalars().all()
     names = {c.id: c.name for c in campaigns}
     mine = list(names) or ["-"]
     active = [c for c in campaigns if c.status == "active"]
@@ -74,7 +78,8 @@ async def overview(s: AsyncSession = Depends(get_session), user: User = Depends(
     ).scalar_one()
     pending = (
         await s.execute(select(func.count()).select_from(UserRequest)
-                        .where(UserRequest.campaign_id.in_(mine), UserRequest.status == "pending"))
+                        .where(UserRequest.campaign_id.in_(mine), UserRequest.status == "pending",
+                               routed_to_me(me, await departments_without_people(s, me.org_id))))
     ).scalar_one()
     next_check = min((c.next_cycle_at for c in active if c.next_cycle_at), default=None)
 
@@ -102,14 +107,20 @@ async def all_activity(
     before_id: int | None = None,
     limit: int = 150,
     s: AsyncSession = Depends(get_session),
-    user: User = Depends(current_user),
+    me: Member = Depends(current_member),
+    department_id: str | None = None,
+    agent_id: str | None = None,
 ):
     """The work log across goals, newest first."""
     query = (
         select(Activity, Campaign.name)
         .join(Campaign, Campaign.id == Activity.campaign_id)
-        .where(Campaign.owner_id == user.id)
+        .where(Campaign.org_id == me.org_id)
     )
+    if agent_id:
+        query = query.where(Campaign.agent_id == agent_id)
+    if department_id:
+        query = query.where(Campaign.agent_id.in_(select(Agent.id).where(Agent.department_id == department_id)))
     if campaign_id:
         query = query.where(Activity.campaign_id == campaign_id)
     if kinds:

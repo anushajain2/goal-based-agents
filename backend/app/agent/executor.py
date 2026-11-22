@@ -25,8 +25,10 @@ from app.browser.controller import BrowserError, get_controller, is_commit
 from app.connectors.composio_hub import get_hub
 from app.db import session_scope
 from app.models import (
+    Agent,
     BrowserAuthorization,
     Campaign,
+    Department,
     LedgerKind,
     MetricSnapshot,
     RequestKind,
@@ -34,8 +36,10 @@ from app.models import (
     UserRequest,
     utcnow,
 )
+from app.org import approvers, goal_department
 from app.services import activity, ledger, policy
 from app.services.events import notify
+from app.services.mailer import send_approval_needed
 from app.services.rule_check import check_action
 
 log = logging.getLogger(__name__)
@@ -181,19 +185,32 @@ class ToolExecutor:
         spend_usd: Decimal | None = None,
     ) -> str:
         async with session_scope() as s:
+            campaign = await s.get(Campaign, self.campaign_id)
+            department_id = await goal_department(s, campaign)
             req = UserRequest(
                 campaign_id=self.campaign_id, run_id=self.run_id, tool_use_id=tool_use_id, kind=kind.value,
                 action_type=action_type, scope=scope, title=title[:300], rationale=rationale,
-                preview=preview or {}, est_spend_usd=spend_usd,
+                preview=preview or {}, est_spend_usd=spend_usd, department_id=department_id,
             )
             s.add(req)
             await s.flush()
+            people = await approvers(s, campaign.org_id, department_id) if campaign.org_id else []
+            dept = await s.get(Department, department_id) if department_id else None
+            agent = await s.get(Agent, campaign.agent_id) if campaign.agent_id else None
+            routed = f"{dept.name} team" if dept and people else "admins"
             await activity.log(
-                s, self.campaign_id, "request", f"Waiting for you: {title}", run_id=self.run_id,
-                status="waiting", action_type=action_type, channel=scope, details={"request_id": req.id},
+                s, self.campaign_id, "request", f"Asked the {routed}: {title}", run_id=self.run_id,
+                status="waiting", action_type=action_type, channel=scope,
+                details={"request_id": req.id, "routed_to": [p.name or p.email for p in people]},
             )
             await notify(s, self.campaign_id, "request", id=req.id)
-            return req.id
+            request_id = req.id
+            emails = [p.email for p in people]
+            agent_name = agent.name if agent else "Autopilot"
+            dept_name = dept.name if dept else "your organization"
+        # Email the people it's routed to (best effort; the in-app inbox is the source of truth).
+        await send_approval_needed(emails, agent_name, dept_name, title, self.campaign_id)
+        return request_id
 
     # ------------------------------------------------------------------ app connectors
 

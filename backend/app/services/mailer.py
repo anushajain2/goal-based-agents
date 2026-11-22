@@ -68,3 +68,42 @@ async def send_login_code(to: str, code: str) -> str:
         return "console"
     await asyncio.to_thread(_send_smtp, _message(to, code))
     return "email"
+
+
+def _simple(to: str, subject: str, text: str) -> EmailMessage:
+    settings = get_settings()
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = settings.smtp_from or settings.smtp_user or "Autopilot <no-reply@localhost>"
+    msg["To"] = to
+    msg.set_content(text)
+    return msg
+
+
+async def _send_or_log(to: str, subject: str, text: str) -> None:
+    if not get_settings().smtp_enabled:
+        log.info("(email not set up) would email %s: %s", to, subject)
+        return
+    try:
+        await asyncio.to_thread(_send_smtp, _simple(to, subject, text))
+    except Exception:
+        log.exception("could not email %s", to)
+
+
+async def send_invitation(to: str, org_name: str, inviter: str) -> None:
+    url = get_settings().frontend_origin.rstrip("/") + "/login"
+    await _send_or_log(
+        to, f"{inviter} invited you to {org_name} on Autopilot",
+        f"{inviter} invited you to join {org_name} on Autopilot, where AI employees work toward the "
+        f"company's goals and check with the right people before doing anything important.\n\n"
+        f"Sign in with this email address to join: {url}\n",
+    )
+
+
+async def send_approval_needed(recipients: list[str], agent: str, department: str, title: str, goal_id: str) -> None:
+    url = get_settings().frontend_origin.rstrip("/") + f"/goals/{goal_id}?tab=work"
+    for to in recipients:
+        await _send_or_log(
+            to, f"{agent} needs your OK: {title}"[:200],
+            f"{agent} ({department}) wants to: {title}\n\nAnyone in {department} can approve, edit or decline it:\n{url}\n",
+        )

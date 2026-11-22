@@ -118,12 +118,96 @@ class AuthSession(Base):
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
 
 
+class Role(str, enum.Enum):
+    owner = "owner"  # everything, including other admins
+    admin = "admin"  # manage departments, people, AI employees; approve anything
+    member = "member"  # approve for their departments; manage their departments' goals
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class Membership(Base):
+    """A person in an organization. (One organization per person for now.)"""
+
+    __tablename__ = "memberships"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    role: Mapped[str] = mapped_column(String(20), default=Role.member.value)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class Department(Base):
+    __tablename__ = "departments"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    # Library category this department covers (sales, marketing, research...), used to suggest
+    # which AI employee should take a new goal. Empty for custom departments.
+    kind: Mapped[str] = mapped_column(String(40), default="")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class DepartmentMember(Base):
+    """A person who belongs to a department, and so approves its AI employees' work."""
+
+    __tablename__ = "department_members"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    department_id: Mapped[str] = mapped_column(ForeignKey("departments.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+
+
+class Agent(Base):
+    """An AI employee. Belongs to one department; goals are assigned to it."""
+
+    __tablename__ = "agents"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    department_id: Mapped[str] = mapped_column(ForeignKey("departments.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    title: Mapped[str] = mapped_column(String(160), default="")  # e.g. "Outbound sales"
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class Invitation(Base):
+    """Someone invited by email. They join automatically the first time they sign in with it."""
+
+    __tablename__ = "invitations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    email: Mapped[str] = mapped_column(String(320), index=True)
+    role: Mapped[str] = mapped_column(String(20), default=Role.member.value)
+    department_ids: Mapped[list] = mapped_column(JSONType, default=list)
+    invited_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    accepted_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
 class Campaign(Base):
     __tablename__ = "campaigns"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    # Who created it. (Before organizations existed, this was the only owner.)
     owner_id: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    org_id: Mapped[str | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    # The AI employee working on it.
+    agent_id: Mapped[str | None] = mapped_column(
+        ForeignKey("agents.id", ondelete="SET NULL"), nullable=True, index=True
     )
     name: Mapped[str] = mapped_column(String(200))
     goal_type: Mapped[str] = mapped_column(String(50))  # sales | followers | traffic | leads | awareness | custom
@@ -169,9 +253,16 @@ class ExclusionRule(Base):
     __tablename__ = "exclusion_rules"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
-    # Whose rule this is. Needed for rules that apply to all of a user's goals (campaign_id NULL).
+    # Legacy (single-user) owner. Scope is now: campaign_id (one goal), else department_id
+    # (every goal in that department), else the whole organization.
     owner_id: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    org_id: Mapped[str | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    department_id: Mapped[str | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="CASCADE"), nullable=True, index=True
     )
     campaign_id: Mapped[str | None] = mapped_column(
         ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True
@@ -197,6 +288,13 @@ class PermissionGrant(Base):
     owner_id: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
     )
+    org_id: Mapped[str | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    department_id: Mapped[str | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    granted_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     campaign_id: Mapped[str | None] = mapped_column(
         ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True
     )
@@ -244,6 +342,11 @@ class UserRequest(Base):
     tool_use_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     kind: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20), default=RequestStatus.pending.value, index=True)
+    # Routed to the people in this department (the AI employee's department).
+    department_id: Mapped[str | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    decided_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     action_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     scope: Mapped[str | None] = mapped_column(String(200), nullable=True)  # app slug or site domain

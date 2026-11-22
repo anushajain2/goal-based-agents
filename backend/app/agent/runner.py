@@ -27,18 +27,22 @@ from app.connectors.composio_hub import get_hub
 from app.db import session_scope
 from app.models import (
     Activity,
+    Agent,
     AgentRun,
     Campaign,
     CampaignStatus,
+    Department,
     LedgerEntry,
     LedgerKind,
     LedgerStatus,
     MetricSnapshot,
+    Organization,
     PermissionGrant,
     RunStatus,
     UserRequest,
     utcnow,
 )
+from app.org import approvers
 from app.services import activity, ledger, policy
 from app.services.events import notify
 
@@ -99,7 +103,7 @@ class CycleRunner:
             run = await s.get(AgentRun, run_id)
             campaign = await s.get(Campaign, run.campaign_id)
             campaign_id = campaign.id
-            owner_id = campaign.owner_id
+            owner_id = campaign.org_id  # app connections belong to the organization
             if campaign.status != CampaignStatus.active.value:
                 run.status = RunStatus.stopped.value
                 return
@@ -334,7 +338,15 @@ class CycleRunner:
                     )
                 ).scalars()
             )
-            brief = prompts.campaign_brief(
+            agent = await s.get(Agent, campaign.agent_id) if campaign.agent_id else None
+            dept = await s.get(Department, agent.department_id) if agent else None
+            org = await s.get(Organization, campaign.org_id) if campaign.org_id else None
+            people = await approvers(s, campaign.org_id, dept.id if dept else None) if campaign.org_id else []
+            identity = prompts.identity_line(
+                agent.name if agent else None, dept.name if dept else None, org.name if org else None,
+                [p.name or p.email for p in people],
+            )
+            brief = identity + "\n\n" + prompts.campaign_brief(
                 campaign=campaign, budget=budget, cycle_number=run.cycle_number, rules=rules, grants=grants,
                 recent_cycles=[f"Cycle {n}: {summary}" for n, summary in reversed(cycles)],
                 metrics=list(reversed(metrics)),
