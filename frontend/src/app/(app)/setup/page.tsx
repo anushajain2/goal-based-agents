@@ -6,9 +6,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CompanyProfileCard } from "@/components/CompanyProfile";
+import { ModeBadge } from "@/components/GoalPlan";
+import { StartGoal } from "@/components/StartGoal";
 import { AgentAvatar } from "@/components/team";
 import { Badge, Button, Card, cx, ErrorNote, Field, Input, Textarea } from "@/components/ui";
 import { api, Campaign, SetupInfo, SetupStep, usd, useApi } from "@/lib/api";
+
+// Kinds of action that never change anything outside Autopilot, so they run without asking.
+const AUTO_KINDS = new Set(["research", "read_data", "create_draft"]);
 
 export default function SetupPage() {
   const router = useRouter();
@@ -156,6 +161,7 @@ function StepIcon({ status }: { status: SetupStep["status"] }) {
 function SuggestedTeam({ info }: { info: SetupInfo }) {
   const { data: goals, reload } = useApi<Campaign[]>("/api/campaigns");
   const [busy, setBusy] = useState<string | null>(null);
+  const [starting, setStarting] = useState<Campaign[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const plan = info.setup!.plan!;
   const createdIds = info.setup!.created?.goals;
@@ -190,14 +196,13 @@ function SuggestedTeam({ info }: { info: SetupInfo }) {
           </p>
         </div>
         {drafts.length > 1 && (
-          <Button variant="primary" disabled={!!busy} onClick={() => confirm(`Start all ${drafts.length} goals? Their budgets add up to ${usd(draftBudget)}.`) && act("all", async () => {
-            for (const g of drafts) await api(`/api/campaigns/${g.id}/launch`, { method: "POST" });
-          })}>
+          <Button variant="primary" disabled={!!busy} onClick={() => setStarting(drafts)}>
             <Play size={15} /> Start all {drafts.length} ({usd(draftBudget)})
           </Button>
         )}
       </div>
       {err && <ErrorNote>{err}</ErrorNote>}
+      {starting && <StartGoal goals={starting} onClose={() => setStarting(null)} onStarted={() => { setStarting(null); reload(); }} />}
 
       {plan.departments.map((d) => {
         const deptGoals = mine.filter((g) => g.department?.name.toLowerCase() === d.name.toLowerCase() || d.goals.some((p) => p.name === g.name));
@@ -229,13 +234,27 @@ function SuggestedTeam({ info }: { info: SetupInfo }) {
                       <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                         {p.done_when && <span className="inline-flex items-center gap-1"><Flag size={11} /> Counts when: {p.done_when}</span>}
                         <span>Target: {p.target_value ? `${p.target_value} ${p.primary_metric}` : p.primary_metric}</span>
-                        <span>Budget {usd(p.budget_usd)}</span>
+                        <span>Budget {usd(p.budget_usd)}{p.budget_basis ? ` (${p.budget_basis.sessions} sessions × ~${usd(p.budget_basis.per_session_usd)}${p.budget_basis.paid_spend_usd ? ` + ${usd(p.budget_basis.paid_spend_usd)} spend` : ""})` : ""}</span>
                       </div>
                       {p.why && <p className="mt-1.5 flex gap-1.5 text-xs text-brand-700"><Sparkles size={12} className="mt-0.5 shrink-0" /> {p.why}</p>}
+                      {(p.steps?.length || 0) > 0 && (
+                        <details className="mt-2 text-xs">
+                          <summary className="cursor-pointer font-semibold text-muted">What it will do ({p.steps!.length} steps)</summary>
+                          <ol className="mt-1.5 space-y-1">
+                            {p.steps!.map((st, i) => (
+                              <li key={i} className="flex flex-wrap items-center gap-2">
+                                <span className="text-muted">{i + 1}.</span>
+                                <span className="min-w-0 flex-1 text-gray-700">{st.text}</span>
+                                <ModeBadge mode={AUTO_KINDS.has(st.action_type) ? "auto" : "ask"} team={d.name} />
+                              </li>
+                            ))}
+                          </ol>
+                        </details>
+                      )}
                     </div>
                     {g && g.status === "draft" && g.can_manage !== false && (
                       <div className="flex items-start gap-2">
-                        <Button size="sm" variant="primary" disabled={!!busy} onClick={() => act(g.id, () => api(`/api/campaigns/${g.id}/launch`, { method: "POST" }))}>
+                        <Button size="sm" variant="primary" disabled={!!busy} onClick={() => setStarting([g])}>
                           <Play size={13} /> Start
                         </Button>
                         <Button size="sm" variant="ghost" disabled={!!busy} title="Remove this suggestion" onClick={() => confirm(`Remove "${g.name}"?`) && act(g.id, () => api(`/api/campaigns/${g.id}`, { method: "DELETE" }))}>

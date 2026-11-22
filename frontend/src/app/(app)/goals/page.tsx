@@ -4,6 +4,7 @@ import { Plus, Target } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { StartGoal } from "@/components/StartGoal";
 import { AgentAvatar } from "@/components/team";
 import { GoalProgress, GoalStatus, goalActivity, ProgressBar } from "@/components/goal";
 import { Card, cx, Empty, ErrorNote, Select, Toggle } from "@/components/ui";
@@ -30,7 +31,10 @@ export default function GoalsPage() {
   });
   const totals = rows.reduce((t, c) => ({ spent: t.spent + c.budget.spent, budget: t.budget + c.budget.total, actions: t.actions + c.actions_taken }), { spent: 0, budget: 0, actions: 0 });
 
+  const [starting, setStarting] = useState<Campaign | null>(null);
+
   async function toggle(c: Campaign, on: boolean) {
+    if (on && c.status === "draft") return setStarting(c); // first start: connect tools, review approvals
     setBusy(c.id);
     try {
       await api(`/api/campaigns/${c.id}/${on ? (c.status === "draft" ? "launch" : "resume") : "pause"}`, { method: "POST" });
@@ -55,6 +59,7 @@ export default function GoalsPage() {
       </div>
 
       {error && <ErrorNote>Can&apos;t reach the backend ({error}).</ErrorNote>}
+      {starting && <StartGoal goals={[starting]} onClose={() => setStarting(null)} onStarted={() => { setStarting(null); reload(); }} />}
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-2.5">

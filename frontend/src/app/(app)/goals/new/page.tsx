@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, DollarSign, Flag, Rocket } from "lucide-r
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
+import { BudgetCalculator } from "@/components/Budget";
 import { ListEditor, Mode, PolicyMatrix } from "@/components/Guardrails";
 import { EmployeeAvatar } from "@/components/Shell";
 import { AgentAvatar } from "@/components/team";
@@ -153,12 +154,12 @@ function NewGoal() {
       grants: types
         .filter((t) => t.default === "ask" && effective[t.key] === "auto")
         .map((t) => ({ action_type: t.key, spend_limit_usd: t.key === "spend_money" ? Number(spendLimit) : null })),
-      launch,
+      launch: false, // starting goes through the review: connect tools, check approvals
       agent_id: agentId || null,
     };
     try {
       const c = await api<Campaign>("/api/campaigns", { method: "POST", json: body });
-      router.push(`/goals/${c.id}`);
+      router.push(launch ? `/goals/${c.id}?start=1` : `/goals/${c.id}`);
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -289,6 +290,7 @@ function NewGoal() {
                   </Select>
                 </Field>
               </div>
+              <BudgetCalculator cycleHours={cycleHours} endDate={endDate} onUse={(v) => setBudget(String(v))} />
             </div>
           )}
 
@@ -324,7 +326,9 @@ function NewGoal() {
               <div>
                 <h2 className="text-lg font-semibold">What may it do on its own?</h2>
                 <p className="text-sm text-muted">
-                  By default Autopilot asks you before anything important. You can also tick &quot;don&apos;t ask me next time&quot; on any approval later.
+                  By default it does research and drafts on its own, and asks {assignee ? `the ${assignee.department.name} team` : "your team"} before
+                  anything goes out: sending, posting, spending or changing an account. You&apos;ll see its step-by-step plan, and can change all of this,
+                  before it starts.
                 </p>
               </div>
               <PolicyMatrix types={types} modes={effective} onChange={(k, m) => setModes({ ...modes, [k]: m })} spendLimit={spendLimit} onSpendLimit={setSpendLimit} />
@@ -368,8 +372,8 @@ function NewGoal() {
                 <Item k="Without asking" v={types.filter((t) => t.default === "ask" && effective[t.key] === "auto").map((t) => t.label).join(", ") || "Nothing: it asks first"} />
               </dl>
               <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
-                When you start, {assignee?.name || "your AI employee"} plans its first work session, then gets going. It asks the{" "}
-                {assignee?.department.name || "department"} team before anything that needs an OK, and every step shows up in the work log.
+                Next you&apos;ll see {assignee?.name || "your AI employee"}&apos;s step-by-step plan, connect the tools it needs, and check exactly
+                what it will ask the {assignee?.department.name || "department"} team about. Nothing runs until you press Start there.
               </p>
             </div>
           )}
@@ -383,7 +387,7 @@ function NewGoal() {
             ) : (
               <div className="flex gap-2">
                 <Button disabled={busy} onClick={() => submit(false)}>Save for later</Button>
-                <Button variant="primary" disabled={busy} onClick={() => submit(true)}><Rocket size={15} /> Start working on it</Button>
+                <Button variant="primary" disabled={busy} onClick={() => submit(true)}><Rocket size={15} /> Review and start</Button>
               </div>
             )}
           </div>

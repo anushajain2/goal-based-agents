@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ExternalLink, KeyRound, Link2, ShieldQuestion, Users, X } from "lucide-react";
+import { Check, ExternalLink, KeyRound, Link2, Lock, ShieldQuestion, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -94,6 +94,11 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
         {req.kind === "action" ? `${req.agent_name || "Autopilot"} wants to: ${req.title}. Can it go ahead?` : req.title}
       </h4>
       {req.rationale && <p className="mt-1 text-sm text-muted">{req.rationale}</p>}
+      {req.kind === "action" && canDecide && (
+        <p className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800">
+          <Lock size={12} /> Nothing has been sent or changed yet. It only happens if you approve.
+        </p>
+      )}
 
       {req.kind === "action" && (
         <div className="mt-3 space-y-3">

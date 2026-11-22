@@ -29,6 +29,10 @@ export type Campaign = {
   client_name: string;
   origin: string; // "setup" = suggested by setup research
   suggested_reason: string;
+  budget_basis: BudgetBasis | null;
+  has_playbook: boolean;
+  playbook?: Playbook | null; // full goal only
+  pace?: { per_session_usd: number; sessions_measured: number; sessions_left: number; days_left: number } | null;
   actions_taken: number;
   agent: { id: string; name: string; title: string } | null;
   department: { id: string; name: string } | null;
@@ -146,13 +150,50 @@ export type Grant = {
 export type Person = { id: string; name: string; email: string };
 export type AgentSummary = { id: string; name: string; title: string; goals: number; active_goals: number; spent: number; working: boolean; needs_you: number };
 export type DepartmentInfo = { id: string; name: string; kind: string; people: Person[]; agents: AgentSummary[] };
+export type BudgetBasis = {
+  per_session_usd: number; sessions: number; cycle_hours: number; days: number; ai_usd: number; paid_spend_usd: number;
+  suggested_usd: number; basis: "typical" | "history"; history_sessions: number; chosen_usd?: number;
+};
+export type Mode = "auto" | "ask" | "never";
+export type PlanStep = { text: string; action_type: string; tool: string };
+export type Playbook = { steps: PlanStep[]; source: "setup" | "generated" | "default" };
+export type Permission = {
+  key: string; label: string; description: string; default: "auto" | "ask"; mode: Mode;
+  set_at: "default" | "goal" | "department" | "org"; spend_limit_usd: number | null; only_on: string[];
+};
+export type Permissions = { action_types: Permission[]; department: string | null; approvers: string[]; built_in_rules: string[]; can_edit: boolean };
+export type ToolNeed = {
+  key: string; label: string; app: string | null; site: string | null; login_url: string | null;
+  steps: number[]; required: boolean; status: "connected" | "signed_in" | "missing"; can_connect_app: boolean;
+};
+export type Readiness = {
+  tools: ToolNeed[]; composio_enabled: boolean; mcp_servers: { id: string; name: string; tools: number; error: string | null }[];
+  permissions: Permission[]; department: string | null; approvers: string[]; playbook: Playbook | null;
+};
+export type McpServerInfo = {
+  id: string; name: string; url: string; has_key: boolean; error: string | null; checked_at: string | null;
+  tools: { name: string; description: string; kind: string; kind_label: string; asks_first: boolean }[];
+};
+
+/** Plain names for the tools in a plan (keys from the backend catalog). */
+export const TOOL_LABELS: Record<string, string> = {
+  web: "Web", none: "", gmail: "Gmail", outlook: "Outlook", googlecalendar: "Google Calendar", calendly: "Calendly",
+  linkedin: "LinkedIn", twitter: "X", instagram: "Instagram", facebook: "Facebook", reddit: "Reddit", youtube: "YouTube",
+  hubspot: "HubSpot", salesforce: "Salesforce", pipedrive: "Pipedrive", apollo: "Apollo", slack: "Slack", notion: "Notion",
+  googlesheets: "Google Sheets", googledocs: "Google Docs", mailchimp: "Mailchimp", shopify: "Shopify", stripe: "Stripe",
+  googleads: "Google Ads", metaads: "Meta Ads", producthunt: "Product Hunt", wordpress: "WordPress", webflow: "Webflow",
+};
+
 export type CompanyProfile = {
   summary: string; offering: string; customers: string; business_model: string; stage: string; funding: string;
   team: string; traction: string; current_focus: string[]; challenges: string[];
   sources?: { url: string; title: string }[]; researched_at?: string;
 };
 export type SetupStep = { key: string; label: string; status: "pending" | "running" | "done" | "failed" | "skipped"; detail: string };
-export type PlannedGoal = { name: string; goal_description: string; done_when: string; primary_metric: string; target_value: number | null; budget_usd: number; why: string; category: string };
+export type PlannedGoal = {
+  name: string; goal_description: string; done_when: string; primary_metric: string; target_value: number | null; budget_usd: number;
+  why: string; category: string; steps?: PlanStep[]; budget_basis?: BudgetBasis;
+};
 export type SetupInfo = {
   org: { id: string; name: string; website: string; description: string; profile: CompanyProfile | null };
   setup: null | {
