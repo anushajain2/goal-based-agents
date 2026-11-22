@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Flag, Inbox, Pause, Play, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Flag, Hand, Inbox, Pause, Play, RefreshCw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
@@ -9,10 +9,11 @@ import { ApprovalCard } from "@/components/ApprovalCard";
 import { GoalStatus, progressOf, ProgressBar } from "@/components/goal";
 import { ListEditor, Mode, PolicyMatrix } from "@/components/Guardrails";
 import { MetricChart } from "@/components/MetricChart";
+import { AgentAvatar } from "@/components/team";
 import { Badge, Button, Card, CardHeader, Empty, ErrorNote, Field, Input, Tabs, Textarea } from "@/components/ui";
 import { CATEGORY_ICON } from "@/components/UseCaseLibrary";
 import { ViewToggle, WorkLog } from "@/components/WorkLog";
-import { ActionType, ActivityItem, api, Campaign, Exclusion, Grant, num, Session, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
+import { ActionType, ActivityItem, api, Campaign, Exclusion, Grant, Level, num, Person, Session, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
 import { CATEGORIES } from "@/lib/useCases";
 
 type Tab = "work" | "results" | "guardrails" | "settings";
@@ -35,6 +36,7 @@ function GoalPage() {
   const { data: activity } = useApi<ActivityItem[]>(`/api/campaigns/${id}/activity?limit=500`, { campaignId: id });
   const { data: sessions } = useApi<Session[]>(`/api/campaigns/${id}/sessions`, { campaignId: id });
   const { data: requests, reload: reloadRequests } = useApi<UserRequest[]>(`/api/requests?status=pending&campaign_id=${id}`, { campaignId: id });
+  const { data: agentInfo } = useApi<{ approvers: Person[] }>(c?.agent ? `/api/agents/${c.agent.id}` : null, { live: false });
   const [busy, setBusy] = useState(false);
 
   async function lifecycle(action: "launch" | "pause" | "resume" | "run-now") {
@@ -75,6 +77,19 @@ function GoalPage() {
             {c.client_name && <Badge tone="violet">for {c.client_name}</Badge>}
           </div>
           <h1 className="text-2xl font-bold leading-tight">{c.name}</h1>
+          {c.agent && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+              <Link href={`/team/agents/${c.agent.id}`} className="inline-flex items-center gap-1.5 font-semibold hover:underline">
+                <AgentAvatar name={c.agent.name} size={22} /> {c.agent.name}
+              </Link>
+              {c.department && <span className="text-muted">{c.department.name}</span>}
+              {agentInfo && (
+                <span className="inline-flex items-center gap-1 text-muted">
+                  <Hand size={13} /> Approvals go to {agentInfo.approvers.map((p) => p.name || p.email).join(", ") || "admins"}
+                </span>
+              )}
+            </div>
+          )}
           {c.goal_description !== c.name && <p className="mt-1 text-[15px] text-gray-700">{c.goal_description}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
             <GoalStatus c={c} />
@@ -85,10 +100,11 @@ function GoalPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {c.status === "draft" && (
+          {c.can_manage === false && <span className="text-xs text-muted">View only: managed by the {c.department?.name || "department"} team</span>}
+          {c.can_manage !== false && c.status === "draft" && (
             <Button variant="primary" disabled={busy} onClick={() => lifecycle("launch")}><Play size={15} /> Start working</Button>
           )}
-          {c.status === "active" && (
+          {c.can_manage !== false && c.status === "active" && (
             <>
               <Button disabled={busy || busyRun} onClick={() => lifecycle("run-now")} title="Start a work session now instead of waiting for the next check-in">
                 <RefreshCw size={15} /> Work on it now
@@ -96,13 +112,13 @@ function GoalPage() {
               <Button disabled={busy} onClick={() => lifecycle("pause")}><Pause size={15} /> Pause</Button>
             </>
           )}
-          {c.status === "paused" && (
+          {c.can_manage !== false && c.status === "paused" && (
             <Button variant="primary" disabled={busy} onClick={() => lifecycle("resume")}><Play size={15} /> Resume</Button>
           )}
         </div>
       </div>
 
-      {c.status === "out_of_budget" && <ErrorNote>The budget is used up, so Autopilot has stopped working on this goal. Raise the budget in Settings to continue.</ErrorNote>}
+      {c.status === "out_of_budget" && <ErrorNote>The budget is used up, so {c.agent?.name || "Autopilot"} has stopped working on this goal. Raise the budget in Settings to continue.</ErrorNote>}
 
       {/* Scorecard */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -135,7 +151,7 @@ function GoalPage() {
             { key: "work", label: <>Work log {requests && requests.length > 0 && <Badge tone="amber">{requests.length} needs you</Badge>}</> },
             { key: "results", label: "Results" },
             { key: "guardrails", label: "Guardrails" },
-            { key: "settings", label: "Settings" },
+            ...(c.can_manage !== false ? [{ key: "settings" as Tab, label: "Settings" }] : []),
           ]}
         />
 
@@ -159,7 +175,7 @@ function GoalPage() {
                 <h3 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-muted">Needs you</h3>
                 {requests && requests.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-xs text-muted">
-                    <Inbox size={18} className="mx-auto mb-1 text-gray-300" />Nothing waiting. Autopilot asks here before anything you haven&apos;t pre-approved.
+                    <Inbox size={18} className="mx-auto mb-1 text-gray-300" />Nothing waiting. It asks the {c.department?.name || "team"} team here before anything that isn&apos;t pre-approved.
                   </div>
                 ) : (
                   <div className="space-y-3">{(requests || []).map((r) => <ApprovalCard key={r.id} req={r} onDone={() => { reloadRequests(); reload(); }} />)}</div>
@@ -180,7 +196,7 @@ function GoalPage() {
         )}
 
         {tab === "results" && <ResultsTab c={c} sessions={sessions || []} />}
-        {tab === "guardrails" && <GuardrailsTab campaignId={id} />}
+        {tab === "guardrails" && <GuardrailsTab campaignId={id} canEdit={c.can_manage !== false} department={c.department?.name} />}
         {tab === "settings" && <SettingsTab c={c} onSaved={reload} onDeleted={() => router.push("/goals")} />}
       </Card>
     </div>
@@ -248,7 +264,8 @@ function ResultsTab({ c, sessions }: { c: Campaign; sessions: Session[] }) {
   );
 }
 
-function GuardrailsTab({ campaignId }: { campaignId: string }) {
+function GuardrailsTab({ campaignId, canEdit, department }: { campaignId: string; canEdit: boolean; department?: string }) {
+  const levelName = (l: Level) => (l === "department" ? `${department || "department"}-wide` : l === "org" ? "whole organization" : "this goal");
   const { data: meta } = useApi<{ action_types: ActionType[] }>("/api/campaigns/meta", { live: false });
   const { data: exclusions, reload: reloadEx } = useApi<Exclusion[]>(`/api/exclusions?campaign_id=${campaignId}`, { campaignId });
   const { data: grants, reload: reloadGrants } = useApi<Grant[]>(`/api/grants?campaign_id=${campaignId}`, { campaignId });
@@ -262,15 +279,17 @@ function GuardrailsTab({ campaignId }: { campaignId: string }) {
     for (const g of grants || []) {
       if (g.scope) continue; // scoped grants are listed separately
       modes[g.action_type] = "auto";
-      if (!g.campaign_id) locked[g.action_type] = "Don't ask (all goals)";
+      if (g.level !== "goal") locked[g.action_type] = `Don't ask (${levelName(g.level)})`;
     }
     for (const e of exclusions || []) {
       if (e.kind !== "action_type") continue;
       modes[e.value] = "never";
-      if (!e.campaign_id) locked[e.value] = "Never (all goals)";
+      if (e.level !== "goal") locked[e.value] = `Never (${levelName(e.level)})`;
     }
+    if (!canEdit) for (const t of types) locked[t.key] ??= "View only";
     return { modes, locked };
-  }, [types, grants, exclusions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [types, grants, exclusions, canEdit, department]);
 
   async function setMode(actionType: string, mode: Mode) {
     setError(null);
@@ -299,7 +318,7 @@ function GuardrailsTab({ campaignId }: { campaignId: string }) {
     }
   }
 
-  const listOf = (kind: string) => (exclusions || []).filter((e) => e.kind === kind).map((e) => ({ id: e.id, value: e.value, locked: !e.campaign_id }));
+  const listOf = (kind: string) => (exclusions || []).filter((e) => e.kind === kind).map((e) => ({ id: e.id, value: e.level === "goal" ? e.value : `${e.value} (${levelName(e.level)})`, locked: !canEdit || e.level !== "goal" }));
   const add = (kind: string) => async (value: string) => {
     await api("/api/exclusions", { method: "POST", json: { campaign_id: campaignId, kind, value } });
     reloadEx();
@@ -312,7 +331,10 @@ function GuardrailsTab({ campaignId }: { campaignId: string }) {
 
   return (
     <div className="space-y-6 p-4">
-      <p className="text-sm text-muted">Choose what Autopilot may never do, must ask you about first, or can just do. Changes apply immediately, even mid-session.</p>
+      <p className="text-sm text-muted">
+        Choose what this AI employee may never do, must ask the {department || "department"} team about first, or can just do. Changes apply
+        immediately, even mid-session. Department-wide and organization-wide rules are managed in Settings → Permissions.
+      </p>
       {error && <ErrorNote>{error}</ErrorNote>}
       <PolicyMatrix types={types} modes={modes} locked={locked} onChange={setMode} />
       {scoped.length > 0 && (
@@ -324,11 +346,13 @@ function GuardrailsTab({ campaignId }: { campaignId: string }) {
                 <span className="flex-1">
                   {g.action_label} on <b>{g.scope}</b>
                   {g.spend_limit_usd ? ` (up to ${usd(g.spend_limit_usd)})` : ""}
-                  {!g.campaign_id && <span className="text-xs text-muted"> · all goals</span>}
+                  {g.level !== "goal" && <span className="text-xs text-muted"> · {levelName(g.level)}</span>}
                 </span>
-                <Button size="sm" variant="danger" onClick={async () => { await api(`/api/grants/${g.id}`, { method: "DELETE" }); reloadGrants(); }}>
-                  Revoke
-                </Button>
+                {canEdit && g.level === "goal" && (
+                  <Button size="sm" variant="danger" onClick={async () => { await api(`/api/grants/${g.id}`, { method: "DELETE" }); reloadGrants(); }}>
+                    Revoke
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
@@ -337,16 +361,16 @@ function GuardrailsTab({ campaignId }: { campaignId: string }) {
       <div className="grid gap-5 md:grid-cols-2">
         <div>
           <div className="mb-1.5 text-[13px] font-semibold">Never use these apps</div>
-          <ListEditor items={listOf("app")} placeholder="e.g. linkedin" onAdd={add("app")} onRemove={remove} empty="No apps blocked." />
+          <ListEditor items={listOf("app")} placeholder="e.g. linkedin" onAdd={add("app")} onRemove={remove} empty="No apps blocked." readOnly={!canEdit} lockedLabel="set elsewhere" />
         </div>
         <div>
           <div className="mb-1.5 text-[13px] font-semibold">Never use these websites</div>
-          <ListEditor items={listOf("site")} placeholder="e.g. reddit.com" onAdd={add("site")} onRemove={remove} empty="No sites blocked." />
+          <ListEditor items={listOf("site")} placeholder="e.g. reddit.com" onAdd={add("site")} onRemove={remove} empty="No sites blocked." readOnly={!canEdit} lockedLabel="set elsewhere" />
         </div>
       </div>
       <div>
         <div className="mb-1.5 text-[13px] font-semibold">Rules in your own words</div>
-        <ListEditor items={listOf("text")} placeholder={`e.g. "Never mention competitors"`} onAdd={add("text")} onRemove={remove} empty="No custom rules." />
+        <ListEditor items={listOf("text")} placeholder={`e.g. "Never mention competitors"`} onAdd={add("text")} onRemove={remove} empty="No custom rules." readOnly={!canEdit} lockedLabel="set elsewhere" />
         <p className="mt-1.5 text-xs text-muted">Checked by a separate AI reviewer before every outgoing action. This is strong, but not a guarantee.</p>
       </div>
     </div>

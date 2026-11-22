@@ -92,8 +92,12 @@ export function ListEditor({
   onAdd,
   onRemove,
   empty,
+  readOnly,
+  lockedLabel = "locked",
 }: {
   items: { id: string; value: string; locked?: boolean }[];
+  readOnly?: boolean;
+  lockedLabel?: string;
   placeholder: string;
   onAdd: (v: string) => void;
   onRemove: (id: string) => void;
@@ -108,7 +112,7 @@ export function ListEditor({
           <li key={i.id} className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5 text-sm">
             <span className="flex-1">{i.value}</span>
             {i.locked ? (
-              <span className="text-xs text-muted">all goals</span>
+              <span className="text-xs text-muted">{lockedLabel}</span>
             ) : (
               <button type="button" onClick={() => onRemove(i.id)} className="text-muted hover:text-red-600" aria-label="Remove">
                 <Trash2 size={14} />
@@ -117,7 +121,7 @@ export function ListEditor({
           </li>
         ))}
       </ul>
-      <form
+      {!readOnly && <form
         className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
@@ -131,7 +135,7 @@ export function ListEditor({
         <Button type="submit">
           <Plus size={15} /> Add
         </Button>
-      </form>
+      </form>}
     </div>
   );
 }

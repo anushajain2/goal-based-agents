@@ -11,7 +11,8 @@ import { EmployeeAvatar } from "@/components/Shell";
 import { Card, CardHeader, ErrorNote } from "@/components/ui";
 import { CATEGORY_ICON, UseCaseCard } from "@/components/UseCaseLibrary";
 import { ViewToggle, WorkLog } from "@/components/WorkLog";
-import { ActivityItem, Campaign, num, Overview, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
+import { AgentAvatar } from "@/components/team";
+import { ActivityItem, Campaign, num, OrgInfo, Overview, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
 import { CATEGORIES, FEATURED, findUseCase } from "@/lib/useCases";
 
 export default function HomePage() {
@@ -20,6 +21,7 @@ export default function HomePage() {
   const { data: goals } = useApi<Campaign[]>("/api/campaigns");
   const { data: requests, reload: reloadRequests } = useApi<UserRequest[]>("/api/requests?status=pending");
   const { data: log } = useApi<ActivityItem[]>("/api/activity?limit=60");
+  const { data: org } = useApi<OrgInfo>("/api/org");
   const [view, setView] = useState<"highlights" | "everything">("highlights");
 
   if (error) return <ErrorNote>Can&apos;t reach the backend ({error}). Is <code>./scripts/dev.sh</code> running?</ErrorNote>;
@@ -27,7 +29,8 @@ export default function HomePage() {
 
   const pick = (id: string) => router.push(`/goals/new?uc=${id}`);
 
-  if (goals.length === 0) return <FirstRun onPick={pick} />;
+  if (goals.length === 0) return <FirstRun onPick={pick} org={org} />;
+  const team = (org?.departments || []).flatMap((d) => d.agents.map((a) => ({ ...a, dept: d.name })));
 
   const state = ov.working_on.length ? "working" : ov.waiting_on_you ? "waiting" : "idle";
   return (
@@ -36,7 +39,7 @@ export default function HomePage() {
       <Card className="flex flex-wrap items-center gap-4 p-5">
         <EmployeeAvatar state={state} size={52} />
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-semibold text-muted">Autopilot · your AI employee</div>
+          <div className="text-[13px] font-semibold text-muted">{org ? `${org.org.name} · ${team.length} AI employees` : "Your AI team"}</div>
           <div className="mt-0.5 text-xl font-bold leading-snug">
             {state === "working" ? <>Working on {ov.working_on.join(", ")}</>
               : state === "waiting" ? <>Waiting on you for {ov.waiting_on_you} {ov.waiting_on_you === 1 ? "decision" : "decisions"}</>
@@ -51,8 +54,19 @@ export default function HomePage() {
           )}
         </div>
         <Link href="/goals/new" className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600">
-          <Plus size={16} /> Give it a new goal
+          <Plus size={16} /> New goal
         </Link>
+        {team.length > 0 && (
+          <div className="flex w-full flex-wrap gap-2 border-t border-line pt-3">
+            {team.map((a) => (
+              <Link key={a.id} href={`/team/agents/${a.id}`} className="inline-flex items-center gap-2 rounded-full border border-line py-1 pl-1 pr-3 text-xs hover:bg-gray-50">
+                <AgentAvatar name={a.name} size={24} state={a.working ? "working" : a.needs_you ? "waiting" : "idle"} />
+                <span className="font-semibold">{a.name}</span>
+                <span className="text-muted">{a.working ? "working" : a.needs_you ? "needs a yes" : a.active_goals ? `${a.active_goals} active` : "idle"}</span>
+              </Link>
+            ))}
+          </div>
+        )}
       </Card>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -78,7 +92,7 @@ export default function HomePage() {
         <Card>
           <CardHeader
             title="Work log"
-            subtitle="Everything Autopilot has done recently, across all goals"
+            subtitle="Everything your AI employees have done recently, across all goals"
             action={<ViewToggle value={view} onChange={setView} />}
           />
           <div className="p-3">
@@ -114,7 +128,7 @@ export default function HomePage() {
           </Card>
 
           <Card>
-            <CardHeader title="More it can do" subtitle="Ideas founders and agencies hire Autopilot for" action={<Link href="/capabilities" className="text-sm font-semibold text-brand-600">Browse →</Link>} />
+            <CardHeader title="More it can do" subtitle="Ideas founders and agencies give their AI employees" action={<Link href="/capabilities" className="text-sm font-semibold text-brand-600">Browse →</Link>} />
             <ul className="divide-y divide-line">
               {FEATURED.slice(0, 4).map((id) => {
                 const uc = findUseCase(id)!;
@@ -145,18 +159,19 @@ function Stat({ label, value, sub, highlight }: { label: string; value: string; 
   );
 }
 
-function FirstRun({ onPick }: { onPick: (id: string) => void }) {
+function FirstRun({ onPick, org }: { onPick: (id: string) => void; org: OrgInfo | null }) {
+  const count = (org?.departments || []).reduce((n, d) => n + d.agents.length, 0);
   return (
     <div className="space-y-8">
       <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 p-8 text-white">
         <EmployeeAvatar size={56} />
-        <h1 className="mt-4 text-3xl font-bold tracking-tight">Meet Autopilot, your AI employee</h1>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight">{org ? `${org.org.name} has ${count} AI employees ready to work` : "Meet your AI team"}</h1>
         <p className="mt-2 max-w-2xl text-white/85">
-          Give it a goal with a clear finish line and a budget, like &quot;book 20 qualified meetings&quot; or &quot;get 500 waitlist signups&quot;. It plans,
-          does the work, asks before anything important, and logs every step so you always know what it did and what it cost.
+          Give one a goal with a clear finish line and a budget, like &quot;book 20 qualified meetings&quot; or &quot;get 500 waitlist signups&quot;. It plans,
+          does the work, asks the people in its department before anything important, and logs every step so you always know what it did and what it cost.
         </p>
         <Link href="/goals/new" className="mt-5 inline-flex h-10 items-center gap-1.5 rounded-lg bg-white px-4 text-sm font-semibold text-brand-700 hover:bg-white/90">
-          <Plus size={16} /> Give it its first goal
+          <Plus size={16} /> Give the first goal
         </Link>
       </div>
       <section>

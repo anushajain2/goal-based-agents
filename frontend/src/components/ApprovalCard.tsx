@@ -1,10 +1,10 @@
 "use client";
 
-import { Check, ExternalLink, KeyRound, Link2, ShieldQuestion, X } from "lucide-react";
+import { Check, ExternalLink, KeyRound, Link2, ShieldQuestion, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { api, API_URL, timeAgo, usd, UserRequest } from "@/lib/api";
+import { api, API_URL, OrgInfo, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
 import { Badge, Button, Card, ErrorNote, Input, Select, Textarea } from "./ui";
 
 export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; onDone: () => void; showCampaign?: boolean }) {
@@ -14,7 +14,10 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
     Object.fromEntries(editable.map((k) => [k, String(fields[k] ?? "")])),
   );
   const [remember, setRemember] = useState(false);
-  const [scopeAll, setScopeAll] = useState(false);
+  const [rememberScope, setRememberScope] = useState<"goal" | "department" | "org">("goal");
+  const { data: org } = useApi<OrgInfo>("/api/org", { live: false, pollMs: 300000 });
+  const canDecide = req.can_decide !== false;
+  const team = req.department_name ? `${req.department_name} team` : "admins";
   const [anyChannel, setAnyChannel] = useState(false);
   const [limit, setLimit] = useState(req.est_spend_usd ? String(req.est_spend_usd) : "");
   const [rejecting, setRejecting] = useState(false);
@@ -34,7 +37,7 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
           note: note || null,
           edited_fields: decision === "approve" && Object.keys(changed).length ? changed : null,
           remember: rememberThis,
-          remember_scope: scopeAll ? "all" : "campaign",
+          remember_scope: rememberScope,
           remember_any_channel: anyChannel,
           spend_limit_usd: req.action_type === "spend_money" && limit ? Number(limit) : null,
         },
@@ -74,6 +77,7 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
         </Badge>
       )}
       {req.scope && <Badge>{req.scope}</Badge>}
+      {req.agent_name && <Badge tone="violet">{req.agent_name}</Badge>}
       {showCampaign && req.campaign_name && (
         <Link href={`/goals/${req.campaign_id}`} className="font-semibold text-brand-600 hover:underline">
           {req.campaign_name}
@@ -87,7 +91,7 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
     <Card className="p-4">
       {header}
       <h4 className="mt-2 text-[15px] font-semibold">
-        {req.kind === "action" ? `I'm going to: ${req.title}. Can I go ahead?` : req.title}
+        {req.kind === "action" ? `${req.agent_name || "Autopilot"} wants to: ${req.title}. Can it go ahead?` : req.title}
       </h4>
       {req.rationale && <p className="mt-1 text-sm text-muted">{req.rationale}</p>}
 
@@ -99,7 +103,7 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
                 <span>{k === "content" ? "Exact content" : k}</span>
                 <span>You can edit this before approving</span>
               </div>
-              <Textarea value={edits[k]} onChange={(e) => setEdits({ ...edits, [k]: e.target.value })} rows={Math.min(8, Math.max(3, edits[k].length / 70))} />
+              <Textarea disabled={!canDecide} value={edits[k]} onChange={(e) => setEdits({ ...edits, [k]: e.target.value })} rows={Math.min(8, Math.max(3, edits[k].length / 70))} />
             </div>
           ))}
           {Object.keys(fields).filter((k) => !editable.includes(k)).length > 0 && (
@@ -155,7 +159,19 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
 
       {error && <div className="mt-3"><ErrorNote>{error}</ErrorNote></div>}
 
-      {rejecting ? (
+      <p className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+        <Users size={13} />
+        <span>
+          Routed to the <b className="text-ink">{team}</b>
+          {req.approvers?.length ? `: ${req.approvers.join(", ")}` : null}
+        </span>
+      </p>
+
+      {!canDecide ? (
+        <div className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-sm text-muted">
+          Waiting for the {team} to decide. You can see it, but only they (or an admin) can approve it.
+        </div>
+      ) : rejecting ? (
         <div className="mt-4 space-y-2">
           <Input autoFocus placeholder="Optional: tell the agent why (it will adjust)" value={note} onChange={(e) => setNote(e.target.value)} />
           <div className="flex gap-2">
@@ -185,13 +201,14 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
         </div>
       )}
 
-      {remember && req.kind === "action" && !rejecting && (
+      {remember && canDecide && req.kind === "action" && !rejecting && (
         <div className="mt-3 grid gap-2 rounded-md border border-line bg-gray-50 p-3 text-sm sm:grid-cols-3">
           <div>
             <div className="mb-1 text-xs font-semibold text-muted">Applies to</div>
-            <Select value={scopeAll ? "all" : "campaign"} onChange={(e) => setScopeAll(e.target.value === "all")}>
-              <option value="campaign">This goal</option>
-              <option value="all">All goals</option>
+            <Select value={rememberScope} onChange={(e) => setRememberScope(e.target.value as "goal" | "department" | "org")}>
+              <option value="goal">This goal</option>
+              {req.department_name && <option value="department">Every goal in {req.department_name}</option>}
+              {org?.me.is_admin && <option value="org">The whole organization</option>}
             </Select>
           </div>
           {req.scope && (
@@ -210,7 +227,8 @@ export function ApprovalCard({ req, onDone, showCampaign }: { req: UserRequest; 
             </div>
           )}
           <p className="text-xs text-muted sm:col-span-3">
-            &quot;{req.action_label}&quot; will run without asking from now on. You can revoke this anytime in Settings → Permissions.
+            {req.agent_name || "Autopilot"} won&apos;t ask before &quot;{req.action_label}&quot;
+            {rememberScope === "department" ? ` for any ${req.department_name} goal` : rememberScope === "org" ? " anywhere in the organization" : " on this goal"}. Revoke it anytime in Settings → Permissions.
           </p>
         </div>
       )}

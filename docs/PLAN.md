@@ -45,4 +45,4 @@
 - First live run with real keys, then tune prompts and effort levels against real cycles.
 - An extension mode, so the agent can use the user's everyday Chrome as well as the dedicated profile.
 - Per-action outcome tracking (which posts drove followers or sales) to feed the strategy.
-- Multi-user accounts and a hosted deployment.
+- A hosted deployment (organizations, departments, roles and routed approvals are in place).

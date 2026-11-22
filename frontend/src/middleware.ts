@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Pages that need an account. The backend checks the session on every API call; this
 // only saves a round trip by sending signed-out visitors straight to the login page.
-const APP_PATHS = ["/home", "/goals", "/work", "/approvals", "/capabilities", "/settings"];
+const APP_PATHS = ["/home", "/goals", "/work", "/approvals", "/capabilities", "/settings", "/team", "/welcome"];
 
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
@@ -15,4 +15,6 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/home/:path*", "/goals/:path*", "/work/:path*", "/approvals/:path*", "/capabilities/:path*", "/settings/:path*"] };
+export const config = {
+  matcher: ["/home/:path*", "/goals/:path*", "/work/:path*", "/approvals/:path*", "/capabilities/:path*", "/settings/:path*", "/team/:path*", "/welcome"],
+};

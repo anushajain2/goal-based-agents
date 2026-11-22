@@ -28,6 +28,9 @@ export type Campaign = {
   use_case: string;
   client_name: string;
   actions_taken: number;
+  agent: { id: string; name: string; title: string } | null;
+  department: { id: string; name: string } | null;
+  can_manage: boolean | null;
   last_activity: { title: string; kind: string; at: string } | null;
   status: "draft" | "active" | "paused" | "out_of_budget" | "completed";
   channels: string[];
@@ -88,6 +91,12 @@ export type UserRequest = {
   est_spend_usd: number | null;
   decision_note: string | null;
   created_at: string;
+  department_id: string | null;
+  department_name: string | null;
+  agent_name: string | null;
+  approvers: string[];
+  can_decide: boolean;
+  decided_by_name: string | null;
 };
 
 export type Session = {
@@ -116,7 +125,8 @@ export type Overview = {
   steps_this_week: number;
 };
 
-export type Exclusion = { id: string; campaign_id: string | null; kind: string; value: string; label: string | null };
+export type Level = "goal" | "department" | "org";
+export type Exclusion = { id: string; campaign_id: string | null; department_id: string | null; level: Level; kind: string; value: string; label: string | null };
 export type Grant = {
   id: string;
   campaign_id: string | null;
@@ -126,7 +136,29 @@ export type Grant = {
   scope: string | null;
   spend_limit_usd: number | null;
   created_at: string;
+  department_id?: string | null;
+  department_name?: string | null;
+  level: Level;
 };
+
+export type Person = { id: string; name: string; email: string };
+export type AgentSummary = { id: string; name: string; title: string; goals: number; active_goals: number; spent: number; working: boolean; needs_you: number };
+export type DepartmentInfo = { id: string; name: string; kind: string; people: Person[]; agents: AgentSummary[] };
+export type OrgInfo = {
+  org: { id: string; name: string };
+  me: Person & { role: "owner" | "admin" | "member"; department_ids: string[]; is_admin: boolean };
+  departments: DepartmentInfo[];
+  members: (Person & { role: "owner" | "admin" | "member"; department_ids: string[] })[];
+  invitations: { id: string; email: string; role: string; department_ids: string[]; created_at: string }[];
+};
+
+/** Library category key -> the kind of department that usually handles it. */
+export const CATEGORY_DEPARTMENT: Record<string, string> = {
+  sales: "sales", marketing: "marketing", research: "research", product: "product", fundraising: "fundraising",
+  hiring: "hiring", partnerships: "partnerships", success: "success", finance: "finance", operations: "operations",
+  pr: "pr", intel: "research", agency: "sales", founder: "operations", legal: "operations",
+};
+
 export type ActionType = { key: string; label: string; description: string; default: "auto" | "ask" };
 
 export class ApiError extends Error {
@@ -159,6 +191,9 @@ export async function api<T = unknown>(path: string, init?: RequestInit & { json
       msg = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail ?? body);
     } catch {}
     if (res.status === 401 && !path.startsWith("/api/auth/")) toLogin();
+    if (res.status === 409 && msg === "no_organization" && typeof window !== "undefined" && !window.location.pathname.startsWith("/welcome")) {
+      window.location.href = "/welcome";
+    }
     throw new ApiError(msg, res.status);
   }
   return res.json() as Promise<T>;

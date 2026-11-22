@@ -1,17 +1,18 @@
 "use client";
 
-import { Bot, Hand, Home, ListTree, LogOut, Settings, Sparkles, Target } from "lucide-react";
+import { Bot, Hand, Home, ListTree, LogOut, Settings, Sparkles, Target, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 
-import { api, Overview, usd, useApi, User } from "@/lib/api";
+import { api, OrgInfo, Overview, usd, useApi } from "@/lib/api";
 import { cx, Dot } from "./ui";
 
 type Status = { anthropic_configured: boolean; composio_enabled: boolean; chrome_path: string | null; agent_chrome_running: boolean };
 
 const NAV = [
   { href: "/home", label: "Home", icon: Home, match: (p: string) => p === "/home" },
+  { href: "/team", label: "Team", icon: Users, match: (p: string) => p.startsWith("/team") },
   { href: "/goals", label: "Goals", icon: Target, match: (p: string) => p.startsWith("/goals") },
   { href: "/work", label: "Work log", icon: ListTree, match: (p: string) => p.startsWith("/work") },
   { href: "/approvals", label: "Needs you", icon: Hand, match: (p: string) => p.startsWith("/approvals") },
@@ -39,7 +40,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const { data: ov } = useApi<Overview>("/api/overview");
   const { data: status } = useApi<Status>("/api/status", { pollMs: 30000, live: false });
-  const { data: me } = useApi<User>("/api/auth/me", { pollMs: 300000, live: false });
+  const { data: org } = useApi<OrgInfo>("/api/org", { pollMs: 120000 });
+  const me = org?.me;
 
   async function logout() {
     await api("/api/auth/logout", { method: "POST" }).catch(() => null);
@@ -54,9 +56,9 @@ export function Shell({ children }: { children: ReactNode }) {
         <Link href="/home" className="flex items-center gap-3 px-4 pb-3 pt-4">
           <EmployeeAvatar state={state} />
           <span className="leading-tight">
-            <span className="block text-[16px] font-bold tracking-tight">Autopilot</span>
+            <span className="block max-w-[150px] truncate text-[16px] font-bold tracking-tight">{org?.org.name || "Autopilot"}</span>
             <span className="block text-xs text-muted">
-              {state === "working" ? "Working now" : state === "waiting" ? "Waiting on you" : "Your AI employee"}
+              {state === "working" ? "AI employees working" : state === "waiting" ? "Waiting on you" : "Powered by Autopilot"}
             </span>
           </span>
         </Link>
@@ -96,7 +98,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </span>
             <span className="min-w-0 flex-1 leading-tight">
               {me.name && <span className="block truncate text-[13px] font-semibold">{me.name}</span>}
-              <span className="block truncate text-xs text-muted">{me.email}</span>
+              <span className="block truncate text-xs text-muted">{me.email} · {me.role}</span>
             </span>
             <button onClick={logout} title="Log out" aria-label="Log out" className="rounded-md p-1.5 text-muted hover:bg-gray-100 hover:text-ink">
               <LogOut size={16} />
@@ -109,7 +111,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-20 border-b border-line bg-white md:hidden">
           <div className="flex items-center gap-2 px-4 py-2.5">
             <EmployeeAvatar state={state} size={28} />
-            <span className="font-bold">Autopilot</span>
+            <span className="truncate font-bold">{org?.org.name || "Autopilot"}</span>
             <span className="tabular ml-auto text-xs text-muted">{usd(ov?.spend_this_month.total ?? 0)} this month</span>
             <button onClick={logout} aria-label="Log out" className="rounded-md p-1 text-muted hover:text-ink"><LogOut size={16} /></button>
           </div>

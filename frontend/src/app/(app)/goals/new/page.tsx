@@ -6,9 +6,10 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { ListEditor, Mode, PolicyMatrix } from "@/components/Guardrails";
 import { EmployeeAvatar } from "@/components/Shell";
+import { AgentAvatar } from "@/components/team";
 import { Button, Card, cx, ErrorNote, Field, Input, Select, Textarea } from "@/components/ui";
 import { CATEGORY_ICON, FitBadge, UseCaseLibrary } from "@/components/UseCaseLibrary";
-import { ActionType, api, Campaign, useApi } from "@/lib/api";
+import { ActionType, api, Campaign, CATEGORY_DEPARTMENT, OrgInfo, useApi } from "@/lib/api";
 import { findUseCase, metricFrom, targetFrom, UseCase } from "@/lib/useCases";
 
 const CHANNELS = ["Email", "LinkedIn", "X / Twitter", "Instagram", "Reddit", "Product Hunt", "Hacker News", "Communities", "Newsletters", "Directories", "My website", "Calendar"];
@@ -29,6 +30,8 @@ function NewGoal() {
   const params = useSearchParams();
   const { data: meta } = useApi<{ action_types: ActionType[] }>("/api/campaigns/meta", { live: false });
   const { data: builtIn } = useApi<{ rules: string[] }>("/api/guardrails/built-in", { live: false });
+  const { data: org } = useApi<OrgInfo>("/api/org", { live: false });
+  const [agentId, setAgentId] = useState(params.get("agent") || "");
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -75,6 +78,24 @@ function NewGoal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // AI employees this person may give goals to: their own departments' (admins: everyone's).
+  const assignable = useMemo(
+    () =>
+      (org?.departments || [])
+        .filter((d) => org?.me.is_admin || org?.me.department_ids.includes(d.id))
+        .flatMap((d) => d.agents.map((a) => ({ ...a, department: d }))),
+    [org],
+  );
+  const assignee = assignable.find((a) => a.id === agentId);
+
+  // Suggest the AI employee whose department usually handles this kind of goal.
+  useEffect(() => {
+    if (!assignable.length || assignable.some((a) => a.id === agentId)) return;
+    const kind = uc ? CATEGORY_DEPARTMENT[uc.categoryKey] : undefined;
+    const match = assignable.find((a) => a.department.kind === kind) || assignable[0];
+    setAgentId(match.id);
+  }, [assignable, uc, agentId]);
+
   const types = meta?.action_types || [];
   const effective = useMemo(
     () => Object.fromEntries(types.map((t) => [t.key, modes[t.key] ?? (t.default === "auto" ? "auto" : "ask")])) as Record<string, Mode>,
@@ -83,6 +104,7 @@ function NewGoal() {
 
   function valid(s: number): string | null {
     if (s === 1) {
+      if (!agentId) return org && !assignable.length ? "You're not in a department with an AI employee yet. Ask an admin to add you to one." : "Choose who works on it.";
       if (!description.trim()) return "Describe the goal.";
       if (!metric.trim()) return "Say what gets counted, e.g. \"meetings held\".";
     }
@@ -132,6 +154,7 @@ function NewGoal() {
         .filter((t) => t.default === "ask" && effective[t.key] === "auto")
         .map((t) => ({ action_type: t.key, spend_limit_usd: t.key === "spend_money" ? Number(spendLimit) : null })),
       launch,
+      agent_id: agentId || null,
     };
     try {
       const c = await api<Campaign>("/api/campaigns", { method: "POST", json: body });
@@ -152,7 +175,7 @@ function NewGoal() {
         <div className="mb-5 flex items-center gap-3">
           <EmployeeAvatar size={40} />
           <div>
-            <h1 className="text-2xl font-bold">What should Autopilot work on?</h1>
+            <h1 className="text-2xl font-bold">{assignee ? `What should ${assignee.name} work on?` : "What should your AI employee work on?"}</h1>
             <p className="text-sm text-muted">Pick a goal with a clear finish line, or describe your own. You can adjust everything on the next steps.</p>
           </div>
         </div>
@@ -194,6 +217,21 @@ function NewGoal() {
         <Card className="p-5">
           {step === 1 && (
             <div className="space-y-5">
+              <Field label="Who works on it" hint={assignee ? `Approvals go to the ${assignee.department.name} team${assignee.department.people.length ? `: ${assignee.department.people.map((p) => p.name || p.email).join(", ")}` : " (nobody's in it yet, so admins)"}.` : "Each AI employee belongs to a department. Its approvals go to the people in that department."}>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {assignable.map((a) => (
+                    <button key={a.id} type="button" onClick={() => setAgentId(a.id)}
+                      className={cx("flex items-center gap-3 rounded-lg border px-3 py-2 text-left", a.id === agentId ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500" : "border-line hover:border-gray-400")}>
+                      <AgentAvatar name={a.name} size={30} />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">{a.name}</span>
+                        <span className="block truncate text-xs text-muted">{a.department.name}{a.title ? ` · ${a.title}` : ""} · {a.active_goals} active</span>
+                      </span>
+                    </button>
+                  ))}
+                  {org && !assignable.length && <p className="text-sm text-amber-700">You&apos;re not in a department yet. Ask an admin to add you to one on the Team page.</p>}
+                </div>
+              </Field>
               <Field label="The goal" hint="Say it the way you'd brief a new hire: who, what, how many.">
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Book 15 interviews with heads of operations at logistics companies in the UK" />
               </Field>
@@ -318,6 +356,8 @@ function NewGoal() {
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Review</h2>
               <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <Item k="Who works on it" v={assignee ? `${assignee.name} · ${assignee.department.name}` : "—"} />
+                <Item k="Approvals go to" v={assignee ? (assignee.department.people.map((p) => p.name || p.email).join(", ") || "Admins (nobody in the team yet)") : "—"} />
                 <Item k="Goal" v={description || "—"} />
                 <Item k="Counts as done when" v={doneWhen || "—"} />
                 <Item k="Progress measured as" v={`${metric}${target ? ` (target ${target})` : ""}`} />
@@ -328,8 +368,8 @@ function NewGoal() {
                 <Item k="Without asking" v={types.filter((t) => t.default === "ask" && effective[t.key] === "auto").map((t) => t.label).join(", ") || "Nothing: it asks first"} />
               </dl>
               <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
-                When you start, Autopilot plans its first work session, then gets going. It asks you before anything that needs your OK, and every step
-                shows up in the work log.
+                When you start, {assignee?.name || "your AI employee"} plans its first work session, then gets going. It asks the{" "}
+                {assignee?.department.name || "department"} team before anything that needs an OK, and every step shows up in the work log.
               </p>
             </div>
           )}

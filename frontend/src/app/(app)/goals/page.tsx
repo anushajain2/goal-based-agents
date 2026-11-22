@@ -4,9 +4,10 @@ import { Plus, Target } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { AgentAvatar } from "@/components/team";
 import { GoalProgress, GoalStatus, goalActivity, ProgressBar } from "@/components/goal";
 import { Card, cx, Empty, ErrorNote, Select, Toggle } from "@/components/ui";
-import { api, Campaign, num, timeAgo, usd, useApi } from "@/lib/api";
+import { api, Campaign, num, OrgInfo, timeAgo, usd, useApi } from "@/lib/api";
 
 type Filter = "all" | "active" | "needs" | "paused";
 
@@ -15,10 +16,13 @@ export default function GoalsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [client, setClient] = useState("");
+  const [dept, setDept] = useState("");
+  const { data: org } = useApi<OrgInfo>("/api/org", { live: false });
 
   const clients = useMemo(() => [...new Set((data || []).map((c) => c.client_name).filter(Boolean))].sort(), [data]);
   const rows = (data || []).filter((c) => {
     if (client && c.client_name !== client) return false;
+    if (dept && c.department?.id !== dept) return false;
     if (filter === "active") return c.status === "active";
     if (filter === "paused") return c.status !== "active";
     if (filter === "needs") return goalActivity(c).label === "Needs you";
@@ -43,7 +47,7 @@ export default function GoalsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Goals</h1>
-          <p className="text-sm text-muted">Everything you&apos;ve hired Autopilot for, with progress, spend and what it did last.</p>
+          <p className="text-sm text-muted">What your AI employees are working toward, with progress, spend and what they did last.</p>
         </div>
         <Link href="/goals/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3.5 text-sm font-semibold text-white hover:bg-brand-600">
           <Plus size={16} /> New goal
@@ -61,6 +65,14 @@ export default function GoalsPage() {
               </button>
             ))}
           </div>
+          {(org?.departments.length || 0) > 1 && (
+            <div className="w-48">
+              <Select className="h-8 py-1 text-xs" value={dept} onChange={(e) => setDept(e.target.value)}>
+                <option value="">All departments</option>
+                {org!.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </Select>
+            </div>
+          )}
           {clients.length > 0 && (
             <div className="w-48">
               <Select className="h-8 py-1 text-xs" value={client} onChange={(e) => setClient(e.target.value)}>
@@ -76,15 +88,16 @@ export default function GoalsPage() {
 
         {data && data.length === 0 ? (
           <Empty icon={<Target size={36} />} title="No goals yet">
-            <Link href="/goals/new" className="font-semibold text-brand-600">Give Autopilot its first goal →</Link>
+            <Link href="/goals/new" className="font-semibold text-brand-600">Give an AI employee its first goal →</Link>
           </Empty>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] text-left text-[13px]">
+            <table className="w-full min-w-[1240px] text-left text-[13px]">
               <thead className="border-b border-line bg-gray-50/60 text-xs font-semibold text-muted">
                 <tr>
                   <th className="w-14 px-4 py-2.5">On</th>
                   <th className="px-2 py-2.5">Goal</th>
+                  <th className="px-2 py-2.5">AI employee</th>
                   <th className="px-2 py-2.5">Status</th>
                   <th className="w-44 px-2 py-2.5">Progress</th>
                   <th className="px-2 py-2.5 text-right">Cost per result</th>
@@ -100,7 +113,7 @@ export default function GoalsPage() {
                   return (
                     <tr key={c.id} className="border-b border-line/70 align-top last:border-0 hover:bg-brand-50/30">
                       <td className="px-4 py-3">
-                        <Toggle on={on} disabled={["completed", "out_of_budget"].includes(c.status) || busy === c.id} onChange={(v) => toggle(c, v)} label={`Turn ${c.name} ${on ? "off" : "on"}`} />
+                        <Toggle on={on} disabled={c.can_manage === false || ["completed", "out_of_budget"].includes(c.status) || busy === c.id} onChange={(v) => toggle(c, v)} label={`Turn ${c.name} ${on ? "off" : "on"}`} />
                       </td>
                       <td className="max-w-xs px-2 py-3">
                         <Link href={`/goals/${c.id}`} className="font-semibold text-ink hover:text-brand-600 hover:underline">{c.name}</Link>
@@ -108,6 +121,17 @@ export default function GoalsPage() {
                           {c.client_name && <span className="rounded bg-violet-50 px-1.5 font-medium text-violet-700">{c.client_name}</span>}
                           {c.category && <span>{c.category}</span>}
                         </div>
+                      </td>
+                      <td className="px-2 py-3">
+                        {c.agent ? (
+                          <Link href={`/team/agents/${c.agent.id}`} className="flex items-center gap-2 hover:underline">
+                            <AgentAvatar name={c.agent.name} size={24} />
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium">{c.agent.name}</span>
+                              {c.department && <span className="block truncate text-[11px] text-muted">{c.department.name}</span>}
+                            </span>
+                          </Link>
+                        ) : <span className="text-muted">—</span>}
                       </td>
                       <td className="px-2 py-3"><GoalStatus c={c} /></td>
                       <td className="px-2 py-3"><GoalProgress c={c} /></td>
