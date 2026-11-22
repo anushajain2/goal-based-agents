@@ -24,8 +24,12 @@ def client() -> httpx.AsyncClient:
 
 def goal(name: str, category: str = "Sales", **kw) -> dict:
     return {"name": name, "goal_description": f"{name}: details", "done_when": "Meeting held", "primary_metric": "meetings",
-            "target_value": 10, "category": category, "use_case": "Cold outbound", "budget_usd": 30, "cycle_hours": 5,
-            "channels": ["Email", "LinkedIn"], "why": "You just raised a seed round.", **kw}
+            "target_value": 10, "category": category, "use_case": "Cold outbound", "cycle_hours": 5,
+            "duration_days": 30, "paid_spend_usd": 0, "channels": ["Email", "LinkedIn"],
+            "steps": [{"text": "Find ops leaders", "action_type": "research", "tool": "web"},
+                      {"text": "Write a first email to each", "action_type": "create_draft", "tool": "gmail"},
+                      {"text": "Send each email", "action_type": "send_message", "tool": "gmail"}],
+            "why": "You just raised a seed round.", **kw}
 
 
 PLAN = {
@@ -113,6 +117,10 @@ async def test_setup_researches_and_builds_a_focused_team(with_key, fake_site):
         assert first["cycle_hours"] == 6  # snapped to a schedule people can pick
         assert first["agent"]["id"] == sales["agents"][0]["id"]
         full = (await c.get(f"/api/campaigns/{first['id']}")).json()
+        # The budget is worked out, not guessed: every 6h for 30 days = 120 sessions x $0.30 = $36 -> $40.
+        assert first["budget"]["total"] == 40
+        assert full["budget_basis"]["sessions"] == 120 and full["budget_basis"]["basis"] == "typical"
+        assert [st["action_type"] for st in full["playbook"]["steps"]] == ["research", "create_draft", "send_message"]
         assert "Routing software for logistics teams" in full["context"]
         assert "Seed" in full["context"]
 
@@ -239,9 +247,11 @@ def test_website_text_extraction_and_page_picking():
 def test_tidy_plan_limits():
     many = {"profile": {}, "departments": [
         {"kind": "sales", "name": f"Team {i}", "agent_title": "", "why": "",
-         "goals": [goal(f"G{i}-{j}", budget_usd=10_000, cycle_hours=0.1, target_value=-3) for j in range(3)]}
+         "goals": [goal(f"G{i}-{j}", duration_days=900, paid_spend_usd=-5, cycle_hours=0.1, target_value=-3)
+                   for j in range(3)]}
         for i in range(9)]}
     out = tidy_plan(many)
     assert len(out["departments"]) == 4  # 12 goals in total, three per function
     g = out["departments"][0]["goals"][0]
-    assert g["budget_usd"] == 500 and g["cycle_hours"] == 1 and g["target_value"] is None
+    assert g["duration_days"] == 90 and g["paid_spend_usd"] == 0
+    assert g["cycle_hours"] == 1 and g["target_value"] is None

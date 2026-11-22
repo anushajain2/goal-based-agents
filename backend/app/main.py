@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import auth
-from app.api import campaigns, connections, events, guardrails, org, overview, requests
+from app.api import campaigns, connections, events, guardrails, mcp, org, overview, plan, requests
 from app.config import get_settings
 
 
@@ -27,7 +27,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-for module in (auth, org, campaigns, requests, guardrails, connections, events, overview):
+for module in (auth, org, campaigns, requests, guardrails, connections, events, overview, plan, mcp):
     app.include_router(module.router)
 
 

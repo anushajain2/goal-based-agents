@@ -23,6 +23,7 @@ from app.agent.llm import MeteredClaude
 from app.browser import chrome
 from app.browser.controller import BrowserError, get_controller, is_commit
 from app.connectors.composio_hub import get_hub
+from app.connectors.mcp_client import McpClient, McpError
 from app.db import session_scope
 from app.models import (
     Agent,
@@ -30,6 +31,7 @@ from app.models import (
     Campaign,
     Department,
     LedgerKind,
+    McpServer,
     MetricSnapshot,
     RequestKind,
     RequestStatus,
@@ -41,6 +43,7 @@ from app.services import activity, ledger, policy
 from app.services.events import notify
 from app.services.mailer import send_approval_needed
 from app.services.rule_check import check_action
+from app.services.secrets_box import unseal
 
 log = logging.getLogger(__name__)
 
@@ -129,6 +132,9 @@ class ToolExecutor:
         if kind == "app_action":
             args = {**stored["arguments"], **edited}
             return await self._execute_app_action(stored, args, approved=True, edited=bool(edited))
+        if kind == "mcp_action":
+            args = {**stored["arguments"], **edited}
+            return await self._execute_mcp(stored, args, approved=True, edited=bool(edited))
         if kind == "browser_action":
             content = edited.get("content", stored.get("content"))
             return await self._issue_authorization(stored, request.id, content=content, edited="content" in edited)
@@ -320,6 +326,85 @@ class ToolExecutor:
         if not result["successful"]:
             return Outcome(f"The action failed: {result.get('error')}", is_error=True)
         return Outcome(prefix + _json({"arguments_used": args, "result": result.get("data")}))
+
+    # ------------------------------------------------------------------ MCP servers
+
+    async def _mcp_server(self, name: str) -> McpServer | None:
+        async with session_scope() as s:
+            org_id = (await s.get(Campaign, self.campaign_id)).org_id
+            return (await s.execute(select(McpServer).where(McpServer.org_id == org_id,
+                                                            McpServer.name == (name or "").strip().lower()))).scalar_one_or_none()
+
+    async def t_mcp_list_tools(self, inp: dict, _id: str) -> Outcome:
+        async with session_scope() as s:
+            org_id = (await s.get(Campaign, self.campaign_id)).org_id
+            q = select(McpServer).where(McpServer.org_id == org_id)
+            if inp.get("server"):
+                q = q.where(McpServer.name == inp["server"].strip().lower())
+            servers = (await s.execute(q.order_by(McpServer.created_at))).scalars().all()
+        if not servers:
+            return Outcome("No MCP servers with that name.", is_error=True)
+        out = []
+        for m in servers:
+            if m.last_error and not m.tools:
+                out.append({"server": m.name, "error": m.last_error})
+                continue
+            out.append({"server": m.name, "tools": [
+                {"name": t["name"], "description": t.get("description", ""), "input_schema": t.get("input_schema"),
+                 "needs_approval": t.get("kind") not in policy.READ_ONLY} for t in m.tools or []]})
+        await self._step("Looked up custom tools", channel="mcp")
+        return Outcome(_json(out, 20000))
+
+    async def t_mcp_call_tool(self, inp: dict, tool_use_id: str) -> Outcome | Pending:
+        server = await self._mcp_server(inp.get("server", ""))
+        if not server:
+            return Outcome(f"There is no MCP server called {inp.get('server')!r}. Use mcp_list_tools.", is_error=True)
+        tool = next((t for t in server.tools or [] if t["name"] == inp.get("tool")), None)
+        if not tool:
+            return Outcome(f"{server.name} has no tool {inp.get('tool')!r}. Use mcp_list_tools.", is_error=True)
+        args = inp.get("arguments") or {}
+        summary = inp.get("summary") or f"{tool['name']} on {server.name}"
+        action_type = tool.get("kind") or "other_write"
+        stored = {"kind": "mcp_action", "server": server.name, "tool": tool["name"], "arguments": args,
+                  "summary": summary, "action_type": action_type}
+        outcome, reason = await self._gate(action_type=action_type, title=summary, app=server.name,
+                                           payload={"server": server.name, "tool": tool["name"], "arguments": args})
+        if outcome == "block":
+            await self._log("blocked", f"Blocked: {summary}", status="blocked", action_type=action_type,
+                            channel=server.name, details={"reason": reason, "arguments": args})
+            return Outcome(f"Blocked by the user's guardrails: {reason} Do not try to do this another way.",
+                           is_error=True)
+        if outcome == "ask":
+            editable = [k for k, v in args.items() if isinstance(v, str) and len(v) >= 20]
+            request_id = await self._create_request(
+                kind=RequestKind.action, tool_use_id=tool_use_id, title=summary, rationale=reason,
+                action_type=action_type, scope=server.name,
+                preview={"app": server.name, "action": tool["name"], "action_name": f"{server.name}: {tool['name']}",
+                         "fields": args, "editable": editable},
+            )
+            return Pending(request_id, stored)
+        return await self._execute_mcp(stored, args, approved=False, edited=False)
+
+    async def _execute_mcp(self, stored: dict, args: dict, *, approved: bool, edited: bool) -> Outcome:
+        server = await self._mcp_server(stored["server"])
+        if not server:
+            return Outcome(f"The MCP server {stored['server']} was removed.", is_error=True)
+        try:
+            async with McpClient(server.url, unseal(server.auth_encrypted)) as client:
+                result = await client.call_tool(stored["tool"], args)
+        except McpError as e:
+            result = {"is_error": True, "text": str(e)}
+        await self._log(
+            "step" if stored["action_type"] in policy.READ_ONLY else "action", stored["summary"],
+            status="failed" if result["is_error"] else "done", action_type=stored["action_type"],
+            channel=stored["server"],
+            details={"tool": stored["tool"], "arguments": args, "approved_by_user": approved,
+                     "edited_by_user": edited, "result": result["text"][:3000]},
+        )
+        prefix = "The user edited the arguments before approving; this is what was used. " if edited else ""
+        if result["is_error"]:
+            return Outcome(f"The tool reported an error: {result['text']}", is_error=True)
+        return Outcome(prefix + _json({"arguments_used": args, "result": result["text"]}))
 
     # ------------------------------------------------------------------ browser
 

@@ -15,7 +15,7 @@ from app.browser import chrome
 from app.config import get_settings
 from app.connectors.composio_hub import get_hub
 from app.db import get_session
-from app.models import Campaign, RequestKind, RequestStatus, UserRequest
+from app.models import Campaign, RequestKind, RequestStatus, SiteSignIn, UserRequest
 from app.org import Member, current_member
 
 # Everything here needs a signed-in member of an organization. App connections are shared by the
@@ -71,11 +71,16 @@ async def connections(s: AsyncSession = Depends(get_session), me: Member = Depen
             .group_by(UserRequest.scope)
         )
     ).all()
+    latest: dict[str, object] = {}
+    for site, at in list(sites) + list((await s.execute(
+            select(SiteSignIn.site, SiteSignIn.signed_in_at).where(SiteSignIn.org_id == me.org_id))).all()):
+        if site and (site not in latest or (at and (latest[site] is None or at > latest[site]))):
+            latest[site] = at
     return {
         "composio_enabled": hub.enabled,
         "apps": app_conns,
         "error": error,
-        "sites": [{"site": site, "signed_in_at": at.isoformat() if at else None} for site, at in sites],
+        "sites": [{"site": site, "signed_in_at": at.isoformat() if at else None} for site, at in latest.items()],
     }
 
 

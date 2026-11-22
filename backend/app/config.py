@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     # The address people open in their browser. Google redirects back here after sign-in.
     frontend_origin: str = "http://localhost:3000"
     worker_poll_seconds: float = 2.0
+    # Typical Claude cost of one work session, used to estimate budgets until an organization
+    # has its own history (see services/estimate.py).
+    est_session_cost_usd: float = 0.30
+    # MCP servers on this computer or your network (e.g. http://localhost:8001/mcp). Set to
+    # false when Autopilot is hosted for others, so nobody can point it at internal machines.
+    allow_private_mcp: bool = True
 
     @property
     def screenshots_dir(self) -> Path:

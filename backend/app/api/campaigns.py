@@ -25,7 +25,7 @@ from app.models import (
     utcnow,
 )
 from app.org import Member, current_member, get_goal, pick_agent
-from app.services import activity
+from app.services import activity, estimate
 from app.services.events import notify
 from app.services.policy import ACTION_TYPES
 
@@ -145,6 +145,7 @@ async def create_campaign(body: CampaignIn, s: AsyncSession = Depends(get_sessio
     )
     s.add(c)
     await s.flush()
+    await _set_budget_basis(s, c)
     for e in body.exclusions:
         s.add(ExclusionRule(campaign_id=c.id, org_id=me.org_id, owner_id=me.user.id, kind=e.kind, value=e.value.strip()))
     for g in body.grants:
@@ -175,6 +176,8 @@ async def patch_campaign(campaign_id: str, body: CampaignPatch, s: AsyncSession 
             raise HTTPException(403, "You can only hand goals to AI employees in your departments.")
     for k, v in changes.items():
         setattr(c, k, v)
+    if {"budget_total", "cycle_hours", "end_date"} & set(changes):
+        await _set_budget_basis(s, c)
     if "budget_total" in changes and c.status == CampaignStatus.out_of_budget.value:
         c.status = CampaignStatus.paused.value  # the user can resume now that there is budget
     await activity.log(s, c.id, "system", "Goal settings updated: " + ", ".join(changes).replace("_", " "),
@@ -188,6 +191,13 @@ async def delete_campaign(campaign_id: str, s: AsyncSession = Depends(get_sessio
                   me: Member = Depends(current_member)):
     await s.delete(await _get(s, campaign_id, me, manage=True))
     return {"ok": True}
+
+
+async def _set_budget_basis(s: AsyncSession, c: Campaign) -> None:
+    """Keep the "how this budget compares to the estimate" note in step with the settings."""
+    paid = float((c.budget_basis or {}).get("paid_spend_usd") or 0)
+    basis = await estimate.estimate(s, c.org_id, c.cycle_hours, estimate.days_until(c.end_date), paid)
+    c.budget_basis = {**basis, "chosen_usd": float(c.budget_total)}
 
 
 async def _launch(s: AsyncSession, c: Campaign) -> None:

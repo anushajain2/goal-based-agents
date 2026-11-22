@@ -75,6 +75,28 @@ APP_TOOLS = [
     ),
 ]
 
+MCP_TOOLS = [
+    _tool(
+        "mcp_list_tools",
+        "List the tools on the organization's custom MCP servers, with their parameters and whether each one "
+        "only reads data or changes something.",
+        {"server": {"type": "string", "description": "Optional server name to list just that server."}},
+    ),
+    _tool(
+        "mcp_call_tool",
+        "Call a tool on one of the organization's MCP servers. Tools that only read data run immediately; "
+        "anything that changes something goes through the guardrails and may wait for a person's approval. "
+        "You will be told if it is waiting, approved, declined or blocked.",
+        {
+            "server": {"type": "string", "description": "Server name from mcp_list_tools."},
+            "tool": {"type": "string", "description": "Tool name."},
+            "arguments": {"type": "object", "description": "Arguments matching the tool's input schema."},
+            "summary": {"type": "string", "description": "One plain-English line for the work log."},
+        },
+        ["server", "tool", "arguments", "summary"],
+    ),
+]
+
 BROWSER_TOOLS = [
     _tool(
         "browser_open",
@@ -197,10 +219,12 @@ CAMPAIGN_TOOLS = [
 ]
 
 
-def all_tools(include_apps: bool) -> list[dict]:
+def all_tools(include_apps: bool, include_mcp: bool = False) -> list[dict]:
     """Deterministic order (the prompt cache is a prefix match)."""
     tools = list(SERVER_TOOLS)
     if include_apps:
         tools += APP_TOOLS
+    if include_mcp:
+        tools += MCP_TOOLS
     tools += BROWSER_TOOLS + CAMPAIGN_TOOLS
     return tools

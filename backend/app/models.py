@@ -159,6 +159,40 @@ class OrgSetup(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow)
 
 
+class McpServer(Base):
+    """A custom tool server (Model Context Protocol) the organization connected.
+
+    Its tools are called by Autopilot itself (not by Anthropic's servers), so every call goes
+    through the same approval gate as everything else.
+    """
+
+    __tablename__ = "mcp_servers"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    url: Mapped[str] = mapped_column(String(500))
+    # "Header-Name: value" for servers that need a key, encrypted with the app's secret.
+    auth_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tools: Mapped[list] = mapped_column(JSONType, default=list)  # last seen tool list
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class SiteSignIn(Base):
+    """Someone signed in to a site in Agent Chrome for the organization's AI employees."""
+
+    __tablename__ = "site_sign_ins"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    site: Mapped[str] = mapped_column(String(200))
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    signed_in_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
 class Membership(Base):
     """A person in an organization. (One organization per person for now.)"""
 
@@ -249,6 +283,11 @@ class Campaign(Base):
     context: Mapped[str] = mapped_column(Text, default="")  # product, audience, voice, links
     origin: Mapped[str] = mapped_column(String(20), default="")  # "setup" = suggested by setup research
     suggested_reason: Mapped[str] = mapped_column(Text, default="")  # why setup suggested this goal
+    # How the budget was worked out (services/estimate.py): sessions x cost per session + paid spend.
+    budget_basis: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
+    # The plan shown to people before they start: steps, each with the kind of action it
+    # involves (so it shows as "on its own" or "asks first") and the tool it uses.
+    playbook: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     channels: Mapped[list] = mapped_column(JSONType, default=list)  # app/site hints, e.g. ["twitter", "linkedin"]
 
     budget_total: Mapped[Decimal] = mapped_column(Money)
@@ -350,6 +389,7 @@ class AgentRun(Base):
     guardrail_version_seen: Mapped[int] = mapped_column(Integer, default=0)
     # Fixed at the start of a run so the tool list never changes mid-conversation.
     uses_apps: Mapped[bool] = mapped_column(Boolean, default=False)
+    uses_mcp: Mapped[bool] = mapped_column(Boolean, default=False)
     nudges: Mapped[int] = mapped_column(Integer, default=0)
     model_calls: Mapped[int] = mapped_column(Integer, default=0)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)

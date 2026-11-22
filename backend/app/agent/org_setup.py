@@ -24,7 +24,8 @@ from app.agent.llm import MeteredClaude
 from app.db import session_scope
 from app.models import Agent, Campaign, Department, Membership, Organization, OrgSetup, Role, utcnow
 from app.org import CATEGORY_KEYS, DEPARTMENT_PRESETS, PRESET_NAMES, add_department
-from app.services import activity
+from app.agent.playbook import STEP_GUIDANCE, step_schema, tidy_steps
+from app.services import activity, estimate
 from app.services.website import read_site
 
 log = logging.getLogger(__name__)
@@ -109,9 +110,11 @@ sharper goals beat many. No two goals should overlap.
 channels. Each must be something an AI employee can mostly achieve itself in about 30 days, \
 with a done_when that can be checked ("Meeting held on calendar with a Head of Ops at a 50-500 \
 person logistics company"), a short primary_metric ("meetings held") and a realistic target.
-- budget_usd covers the AI employee's own AI usage plus anything you expect it to spend: \
-usually 15 to 60 dollars; more only for paid ads.
 - cycle_hours is how often it works on the goal: 3 to 12 for active outreach, 24 for slower work.
+- duration_days is how long the goal should run: usually 30, 14 for quick wins, up to 60.
+- paid_spend_usd is money the goal must spend beyond its own AI usage (ad spend, paid listings, \
+data purchases): 0 unless the goal clearly needs it. The budget is calculated from these.
+- {step_guidance}
 - "why" must point at evidence from the research or the founders' description, in one or two \
 plain sentences ("You raised a seed round in March and are hiring two AEs, so a steady \
 pipeline matters most right now").
@@ -151,13 +154,15 @@ def plan_schema() -> dict:
             "target_value": {"anyOf": [{"type": "number"}, {"type": "null"}]},
             "category": {"type": "string", "enum": list(CATEGORY_KEYS)},
             "use_case": {"type": "string"},
-            "budget_usd": {"type": "number"},
             "cycle_hours": {"type": "number"},
+            "duration_days": {"type": "number"},
+            "paid_spend_usd": {"type": "number"},
+            "steps": {"type": "array", "items": step_schema()},
             "channels": string_list,
             "why": {"type": "string"},
         },
         "required": ["name", "goal_description", "done_when", "primary_metric", "target_value", "category",
-                     "use_case", "budget_usd", "cycle_hours", "channels", "why"],
+                     "use_case", "cycle_hours", "duration_days", "paid_spend_usd", "steps", "channels", "why"],
         "additionalProperties": False,
     }
     department = {
@@ -264,7 +269,7 @@ async def plan_team(claude: MeteredClaude, setup_id: str, name: str, website: st
     result = await claude.create(
         campaign_id=None, run_id=None, purpose="setup plan", role="planner",
         system=PLAN_SYSTEM.format(max_departments=MAX_DEPARTMENTS, max_per_dept=MAX_GOALS_PER_DEPARTMENT,
-                                  max_goals=MAX_GOALS),
+                                  max_goals=MAX_GOALS, step_guidance=STEP_GUIDANCE),
         messages=[{"role": "user", "content": PLAN_TASK.format(
             name=name, website=website or "(none given)", description=description or "(not given)",
             research=research or "(no research available)", site=(site_text or "(not available)")[:12000])}],
@@ -317,8 +322,10 @@ def tidy_plan(plan: dict) -> dict:
                 "target_value": target,
                 "category": g.get("category") if g.get("category") in CATEGORY_KEYS else "",
                 "use_case": (g.get("use_case") or "").strip()[:120],
-                "budget_usd": round(_clamp(g.get("budget_usd"), 5, 500, 25), 2),
                 "cycle_hours": float(min(CYCLE_CHOICES, key=lambda c: abs(c - cycle))),
+                "duration_days": round(_clamp(g.get("duration_days"), 7, 90, 30)),
+                "paid_spend_usd": round(_clamp(g.get("paid_spend_usd"), 0, 5000, 0), 2),
+                "steps": tidy_steps(g.get("steps")),
                 "channels": [str(c)[:60] for c in (g.get("channels") or [])][:8],
                 "why": (g.get("why") or "").strip(),
             })
@@ -390,6 +397,8 @@ async def create_team(setup_id: str, org_id: str, requested_by: str | None, plan
                     category=g["category"], use_case=g["use_case"], context=context, channels=g["channels"],
                     budget_total=Decimal(str(g["budget_usd"])), cycle_hours=g["cycle_hours"],
                     origin="setup", suggested_reason=g["why"],
+                    budget_basis={**g["budget_basis"], "chosen_usd": g["budget_usd"]},
+                    playbook={"steps": g["steps"], "source": "setup"} if g["steps"] else None,
                 )
                 s.add(c)
                 await s.flush()
@@ -447,6 +456,12 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
         plan = await plan_team(claude, setup_id, name, website, description, research, site_text)
         if not plan["departments"]:
             raise RuntimeError("Couldn't work out any functions to set up. Add a few words about what you do and try again.")
+        async with session_scope() as s:
+            per, basis, n = await estimate.session_cost(s, org_id)
+        for d in plan["departments"]:  # budget = sessions x cost per session + paid spend
+            for g in d["goals"]:
+                g["budget_basis"] = estimate.compute(per, g["cycle_hours"], g["duration_days"], g["paid_spend_usd"], basis, n)
+                g["budget_usd"] = g["budget_basis"]["suggested_usd"]
         async with session_scope() as s:
             (await s.get(OrgSetup, setup_id)).plan = plan
             org = await s.get(Organization, org_id)

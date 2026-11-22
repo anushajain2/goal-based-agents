@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +17,7 @@ from app.models import (
     PermissionGrant,
     UserRequest,
 )
-from app.services import ledger
+from app.services import estimate, ledger
 from app.services.policy import ACTION_TYPES
 
 
@@ -102,6 +104,7 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=Non
         "primary_metric": c.primary_metric, "target_value": c.target_value, "status": c.status,
         "done_when": c.done_when, "category": c.category, "use_case": c.use_case, "client_name": c.client_name,
         "origin": c.origin or "", "suggested_reason": c.suggested_reason or "",
+        "budget_basis": c.budget_basis, "has_playbook": bool(c.playbook),
         "actions_taken": actions_taken,
         "last_activity": {"title": last.title, "kind": last.kind, "at": last.created_at.isoformat()} if last else None,
         "channels": c.channels, "budget": budget, "results": results,
@@ -119,6 +122,8 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=Non
     if full:
         data["context"] = c.context
         data["strategy"] = c.strategy
+        data["playbook"] = c.playbook
+        data["pace"] = await estimate.pace(s, c, Decimal(str(budget["remaining"])))
         metrics = (
             await s.execute(
                 select(MetricSnapshot).where(MetricSnapshot.campaign_id == c.id)

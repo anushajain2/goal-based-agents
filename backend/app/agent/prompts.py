@@ -160,3 +160,22 @@ def identity_line(agent: str | None, department: str | None, org: str | None, ap
         f"You are {agent}, an AI employee in the {department or 'company'} department"
         f"{' at ' + org if org else ''}. Anything that needs approval goes to: {who}."
     )
+
+
+def plan_and_tools(playbook: dict | None, mcp_servers: list) -> str:
+    """The plan people saw before starting the goal, and the organization's custom tools."""
+    lines = []
+    steps = (playbook or {}).get("steps") or []
+    if steps:
+        lines += ["", "## The plan the team agreed to",
+                  "People reviewed this before starting the goal. Follow it unless results show a better way; "
+                  "if you change approach, say why in your session summary."]
+        lines += [f"{i}. {st['text']}" for i, st in enumerate(steps, 1)]
+    if mcp_servers:
+        lines += ["", "## Custom tools (MCP servers)",
+                  "Use mcp_list_tools to see parameters, then mcp_call_tool. Anything that changes something "
+                  "waits for approval, like every other action."]
+        for m in mcp_servers:
+            names = ", ".join(t["name"] for t in (m.tools or [])[:30]) or "(no tools listed)"
+            lines.append(f"- {m.name}: {names}")
+    return "\n".join(lines)
