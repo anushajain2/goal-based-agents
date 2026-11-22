@@ -7,7 +7,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import case, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.org_setup import initial_steps
 from app.auth import EMAIL_PATTERN, current_user
+from app.config import get_settings
 from app.db import get_session
 from app.models import (
     Activity,
@@ -20,12 +22,14 @@ from app.models import (
     LedgerEntry,
     Membership,
     Organization,
+    OrgSetup,
     Role,
     User,
     UserRequest,
 )
 from app.org import (
     DEPARTMENT_PRESETS,
+    PRESET_NAMES,
     Member,
     add_department,
     approvers,
@@ -35,6 +39,8 @@ from app.org import (
     load_member,
     require_admin,
 )
+
+from app.services.website import UnsafeURL, normalize_url
 
 router = APIRouter(prefix="/api", tags=["organization"])
 
@@ -50,19 +56,117 @@ async def presets():
     return {"departments": [{"kind": k, "name": n} for k, n in DEPARTMENT_PRESETS]}
 
 
+BASIC_TEAM = ["sales", "marketing", "research"]
+
+
 class OrgIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    website: str = Field(default="", max_length=500)
+    description: str = Field(default="", max_length=3000)
+    # Pick departments by hand. Leave empty to have setup research work them out.
     departments: list[str] = Field(default_factory=list, max_length=30)
+
+
+def _website(raw: str) -> str:
+    try:
+        return normalize_url(raw)
+    except UnsafeURL as e:
+        raise HTTPException(400, str(e)) from e
+
+
+def _can_research() -> bool:
+    return bool(get_settings().anthropic_api_key)
 
 
 @router.post("/org")
 async def create_org(body: OrgIn, s: AsyncSession = Depends(get_session), user: User = Depends(current_user)):
     if await load_member(s, user):
         raise HTTPException(409, "You already belong to an organization.")
-    if not body.departments:
-        raise HTTPException(400, "Pick at least one department.")
-    org = await create_organization(s, user, body.name, body.departments)
-    return {"id": org.id, "name": org.name}
+    website = _website(body.website)
+    if body.departments:
+        org = await create_organization(s, user, body.name, body.departments, website, body.description)
+        return {"id": org.id, "name": org.name, "setup_id": None}
+    if not website and not body.description.strip():
+        raise HTTPException(400, "Add your website or a sentence about what you do, so we can set up your team.")
+    if not _can_research():
+        # Without a Claude key there's no research: start with a basic team instead.
+        org = await create_organization(s, user, body.name, BASIC_TEAM, website, body.description)
+        return {"id": org.id, "name": org.name, "setup_id": None, "setup_skipped": "no_api_key"}
+    org = await create_organization(s, user, body.name, [], website, body.description)
+    setup = OrgSetup(org_id=org.id, requested_by=user.id, steps=initial_steps())
+    s.add(setup)
+    await s.flush()
+    return {"id": org.id, "name": org.name, "setup_id": setup.id}
+
+
+# --- setup research: status, re-run, basic fallback -------------------------------------------
+
+def _setup_json(x: OrgSetup | None) -> dict | None:
+    if x is None:
+        return None
+    return {
+        "id": x.id, "status": x.status, "steps": x.steps or [], "error": x.error,
+        "cost_usd": float(x.cost_usd or 0), "plan": x.plan, "created": x.created,
+        "created_at": x.created_at.isoformat(), "updated_at": x.updated_at.isoformat(),
+    }
+
+
+@router.get("/org/setup")
+async def get_setup(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    org = await s.get(Organization, me.org_id)
+    latest = (await s.execute(select(OrgSetup).where(OrgSetup.org_id == me.org_id)
+                              .order_by(OrgSetup.created_at.desc()).limit(1))).scalar_one_or_none()
+    n_departments = (await s.execute(select(func.count()).select_from(Department)
+                                     .where(Department.org_id == me.org_id))).scalar_one()
+    return {
+        "org": {"id": org.id, "name": org.name, "website": org.website, "description": org.description,
+                "profile": org.profile},
+        "setup": _setup_json(latest),
+        "can_research": _can_research(),
+        "can_run": me.is_admin,
+        "has_team": n_departments > 0,
+    }
+
+
+class SetupIn(BaseModel):
+    website: str | None = Field(default=None, max_length=500)
+    description: str | None = Field(default=None, max_length=3000)
+
+
+@router.post("/org/setup")
+async def rerun_setup(body: SetupIn, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    """Research the company again and add what's missing (existing departments and goals stay)."""
+    require_admin(me)
+    if not _can_research():
+        raise HTTPException(400, "Add ANTHROPIC_API_KEY to the .env file and restart to research your company.")
+    busy = (await s.execute(select(OrgSetup.id).where(OrgSetup.org_id == me.org_id,
+                                                      OrgSetup.status.in_(["queued", "running"])))).first()
+    if busy:
+        raise HTTPException(409, "Setup is already running.")
+    org = await s.get(Organization, me.org_id)
+    if body.website is not None:
+        org.website = _website(body.website)
+    if body.description is not None:
+        org.description = body.description.strip()
+    if not org.website and not org.description:
+        raise HTTPException(400, "Add your website or a sentence about what you do first.")
+    setup = OrgSetup(org_id=org.id, requested_by=me.user.id, steps=initial_steps())
+    s.add(setup)
+    await s.flush()
+    return _setup_json(setup)
+
+
+@router.post("/org/setup/basic")
+async def basic_team(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    """Research failed or was skipped: start with a few standard departments instead."""
+    require_admin(me)
+    n = (await s.execute(select(func.count()).select_from(Department).where(Department.org_id == me.org_id))).scalar_one()
+    if n == 0:
+        admins = [u for (u,) in (await s.execute(select(Membership.user_id).where(
+            Membership.org_id == me.org_id, Membership.role.in_([Role.owner.value, Role.admin.value])))).all()]
+        for kind in BASIC_TEAM:
+            await add_department(s, me.org_id, PRESET_NAMES[kind], kind, members=admins)
+    return {"ok": True}
 
 
 # --- the organization at a glance --------------------------------------------------------------
@@ -132,7 +236,8 @@ async def get_org(s: AsyncSession = Depends(get_session), me: Member = Depends(c
                                                                 Invitation.accepted_at.is_(None)))).scalars()
         ]
     return {
-        "org": {"id": org.id, "name": org.name},
+        "org": {"id": org.id, "name": org.name, "website": org.website, "description": org.description,
+                "profile": org.profile},
         "me": {**_user(me.user), "role": me.role, "department_ids": sorted(me.department_ids), "is_admin": me.is_admin},
         "departments": [
             {

@@ -96,7 +96,7 @@ class MeteredClaude:
     async def create(
         self,
         *,
-        campaign_id: str,
+        campaign_id: str | None,
         run_id: str | None,
         purpose: str,
         role: str,
@@ -113,12 +113,16 @@ class MeteredClaude:
         est_in = estimate_input_tokens(system, tools, messages)
         worst = ledger.worst_case_cost(model, est_in, max_tokens, max_web_searches)
 
-        async with session_scope() as s:
-            entry = await ledger.reserve(
-                s, campaign_id, LedgerKind.ai_usage, worst, f"AI: {purpose}", run_id=run_id,
-                meta={"model": model, "role": role, "purpose": purpose},
-            )
-            entry_id = entry.id
+        # campaign_id=None: work for the whole organization (e.g. setup research), which is
+        # not charged to any goal's budget. The caller records the returned cost itself.
+        entry_id = None
+        if campaign_id:
+            async with session_scope() as s:
+                entry = await ledger.reserve(
+                    s, campaign_id, LedgerKind.ai_usage, worst, f"AI: {purpose}", run_id=run_id,
+                    meta={"model": model, "role": role, "purpose": purpose},
+                )
+                entry_id = entry.id
 
         params: dict[str, Any] = {
             "model": model,
@@ -164,17 +168,19 @@ class MeteredClaude:
                 params["thinking"] = {"type": "adaptive"}
                 response = await self.client.beta.messages.create(**params)
         except Exception:
-            async with session_scope() as s:
-                await ledger.release(s, await s.get(LedgerEntry, entry_id))
+            if entry_id:
+                async with session_scope() as s:
+                    await ledger.release(s, await s.get(LedgerEntry, entry_id))
             raise
 
         served_by = getattr(response, "model", None) or model
         cost = ledger.cost_from_usage(served_by, response.usage)
-        async with session_scope() as s:
-            await ledger.settle(
-                s, await s.get(LedgerEntry, entry_id), cost,
-                meta={"served_by": served_by, "usage": _usage_dict(response.usage)},
-            )
+        if entry_id:
+            async with session_scope() as s:
+                await ledger.settle(
+                    s, await s.get(LedgerEntry, entry_id), cost,
+                    meta={"served_by": served_by, "usage": _usage_dict(response.usage)},
+                )
         return CallResult(
             response=response,
             content=serialize_content(response.content),

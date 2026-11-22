@@ -129,7 +129,34 @@ class Organization(Base):
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     name: Mapped[str] = mapped_column(String(200))
+    website: Mapped[str] = mapped_column(String(500), default="")
+    description: Mapped[str] = mapped_column(Text, default="")  # in the founders' own words
+    # What setup research learned (see agent/org_setup.py): summary, stage, team, customers...
+    profile: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class OrgSetup(Base):
+    """One run of "research the company, then set up its AI team" (done by the worker)."""
+
+    __tablename__ = "org_setups"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    requested_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="queued", index=True)  # queued|running|done|failed
+    # [{key, label, status: pending|running|done|failed|skipped, detail}]
+    steps: Mapped[list] = mapped_column(JSONType, default=list)
+    research: Mapped[str] = mapped_column(Text, default="")  # the research brief, with sources
+    plan: Mapped[dict | None] = mapped_column(JSONType, nullable=True)  # departments and goals proposed
+    created: Mapped[dict | None] = mapped_column(JSONType, nullable=True)  # ids of what was set up
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cost_usd: Mapped[Decimal] = mapped_column(Money, default=Decimal("0"))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow)
 
 
 class Membership(Base):
@@ -220,6 +247,8 @@ class Campaign(Base):
     client_name: Mapped[str] = mapped_column(String(200), default="")  # agencies: who this goal is for
     target_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     context: Mapped[str] = mapped_column(Text, default="")  # product, audience, voice, links
+    origin: Mapped[str] = mapped_column(String(20), default="")  # "setup" = suggested by setup research
+    suggested_reason: Mapped[str] = mapped_column(Text, default="")  # why setup suggested this goal
     channels: Mapped[list] = mapped_column(JSONType, default=list)  # app/site hints, e.g. ["twitter", "linkedin"]
 
     budget_total: Mapped[Decimal] = mapped_column(Money)

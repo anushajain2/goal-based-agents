@@ -49,6 +49,16 @@ DEPARTMENT_PRESETS: list[tuple[str, str]] = [
 ]
 PRESET_NAMES = dict(DEPARTMENT_PRESETS)
 
+# Library categories (as stored on goals) -> their key in the use-case library.
+CATEGORY_KEYS = {
+    "Sales": "sales", "Marketing & demand gen": "marketing", "Customer research": "research",
+    "Product & launch": "product", "Fundraising & investors": "fundraising", "Hiring & talent": "hiring",
+    "Partnerships & BD": "partnerships", "Customer success & retention": "success", "Finance": "finance",
+    "Operations & procurement": "operations", "Brand, PR & community": "pr",
+    "Market & competitive intel": "intel", "For agencies": "agency", "Founder leverage": "founder",
+    "Legal & admin": "legal",
+}
+
 # Library categories (as stored on goals) -> the department kind that handles them.
 CATEGORY_TO_KIND = {
     "Sales": "sales", "Marketing & demand gen": "marketing", "Customer research": "research",
@@ -96,14 +106,16 @@ async def add_department(s: AsyncSession, org_id: str, name: str, kind: str = ""
     return dept
 
 
-async def create_organization(s: AsyncSession, user: User, name: str, departments: list[str]) -> Organization:
-    """`departments` are preset kinds ("sales") or custom names."""
-    org = Organization(name=name.strip()[:200] or "My company")
+async def create_organization(s: AsyncSession, user: User, name: str, departments: list[str],
+                              website: str = "", description: str = "") -> Organization:
+    """`departments` are preset kinds ("sales") or custom names. It may be empty when setup
+    research will create the departments (see agent/org_setup.py)."""
+    org = Organization(name=name.strip()[:200] or "My company", website=website, description=description.strip())
     s.add(org)
     await s.flush()
     s.add(Membership(org_id=org.id, user_id=user.id, role=Role.owner.value))
     seen: set[str] = set()
-    for item in departments or ["sales", "marketing"]:
+    for item in departments:
         label = PRESET_NAMES.get(item, item).strip()
         if not label or label.lower() in seen:
             continue

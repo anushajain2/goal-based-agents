@@ -27,6 +27,8 @@ export type Campaign = {
   category: string;
   use_case: string;
   client_name: string;
+  origin: string; // "setup" = suggested by setup research
+  suggested_reason: string;
   actions_taken: number;
   agent: { id: string; name: string; title: string } | null;
   department: { id: string; name: string } | null;
@@ -144,8 +146,24 @@ export type Grant = {
 export type Person = { id: string; name: string; email: string };
 export type AgentSummary = { id: string; name: string; title: string; goals: number; active_goals: number; spent: number; working: boolean; needs_you: number };
 export type DepartmentInfo = { id: string; name: string; kind: string; people: Person[]; agents: AgentSummary[] };
+export type CompanyProfile = {
+  summary: string; offering: string; customers: string; business_model: string; stage: string; funding: string;
+  team: string; traction: string; current_focus: string[]; challenges: string[];
+  sources?: { url: string; title: string }[]; researched_at?: string;
+};
+export type SetupStep = { key: string; label: string; status: "pending" | "running" | "done" | "failed" | "skipped"; detail: string };
+export type PlannedGoal = { name: string; goal_description: string; done_when: string; primary_metric: string; target_value: number | null; budget_usd: number; why: string; category: string };
+export type SetupInfo = {
+  org: { id: string; name: string; website: string; description: string; profile: CompanyProfile | null };
+  setup: null | {
+    id: string; status: "queued" | "running" | "done" | "failed"; steps: SetupStep[]; error: string | null; cost_usd: number;
+    plan: { profile: CompanyProfile; departments: { kind: string; name: string; agent_title: string; why: string; goals: PlannedGoal[] }[] } | null;
+    created: { departments: string[]; agents: string[]; goals: string[] } | null; created_at: string;
+  };
+  can_research: boolean; can_run: boolean; has_team: boolean;
+};
 export type OrgInfo = {
-  org: { id: string; name: string };
+  org: { id: string; name: string; website: string; description: string; profile: CompanyProfile | null };
   me: Person & { role: "owner" | "admin" | "member"; department_ids: string[]; is_admin: boolean };
   departments: DepartmentInfo[];
   members: (Person & { role: "owner" | "admin" | "member"; department_ids: string[] })[];

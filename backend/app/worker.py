@@ -6,7 +6,8 @@ Loops forever:
   * starts a new cycle for every active campaign whose next check-in is due,
   * claims queued runs (with Postgres, any number of workers can
     run side by side) and drives them with the CycleRunner,
-  * recovers runs whose worker died mid-step.
+  * recovers runs whose worker died mid-step,
+  * runs first-time organization setups (company research -> AI team), see agent/org_setup.py.
 """
 
 from __future__ import annotations
@@ -19,10 +20,11 @@ from datetime import timedelta
 
 from sqlalchemy import and_, select, update
 
+from app.agent.org_setup import run_org_setup
 from app.agent.runner import CycleRunner
 from app.config import get_settings
 from app.db import session_scope
-from app.models import AgentRun, Campaign, CampaignStatus, RunStatus, utcnow
+from app.models import AgentRun, Campaign, CampaignStatus, OrgSetup, RunStatus, utcnow
 from app.services import activity
 from app.services.events import notify
 
@@ -104,6 +106,36 @@ async def recover_stale_runs() -> None:
         )
 
 
+async def claim_setup(worker_id: str) -> str | None:
+    """Same claiming pattern as runs, for organization setups."""
+    async with session_scope() as s:
+        setup_id = (
+            await s.execute(
+                select(OrgSetup.id).where(OrgSetup.status == "queued")
+                .order_by(OrgSetup.created_at).limit(1).with_for_update(skip_locked=True)
+            )
+        ).scalar_one_or_none()
+        if not setup_id:
+            return None
+        result = await s.execute(
+            update(OrgSetup)
+            .where(OrgSetup.id == setup_id, OrgSetup.status == "queued")
+            .values(status="running", locked_by=worker_id, locked_at=utcnow(), attempts=OrgSetup.attempts + 1)
+        )
+        return setup_id if result.rowcount == 1 else None
+
+
+async def recover_stale_setups() -> None:
+    """A setup whose worker died: try once more, then give up with a clear error."""
+    async with session_scope() as s:
+        stale = and_(OrgSetup.status == "running", OrgSetup.locked_at < utcnow() - STALE_AFTER)
+        await s.execute(update(OrgSetup).where(stale, OrgSetup.attempts < 2)
+                        .values(status="queued", locked_by=None))
+        await s.execute(update(OrgSetup).where(stale, OrgSetup.attempts >= 2)
+                        .values(status="failed", locked_by=None,
+                                error="Setup stopped responding. Try again from the setup page."))
+
+
 async def _drive(runner: CycleRunner, run_id: str) -> None:
     try:
         await runner.run(run_id)
@@ -137,7 +169,16 @@ async def main() -> None:
     while True:
         try:
             await recover_stale_runs()
+            await recover_stale_setups()
             await schedule_due_cycles()
+            while len(tasks) < MAX_CONCURRENT_RUNS:
+                setup_id = await claim_setup(worker_id)
+                if not setup_id:
+                    break
+                log.info("setting up organization (%s)", setup_id)
+                task = asyncio.create_task(run_org_setup(setup_id))
+                tasks.add(task)
+                task.add_done_callback(tasks.discard)
             while len(tasks) < MAX_CONCURRENT_RUNS:
                 run_id = await claim_run(worker_id)
                 if not run_id:

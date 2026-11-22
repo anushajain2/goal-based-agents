@@ -118,6 +118,7 @@ export default function GoalsPage() {
                       <td className="max-w-xs px-2 py-3">
                         <Link href={`/goals/${c.id}`} className="font-semibold text-ink hover:text-brand-600 hover:underline">{c.name}</Link>
                         <div className="mt-0.5 flex flex-wrap gap-1.5 text-xs text-muted">
+                          {c.origin === "setup" && c.status === "draft" && <span className="rounded bg-brand-50 px-1.5 font-medium text-brand-700" title={c.suggested_reason}>Suggested</span>}
                           {c.client_name && <span className="rounded bg-violet-50 px-1.5 font-medium text-violet-700">{c.client_name}</span>}
                           {c.category && <span>{c.category}</span>}
                         </div>

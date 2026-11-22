@@ -1,10 +1,11 @@
 "use client";
 
-import { Check, Hand, PartyPopper, Pencil, Plus, Target, Trash2, UserPlus, Users, X } from "lucide-react";
+import { Check, Hand, PartyPopper, Pencil, Plus, Sparkles, Target, Trash2, UserPlus, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+import { CompanyProfileCard } from "@/components/CompanyProfile";
 import { AgentAvatar, PersonAvatar } from "@/components/team";
 import { Badge, Button, Card, cx, ErrorNote, Input } from "@/components/ui";
 import { api, DepartmentInfo, OrgInfo, usd, useApi } from "@/lib/api";
@@ -46,10 +47,18 @@ function TeamPage() {
           <PartyPopper className="text-emerald-600" />
           <div className="min-w-0 flex-1">
             <div className="font-bold">{org.org.name} is set up, with {agents} AI employees.</div>
-            <div className="text-sm text-gray-700">Next: invite your team so approvals reach the right people, then give your AI employees their first goals.</div>
+            <div className="text-sm text-gray-700">
+              {org.org.profile
+                ? "Next: review and start the suggested goals, and invite your team so approvals reach the right people."
+                : "Next: invite your team so approvals reach the right people, then give your AI employees their first goals."}
+            </div>
           </div>
           <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold hover:bg-gray-50"><UserPlus size={15} /> Invite people</Link>
-          <Link href="/goals/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white hover:bg-brand-600"><Target size={15} /> Give a goal</Link>
+          {org.org.profile ? (
+            <Link href="/setup" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white hover:bg-brand-600"><Sparkles size={15} /> Review suggested goals</Link>
+          ) : (
+            <Link href="/goals/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white hover:bg-brand-600"><Target size={15} /> Give a goal</Link>
+          )}
         </Card>
       )}
 
@@ -71,6 +80,13 @@ function TeamPage() {
 
       {err && <ErrorNote>{err}</ErrorNote>}
 
+      {params.get("basic") && (
+        <Card className="border-amber-200 bg-amber-50/60 p-4 text-sm text-amber-900">
+          We started you with a basic team. To have Autopilot research {org.org.name} and suggest AI employees and goals that fit, add
+          <code className="mx-1">ANTHROPIC_API_KEY</code> to the <code>.env</code> file, restart, then use <Link href="/setup" className="font-semibold underline">Research my company</Link>.
+        </Card>
+      )}
+
       {adding && (
         <Card className="flex flex-wrap items-center gap-2 p-4">
           <Input autoFocus className="max-w-sm" value={newDept} onChange={(e) => setNewDept(e.target.value)} placeholder="Department name, e.g. Client Delivery" />
@@ -79,6 +95,20 @@ function TeamPage() {
           </Button>
           <Button variant="ghost" onClick={() => setAdding(false)}>Cancel</Button>
         </Card>
+      )}
+
+      {org.org.profile ? (
+        <CompanyProfileCard
+          profile={org.org.profile}
+          name={org.org.name}
+          action={admin && <Link href="/setup" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><Sparkles size={12} /> Research again</Link>}
+        />
+      ) : admin && (
+        <Link href="/setup" className="flex items-center gap-3 rounded-xl border border-dashed border-brand-500/40 bg-brand-50/40 px-4 py-3 text-sm hover:bg-brand-50">
+          <Sparkles size={16} className="text-brand-600" />
+          <span className="flex-1"><b>Research {org.org.name}</b> and get suggested AI employees and goals that fit where you are.</span>
+          <span className="font-semibold text-brand-600">Start →</span>
+        </Link>
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

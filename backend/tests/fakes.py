@@ -38,11 +38,14 @@ class FakeAnthropic:
     """
 
     def __init__(self, script: Callable[[dict], list[dict]], reviewer: Callable[[dict], dict] | None = None,
-                 planner: Callable[[dict], dict] | None = None):
+                 planner: Callable[[dict], dict] | None = None,
+                 org_planner: Callable[[dict], dict] | None = None, searches: int = 0):
         self.script = script
         self.reviewer = reviewer or (lambda kw: {"violates": False, "rule": "", "explanation": ""})
         self.planner = planner or (lambda kw: {"assessment": "Fresh start.", "plan": ["Research", "Post once"],
                                                "strategy": ""})
+        self.org_planner = org_planner  # organization setup: the team plan
+        self.searches = searches  # web searches reported per agent-loop call
         self.calls: list[dict] = []
         self.beta = Obj(messages=Obj(create=self._create))
 
@@ -51,18 +54,22 @@ class FakeAnthropic:
         self.calls.append(kwargs)
         fmt = kwargs.get("output_config", {}).get("format")
         if fmt:
-            answer = self.planner if "plan" in fmt["schema"]["properties"] else self.reviewer
+            props = fmt["schema"]["properties"]
+            answer = (self.org_planner if "departments" in props
+                      else self.planner if "plan" in props else self.reviewer)
             content = [text(json.dumps(answer(kwargs)))]
             stop = "end_turn"
         else:
             content = self.script(kwargs)
-            stop = "tool_use" if any(b["type"] == "tool_use" for b in content) else "end_turn"
+            stop = ("tool_use" if any(b["type"] == "tool_use" for b in content)
+                    else "pause_turn" if content and content[-1]["type"] == "server_tool_use" else "end_turn")
         return Obj(
             content=[Obj(**b) for b in content],
             stop_reason=stop,
             model=kwargs["model"],
             usage=Obj(input_tokens=2000, output_tokens=300, cache_creation_input_tokens=0,
-                      cache_read_input_tokens=0, server_tool_use=None),
+                      cache_read_input_tokens=0,
+                      server_tool_use=Obj(web_search_requests=self.searches) if self.searches and not fmt else None),
         )
 
     def agent_calls(self) -> list[dict]:

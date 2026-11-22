@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Flag, Hand, Inbox, Pause, Play, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Flag, Hand, Inbox, Pause, Play, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
@@ -117,6 +117,16 @@ function GoalPage() {
           )}
         </div>
       </div>
+
+      {c.origin === "setup" && c.status === "draft" && (
+        <div className="flex flex-wrap items-start gap-3 rounded-xl border border-brand-500/30 bg-brand-50/60 px-4 py-3 text-sm">
+          <Sparkles size={16} className="mt-0.5 shrink-0 text-brand-600" />
+          <div className="min-w-0 flex-1">
+            <b>Suggested by setup research.</b> {c.suggested_reason}
+            <div className="text-xs text-muted">Check the target, budget and brief in Settings, then start it. Nothing is spent until you do.</div>
+          </div>
+        </div>
+      )}
 
       {c.status === "out_of_budget" && <ErrorNote>The budget is used up, so {c.agent?.name || "Autopilot"} has stopped working on this goal. Raise the budget in Settings to continue.</ErrorNote>}
 

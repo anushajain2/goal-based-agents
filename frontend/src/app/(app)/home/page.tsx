@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -12,7 +12,7 @@ import { Card, CardHeader, ErrorNote } from "@/components/ui";
 import { CATEGORY_ICON, UseCaseCard } from "@/components/UseCaseLibrary";
 import { ViewToggle, WorkLog } from "@/components/WorkLog";
 import { AgentAvatar } from "@/components/team";
-import { ActivityItem, Campaign, num, OrgInfo, Overview, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
+import { ActivityItem, Campaign, num, OrgInfo, Overview, SetupInfo, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
 import { CATEGORIES, FEATURED, findUseCase } from "@/lib/useCases";
 
 export default function HomePage() {
@@ -22,6 +22,8 @@ export default function HomePage() {
   const { data: requests, reload: reloadRequests } = useApi<UserRequest[]>("/api/requests?status=pending");
   const { data: log } = useApi<ActivityItem[]>("/api/activity?limit=60");
   const { data: org } = useApi<OrgInfo>("/api/org");
+  const { data: setup } = useApi<SetupInfo>("/api/org/setup", { live: false, pollMs: 5000 });
+  const researching = setup?.setup && ["queued", "running"].includes(setup.setup.status);
   const [view, setView] = useState<"highlights" | "everything">("highlights");
 
   if (error) return <ErrorNote>Can&apos;t reach the backend ({error}). Is <code>./scripts/dev.sh</code> running?</ErrorNote>;
@@ -29,7 +31,15 @@ export default function HomePage() {
 
   const pick = (id: string) => router.push(`/goals/new?uc=${id}`);
 
-  if (goals.length === 0) return <FirstRun onPick={pick} org={org} />;
+  const researchBanner = researching && (
+    <Link href="/setup" className="flex items-center gap-3 rounded-xl border border-brand-500/30 bg-brand-50/60 px-4 py-3 text-sm hover:bg-brand-50">
+      <Sparkles size={16} className="animate-pulse text-brand-600" />
+      <span className="flex-1">Autopilot is researching {setup?.org.name} to set up your AI team and suggest goals.</span>
+      <span className="font-semibold text-brand-600">See progress →</span>
+    </Link>
+  );
+  if (goals.length === 0) return <div className="space-y-4">{researchBanner}<FirstRun onPick={pick} org={org} /></div>;
+  const suggested = goals.filter((g) => g.origin === "setup" && g.status === "draft" && g.can_manage !== false);
   const team = (org?.departments || []).flatMap((d) => d.agents.map((a) => ({ ...a, dept: d.name })));
 
   const state = ov.working_on.length ? "working" : ov.waiting_on_you ? "waiting" : "idle";
@@ -75,6 +85,27 @@ export default function HomePage() {
         <Stat label="Active goals" value={`${ov.goals.active}`} sub={`${ov.goals.total} in total`} />
         <Stat label="Needs you" value={`${ov.waiting_on_you}`} sub={ov.waiting_on_you ? "Approvals and sign-ins" : "Nothing waiting"} highlight={ov.waiting_on_you > 0} />
       </div>
+
+      {researchBanner}
+      {suggested.length > 0 && (
+        <Card>
+          <CardHeader
+            title={<span className="flex items-center gap-2"><Sparkles size={15} className="text-brand-600" /> {suggested.length} suggested {suggested.length === 1 ? "goal is" : "goals are"} ready to start</span>}
+            subtitle="Picked for where your company is right now. Review, then start the ones you want."
+            action={<Link href="/setup" className="text-sm font-semibold text-brand-600">Review all →</Link>}
+          />
+          <ul className="divide-y divide-line">
+            {suggested.slice(0, 4).map((g) => (
+              <li key={g.id}>
+                <Link href={`/goals/${g.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-[13px] hover:bg-gray-50">
+                  <span className="min-w-0 flex-1 font-semibold">{g.name}</span>
+                  <span className="text-xs text-muted">{g.agent?.name} · {usd(g.budget.total)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {requests && requests.length > 0 && (
         <section>
