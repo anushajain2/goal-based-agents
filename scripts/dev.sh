@@ -63,7 +63,11 @@ fi
 
 say "Setting up the web app"
 cd "$ROOT/frontend"
-[ -d node_modules ] || npm install --no-audit --no-fund
+# Install exactly what package-lock.json pins (npm ci never rewrites it), again whenever it changes.
+LOCK_SUM="$(cksum package-lock.json | cut -d' ' -f1)"
+if [ ! -d node_modules ] || [ "$(cat node_modules/.lock-sum 2>/dev/null)" != "$LOCK_SUM" ]; then
+  npm ci --no-audit --no-fund && echo "$LOCK_SUM" > node_modules/.lock-sum
+fi
 
 # --- Run --------------------------------------------------------------------------------
 cd "$ROOT"
