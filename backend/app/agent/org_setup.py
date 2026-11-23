@@ -30,9 +30,18 @@ from app.services.website import read_site
 
 log = logging.getLogger(__name__)
 
-MAX_DEPARTMENTS = 6
 MAX_GOALS_PER_DEPARTMENT = 3
-MAX_GOALS = 12
+# How big a team fits a company: set from headcount, revenue and funding found by the research.
+SIZES: dict[str, dict] = {
+    "tiny": {"label": "1-10 people", "departments": 4, "goals": 8},
+    "small": {"label": "11-50 people", "departments": 6, "goals": 12},
+    "mid": {"label": "51-250 people", "departments": 8, "goals": 16},
+    "large": {"label": "250+ people", "departments": 10, "goals": 20},
+}
+DEFAULT_SIZE = "small"
+MAX_DEPARTMENTS = SIZES[DEFAULT_SIZE]["departments"]
+MAX_GOALS = SIZES[DEFAULT_SIZE]["goals"]
+MAX_LATER = 4
 MAX_SEARCHES = 8
 MAX_CONTINUATIONS = 4
 CYCLE_CHOICES = [1, 3, 6, 12, 24, 48]
@@ -78,8 +87,10 @@ Write a factual brief (about 500-900 words) with these sections:
 - What they sell, and to whom (ideal customer, industries, company sizes, geographies).
 - Business model and pricing.
 - Stage and funding: rounds, amounts, dates, investors. Or "bootstrapped" / "Unknown".
-- Team: approximate size, founders and their backgrounds, open roles (what they are hiring for says a lot).
+- Team: approximate headcount (team page, LinkedIn, job boards), founders and their backgrounds, open roles (what they are hiring for says a lot).
+- Size and money: headcount, revenue or ARR (reported or estimated, say which), total funding and last round.
 - Traction: named customers, users, revenue or growth signals, launches.
+- Back office: signs of finance, people, IT/security and legal needs (enterprise customers asking for security reviews, SOC 2 or ISO pages, many open roles, several countries, regulated industry).
 - Go-to-market today: which channels they visibly use (outbound, content, community, ads, partners, marketplaces, events).
 - Recent news from the last 12 months, with dates.
 - Competitors and how they position against them.
@@ -105,16 +116,48 @@ competitors; explains sudden metric changes; and writes and prioritises PRDs. An
 employee reads the code on GitHub, implements small, well-scoped changes (often from approved \
 PRDs or open issues) as pull requests, and asks an engineer to review and merge.
 
-Choose functions and goals that fit THIS company at its CURRENT stage:
-- 3 to {max_departments} functions, most important first. For a software company, include Product \
-(and Engineering, if they build in-house) unless growth work clearly matters far more right now; \
-their goals look like "Weekly metrics and competitor brief", "Explain the drop in activation", \
-"3 prioritised PRDs for the top user problems", "Ship 3 small fixes from open issues as PRs". A two-person pre-seed startup does \
-not need Finance or Operations agents; a funded company hiring salespeople needs pipeline; an \
-agency needs client acquisition and delivery support. Skip a function if there's nothing \
-valuable an AI employee could do there yet.
-- 1 to {max_per_dept} goals per function (2 is typical), at most {max_goals} in total. Fewer, \
+They also support back-office functions, always asking before anything goes out or changes:
+- Finance: categorise and reconcile transactions in the accounting app and flag anomalies; chase \
+overdue invoices; monthly burn, runway and spend reports; find unused or duplicate SaaS \
+subscriptions; month-end close checklist and investor-update numbers. They never pay, refund or \
+move money without approval.
+- People & Hiring: job descriptions and postings; sourcing candidates; screening applicants against \
+the role's stated requirements only (never protected traits such as age, gender or ethnicity) and \
+ranking them for a person to decide; scheduling interviews; onboarding plans and handbook drafts. \
+People make every hiring decision.
+- IT & Security: inventory of apps and who has access; accounts still open for people who left; \
+answering customer security questionnaires from approved material; SOC 2 / ISO 27001 readiness \
+checklists and evidence; onboarding and offboarding checklists. Access changes wait for approval.
+- Legal & Compliance: contract summaries that flag unusual or risky terms; renewal and notice-period \
+tracking; a compliance calendar of filings and deadlines; privacy policy and GDPR basics; trademark \
+searches. This prepares work for a lawyer and is not legal advice; people sign.
+- Operations: vendor research and quotes, process documentation, procurement follow-ups.
+- Customer Success: onboarding check-ins, account health, renewal and churn-risk follow-ups, \
+support-ticket trends.
+
+Choose functions and goals that fit THIS company at its CURRENT size and stage:
+- First size the company and set profile.size. Weigh headcount and revenue (real operations) \
+above funding alone:
+{sizes}
+  profile.size_reason says why in a few words ("~30 people, $12M Series A, 6 open roles").
+- Then pick functions, most important first, never more than the size allows, and fewer when an \
+AI employee has nothing valuable to do there yet. Tiny companies: almost all growth (sales, \
+marketing, product; fundraising if raising). Small: add People & Hiring when several roles are \
+open, Finance once there is recurring revenue, Customer Success once there are customers to keep. \
+Mid and large: Finance, People & Hiring, IT & Security and Legal & Compliance usually earn a \
+place (IT & Security early if they sell to enterprises that send security questionnaires). \
+For a software company, include Product (and Engineering, if they build in-house) unless growth \
+work clearly matters far more right now; their goals look like "Weekly metrics and competitor \
+brief", "Explain the drop in activation", "3 prioritised PRDs for the top user problems", "Ship \
+3 small fixes from open issues as PRs". Back-office goals look like "Chase the 14 overdue \
+invoices", "Monthly burn and runway report", "Answer the 3 open security questionnaires", \
+"Summarise and flag risks in the 10 contracts up for renewal", "Shortlist 20 candidates for the \
+AE role".
+- 1 to {max_per_dept} goals per function (2 is typical), within the size's goal limit. Fewer, \
 sharper goals beat many. No two goals should overlap.
+- later lists up to {max_later} functions you left out that will matter as the company grows, \
+each with when, in a few words ("once you have recurring revenue", "when enterprise customers \
+ask for SOC 2"). Leave out functions that will never matter here.
 - Make every goal specific to this company: name their real customer, product, market and \
 channels. Each must be something an AI employee can mostly achieve itself in about 30 days, \
 with a done_when that can be checked ("Meeting held on calendar with a Head of Ops at a 50-500 \
@@ -161,7 +204,16 @@ What their website says (extracted text, may be partial):
 {site}
 </website>
 
-Design their AI team: the profile, the functions, and the first goals for each."""
+{task}"""
+
+FULL_TASK = "Design their AI team: the profile, the functions, and the first goals for each."
+ADD_TASK = ("The team already has: {existing}. The founders asked to add these functions now: {include}. "
+            "Plan ONLY these functions, with their first goals; return an empty later list.")
+
+
+def sizes_text() -> str:
+    return "\n".join(f"  {k} = {v['label']}: up to {v['departments']} functions and {v['goals']} goals."
+                     for k, v in SIZES.items())
 
 
 def plan_schema() -> dict:
@@ -204,20 +256,30 @@ def plan_schema() -> dict:
         "required": ["kind", "name", "agent_title", "objective", "why", "goals"],
         "additionalProperties": False,
     }
-    profile_fields = ["summary", "offering", "customers", "business_model", "stage", "funding", "team", "traction"]
+    later = {
+        "type": "object",
+        "properties": {"kind": {"type": "string", "enum": kinds}, "name": {"type": "string"},
+                       "when": {"type": "string", "description": "When it will be worth adding, a few words"}},
+        "required": ["kind", "name", "when"],
+        "additionalProperties": False,
+    }
+    profile_fields = ["summary", "offering", "customers", "business_model", "stage", "funding", "revenue", "team",
+                      "traction", "size_reason"]
     profile = {
         "type": "object",
         "properties": {**{f: {"type": "string"} for f in profile_fields},
+                       "size": {"type": "string", "enum": list(SIZES)},
                        "current_focus": string_list, "challenges": string_list},
-        "required": [*profile_fields, "current_focus", "challenges"],
+        "required": [*profile_fields, "size", "current_focus", "challenges"],
         "additionalProperties": False,
     }
     return {
         "type": "json_schema",
         "schema": {
             "type": "object",
-            "properties": {"profile": profile, "departments": {"type": "array", "items": department}},
-            "required": ["profile", "departments"],
+            "properties": {"profile": profile, "departments": {"type": "array", "items": department},
+                           "later": {"type": "array", "items": later}},
+            "required": ["profile", "departments", "later"],
             "additionalProperties": False,
         },
     }
@@ -291,15 +353,23 @@ async def research_company(claude: MeteredClaude, setup_id: str, name: str, webs
     return brief, unique[:15]
 
 
+def include_names(include: list[str]) -> list[str]:
+    return [PRESET_NAMES.get(k, k) for k in include]
+
+
 async def plan_team(claude: MeteredClaude, setup_id: str, name: str, website: str, description: str,
-                    research: str, site_text: str) -> dict:
+                    research: str, site_text: str, include: list[str] | None = None,
+                    existing: list[str] | None = None) -> dict:
+    task = ADD_TASK.format(existing=", ".join(existing or []) or "nothing yet",
+                           include=", ".join(include_names(include))) if include else FULL_TASK
     result = await claude.create(
         campaign_id=None, run_id=None, purpose="setup plan", role="planner",
-        system=PLAN_SYSTEM.format(max_departments=MAX_DEPARTMENTS, max_per_dept=MAX_GOALS_PER_DEPARTMENT,
-                                  max_goals=MAX_GOALS, step_guidance=STEP_GUIDANCE),
+        system=PLAN_SYSTEM.format(sizes=sizes_text(), max_per_dept=MAX_GOALS_PER_DEPARTMENT, max_later=MAX_LATER,
+                                  step_guidance=STEP_GUIDANCE),
         messages=[{"role": "user", "content": PLAN_TASK.format(
             name=name, website=website or "(none given)", description=description or "(not given)",
-            research=research or "(no research available)", site=(site_text or "(not available)")[:12000])}],
+            research=research or "(no research available)", site=(site_text or "(not available)")[:12000],
+            task=task)}],
         max_tokens=16000, output_format=plan_schema(),
     )
     if result.stop_reason == "refusal":
@@ -309,7 +379,7 @@ async def plan_team(claude: MeteredClaude, setup_id: str, name: str, website: st
         plan = json.loads(raw)
     except json.JSONDecodeError as e:
         raise RuntimeError("The team plan came back incomplete. Try again.") from e
-    plan = tidy_plan(plan)
+    plan = tidy_plan(plan, include=include)
     n_goals = sum(len(d["goals"]) for d in plan["departments"])
     await _step(setup_id, "plan", "done", f"{len(plan['departments'])} functions, {n_goals} goals", result.cost)
     return plan
@@ -323,20 +393,29 @@ def _clamp(value: Any, lo: float, hi: float, default: float) -> float:
     return min(hi, max(lo, v))
 
 
-def tidy_plan(plan: dict) -> dict:
-    """Enforce the limits the prompt asks for: few functions, few goals, sane numbers."""
+def tidy_plan(plan: dict, include: list[str] | None = None) -> dict:
+    """Enforce the limits the prompt asks for: a team that fits the company's size, few goals,
+    sane numbers. With include, keep only the functions people asked to add."""
+    profile = dict(plan.get("profile") or {})
+    profile["size"] = profile.get("size") if profile.get("size") in SIZES else DEFAULT_SIZE
+    max_departments, max_goals = SIZES[profile["size"]]["departments"], SIZES[profile["size"]]["goals"]
+    wanted = {x.lower() for x in (include or [])} | {x.lower() for x in include_names(include or [])}
+    if include:
+        max_departments, max_goals = len(include), MAX_GOALS_PER_DEPARTMENT * len(include)
     departments, seen_names, seen_goals, total = [], set(), set(), 0
     for d in plan.get("departments") or []:
         kind = d.get("kind") if d.get("kind") in PRESET_NAMES else ""
         name = (d.get("name") or PRESET_NAMES.get(kind, "")).strip()[:120] or "General"
         if name.lower() in seen_names:
             continue
+        if include and kind not in wanted and name.lower() not in wanted:
+            continue
         goals = []
         for g in d.get("goals") or []:
             title = (g.get("name") or g.get("goal_description") or "").strip()
             if not title or title.lower() in seen_goals or not (g.get("goal_description") or "").strip():
                 continue
-            if len(goals) >= MAX_GOALS_PER_DEPARTMENT or total >= MAX_GOALS:
+            if len(goals) >= MAX_GOALS_PER_DEPARTMENT or total >= max_goals:
                 break
             target = g.get("target_value")
             target = float(target) if isinstance(target, (int, float)) and target > 0 else None
@@ -367,7 +446,7 @@ def tidy_plan(plan: dict) -> dict:
         departments.append({"kind": kind, "name": name, "agent_title": (d.get("agent_title") or "").strip()[:160],
                             "objective": (d.get("objective") or "").strip()[:400],
                             "why": (d.get("why") or "").strip(), "goals": goals})
-        if len(departments) >= MAX_DEPARTMENTS:
+        if len(departments) >= max_departments:
             break
     # Two or three goals to start with: the planner's picks, else the first goal of the top functions.
     goals = [g for d in departments for g in d["goals"]]
@@ -376,8 +455,17 @@ def tidy_plan(plan: dict) -> dict:
         picked = [d["goals"][0] for d in departments[:2]]
     for g in goals:
         g["start_here"] = any(g is p for p in picked)
-    profile = plan.get("profile") or {}
-    return {"profile": profile, "departments": departments}
+    later, taken = [], {n.lower() for n in seen_names} | {d["kind"] for d in departments if d["kind"]}
+    for x in plan.get("later") or []:
+        kind = x.get("kind") if x.get("kind") in PRESET_NAMES else ""
+        name = (x.get("name") or PRESET_NAMES.get(kind, "")).strip()[:120]
+        if not name or name.lower() in taken or (kind and kind in taken) or include:
+            continue
+        taken.add(name.lower())
+        later.append({"kind": kind, "name": name, "when": (x.get("when") or "").strip()[:160]})
+        if len(later) >= MAX_LATER:
+            break
+    return {"profile": profile, "departments": departments, "later": later}
 
 
 def company_context(org: Organization, profile: dict) -> str:
@@ -469,11 +557,24 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
         name, website, description = org.name, org.website, org.description
         setup.steps = setup.steps or initial_steps()
         setup.error = None
+        include = list((setup.plan or {}).get("include") or [])
+        earlier_research, existing = "", []
+        if include:  # adding functions later: reuse what setup learned before
+            earlier_research = (await s.execute(
+                select(OrgSetup.research).where(OrgSetup.org_id == org_id, OrgSetup.id != setup_id,
+                                                OrgSetup.research.is_not(None), OrgSetup.research != "")
+                .order_by(OrgSetup.created_at.desc()).limit(1))).scalar_one_or_none() or ""
+            existing = [n for (n,) in (await s.execute(
+                select(Department.name).where(Department.org_id == org_id).order_by(Department.created_at))).all()]
+            if not earlier_research and org.profile:
+                earlier_research = json.dumps({k: v for k, v in org.profile.items() if k not in ("sources", "later")})
     current = "website"
     try:
         # 1. Website
         site_text = ""
-        if website:
+        if include:
+            await _step(setup_id, "website", "skipped", "Using what we learned before")
+        elif website:
             await _step(setup_id, "website", "running")
             reading = await read_site(website)
             site_text = reading.as_text()
@@ -487,9 +588,14 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
 
         # 2. Research. Setup can still go on from the website and description if this fails.
         current = "research"
-        await _step(setup_id, "research", "running")
+        if include:
+            research, sources = earlier_research, []
+            await _step(setup_id, "research", "skipped", "Using what we learned before")
+        else:
+            await _step(setup_id, "research", "running")
         try:
-            research, sources = await research_company(claude, setup_id, name, website, description, site_text)
+            if not include:
+                research, sources = await research_company(claude, setup_id, name, website, description, site_text)
         except Exception as e:
             log.warning("setup research failed: %s", e)
             research, sources = "", []
@@ -503,7 +609,8 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
         # 3. Plan
         current = "plan"
         await _step(setup_id, "plan", "running")
-        plan = await plan_team(claude, setup_id, name, website, description, research, site_text)
+        plan = await plan_team(claude, setup_id, name, website, description, research, site_text,
+                               include=include or None, existing=existing)
         if not plan["departments"]:
             raise RuntimeError("Couldn't work out any functions to set up. Add a few words about what you do and try again.")
         async with session_scope() as s:
@@ -513,9 +620,16 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
                 g["budget_basis"] = estimate.starter(per, g["cycle_hours"], g["duration_days"], g["paid_spend_usd"], basis, n)
                 g["budget_usd"] = g["budget_basis"]["suggested_usd"]
         async with session_scope() as s:
-            (await s.get(OrgSetup, setup_id)).plan = plan
+            (await s.get(OrgSetup, setup_id)).plan = {**plan, "include": include} if include else plan
             org = await s.get(Organization, org_id)
-            org.profile = {**(plan.get("profile") or {}), "sources": sources, "researched_at": utcnow().isoformat()}
+            if include:  # keep the profile; what was just added is no longer "later"
+                added = {d["kind"] for d in plan["departments"] if d["kind"]} | {d["name"].lower() for d in plan["departments"]}
+                added |= set(include) | {n.lower() for n in include_names(include)}
+                org.profile = {**(org.profile or {}), "later": [
+                    x for x in (org.profile or {}).get("later") or [] if x["kind"] not in added and x["name"].lower() not in added]}
+            else:
+                org.profile = {**(plan.get("profile") or {}), "sources": sources, "later": plan.get("later") or [],
+                               "researched_at": utcnow().isoformat()}
 
         # 4. Create
         current = "create"

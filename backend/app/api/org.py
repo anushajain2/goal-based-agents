@@ -132,6 +132,8 @@ async def get_setup(s: AsyncSession = Depends(get_session), me: Member = Depends
 class SetupIn(BaseModel):
     website: str | None = Field(default=None, max_length=500)
     description: str | None = Field(default=None, max_length=3000)
+    # Add these functions now (department kinds or names), reusing earlier research.
+    add_functions: list[str] | None = Field(default=None, max_length=6)
 
 
 @router.post("/org/setup")
@@ -151,7 +153,11 @@ async def rerun_setup(body: SetupIn, s: AsyncSession = Depends(get_session), me:
         org.description = body.description.strip()
     if not org.website and not org.description:
         raise HTTPException(400, "Add your website or a sentence about what you do first.")
-    setup = OrgSetup(org_id=org.id, requested_by=me.user.id, steps=initial_steps())
+    include = [f.strip()[:120] for f in body.add_functions or [] if f.strip()]
+    if body.add_functions is not None and not include:
+        raise HTTPException(400, "Pick a function to add.")
+    setup = OrgSetup(org_id=org.id, requested_by=me.user.id, steps=initial_steps(),
+                     plan={"include": include} if include else None)
     s.add(setup)
     await s.flush()
     return _setup_json(setup)

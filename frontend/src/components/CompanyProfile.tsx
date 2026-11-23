@@ -8,7 +8,7 @@ import { Badge, Card } from "./ui";
 
 const FACTS: [keyof CompanyProfile, string][] = [
   ["offering", "What you sell"], ["customers", "Who you sell to"], ["business_model", "Business model"], ["stage", "Stage"],
-  ["funding", "Funding"], ["team", "Team"], ["traction", "Traction"],
+  ["funding", "Funding"], ["revenue", "Revenue"], ["team", "Team"], ["traction", "Traction"],
 ];
 
 export function CompanyProfileCard({ profile, name, action }: { profile: CompanyProfile; name: string; action?: ReactNode }) {

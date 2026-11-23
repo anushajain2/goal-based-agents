@@ -48,6 +48,11 @@ export function OrgChart({ org, goals, onGoalClick, onChanged }: {
     )
   );
 
+  const cells = [
+    ...org.departments.map((d, i) => <div key={d.id} className="org-child w-[260px] shrink-0">{columns[i]}</div>),
+    ...(addColumn ? [<div key="add" className="org-child w-[260px] shrink-0">{addColumn}</div>] : []),
+  ];
+  const rows = Array.from({ length: Math.ceil(cells.length / 4) }, (_, r) => cells.slice(r * 4, r * 4 + 4));
   return (
     <div>
       {/* Wide screens: a tree. */}
@@ -56,10 +61,12 @@ export function OrgChart({ org, goals, onGoalClick, onChanged }: {
           <div className="flex justify-center">
             <PersonCard person={top} label={isMe ? `You · ${roleWord(top.role)}` : roleWord(top.role)} />
           </div>
-          <div className="org-children">
-            {org.departments.map((d, i) => <div key={d.id} className="org-child w-[260px] shrink-0">{columns[i]}</div>)}
-            {addColumn && <div className="org-child shrink-0">{addColumn}</div>}
-          </div>
+          {/* Four departments per row, so bigger teams wrap instead of running off the screen. */}
+          {rows.map((row, r) => (
+            <div key={r} className={cx("org-children", r < rows.length - 1 && "org-trunk")}>
+              {row}
+            </div>
+          ))}
         </div>
       </div>
       {/* Phones: the same thing as an indented list. */}

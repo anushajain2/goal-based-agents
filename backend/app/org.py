@@ -46,6 +46,8 @@ DEPARTMENT_PRESETS: list[tuple[str, str]] = [
     ("success", "Customer Success"),
     ("finance", "Finance"),
     ("operations", "Operations"),
+    ("it", "IT & Security"),
+    ("legal", "Legal & Compliance"),
     ("pr", "Brand & PR"),
 ]
 PRESET_NAMES = dict(DEPARTMENT_PRESETS)
@@ -57,7 +59,7 @@ CATEGORY_KEYS = {
     "Partnerships & BD": "partnerships", "Customer success & retention": "success", "Finance": "finance",
     "Operations & procurement": "operations", "Brand, PR & community": "pr",
     "Market & competitive intel": "intel", "For agencies": "agency", "Founder leverage": "founder",
-    "Legal & admin": "legal",
+    "Legal & admin": "legal", "IT & security": "it",
 }
 
 # Library categories (as stored on goals) -> the department kind that handles them.
@@ -67,7 +69,7 @@ CATEGORY_TO_KIND = {
     "Partnerships & BD": "partnerships", "Customer success & retention": "success", "Finance": "finance",
     "Operations & procurement": "operations", "Brand, PR & community": "pr",
     "Market & competitive intel": "research", "For agencies": "sales", "Founder leverage": "operations",
-    "Legal & admin": "operations",
+    "Legal & admin": "legal", "IT & security": "it",
 }
 
 

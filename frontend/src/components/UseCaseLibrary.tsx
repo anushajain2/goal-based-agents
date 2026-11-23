@@ -16,6 +16,7 @@ import {
   Rocket,
   Scale,
   Search,
+  ShieldCheck,
   UserPlus,
   UserRound,
   Wallet,
@@ -41,6 +42,7 @@ export const CATEGORY_ICON: Record<string, ReactNode> = {
   agency: <Building2 size={16} />,
   founder: <UserRound size={16} />,
   legal: <Scale size={16} />,
+  it: <ShieldCheck size={16} />,
 };
 
 export function FitBadge({ fit }: { fit: UseCase["fit"] }) {

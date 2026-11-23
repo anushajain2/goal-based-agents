@@ -7,7 +7,9 @@ import { Suspense, useState } from "react";
 
 import { CompanyProfileCard } from "@/components/CompanyProfile";
 import { GoalPanel } from "@/components/GoalPanel";
+import { useRouter } from "next/navigation";
 import { HireDialog, OrgChart } from "@/components/OrgChart";
+import { TeamSize } from "@/components/TeamSize";
 import { StartGoal } from "@/components/StartGoal";
 import { AgentAvatar, PersonAvatar } from "@/components/team";
 import { Badge, Button, Card, cx, ErrorNote, Input } from "@/components/ui";
@@ -23,6 +25,7 @@ export default function Page() {
 
 function TeamPage() {
   const params = useSearchParams();
+  const router = useRouter();
   const { data: org, reload, error } = useApi<OrgInfo>("/api/org");
   const { data: goals, reload: reloadGoals } = useApi<Campaign[]>("/api/campaigns");
   const [view, setView] = useState<"chart" | "list">("chart");
@@ -105,6 +108,8 @@ function TeamPage() {
           <Button variant="ghost" onClick={() => setAdding(false)}>Cancel</Button>
         </Card>
       )}
+
+      <TeamSize profile={org.org.profile} canAdd={org.me.is_admin} onAdding={() => router.push("/setup")} />
 
           <div className="inline-flex overflow-hidden rounded-md border border-line text-xs font-semibold">
         {(["chart", "list"] as const).map((v) => (

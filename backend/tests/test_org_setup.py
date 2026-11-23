@@ -291,3 +291,63 @@ async def test_switching_older_suggestions_to_starter_budgets(with_key, fake_sit
         assert r["changed"] == 4 and r["before_usd"] == 160 and r["after_usd"] == 40
         assert {g["budget"]["total"] for g in (await c.get("/api/campaigns")).json()} == {10}
         assert (await c.post("/api/org/setup/starter-budgets")).json()["changed"] == 0
+
+
+def test_team_size_follows_the_company():
+    def plan(size):
+        return {"profile": {"size": size}, "later": [], "departments": [
+            {"kind": "custom", "name": f"Team {i}", "agent_title": "", "why": "", "goals": [goal(f"G{i}")]}
+            for i in range(12)]}
+    assert len(tidy_plan(plan("tiny"))["departments"]) == 4
+    assert len(tidy_plan(plan("mid"))["departments"]) == 8
+    assert len(tidy_plan(plan("large"))["departments"]) == 10
+    assert tidy_plan(plan("enormous"))["profile"]["size"] == "small"  # unknown sizes fall back
+
+
+def test_later_functions_are_tidied():
+    plan = {"profile": {"size": "tiny"}, "departments": PLAN["departments"][:1], "later": [
+        {"kind": "sales", "name": "Sales", "when": "already in the team"},
+        {"kind": "finance", "name": "Finance", "when": "once you have recurring revenue"},
+        {"kind": "finance", "name": "Finance", "when": "duplicate"},
+        {"kind": "legal", "name": "", "when": "when enterprise deals start"},
+        {"kind": "it", "name": "IT & Security", "when": "x"}, {"kind": "hiring", "name": "People", "when": "y"},
+        {"kind": "custom", "name": "Facilities", "when": "z"}]}
+    later = tidy_plan(plan)["later"]
+    assert [x["name"] for x in later] == ["Finance", "Legal & Compliance", "IT & Security", "People"]
+
+
+async def test_adding_a_function_later_reuses_research(with_key, fake_site):
+    first = {**PLAN, "profile": {**PLAN["profile"], "size": "tiny", "size_reason": "8 people, $3M seed"},
+             "later": [{"kind": "finance", "name": "Finance", "when": "once you have recurring revenue"},
+                       {"kind": "legal", "name": "Legal & Compliance", "when": "when enterprise deals start"}]}
+    finance_plan = {"profile": {"size": "tiny"}, "later": [], "departments": [
+        PLAN["departments"][0],  # not asked for: dropped
+        {"kind": "finance", "name": "Finance", "agent_title": "Cash and invoices", "why": "12 paying customers.",
+         "objective": "Keep cash collected and burn visible",
+         "goals": [goal("Chase overdue invoices", "Finance"), goal("Monthly burn and runway report", "Finance")]}]}
+    async with client() as c:
+        setup_id = await start_setup(c)
+        await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(research_script, org_planner=lambda kw: first)))
+        st = (await c.get("/api/org/setup")).json()
+        assert st["org"]["profile"]["size_reason"] == "8 people, $3M seed"
+        assert [x["name"] for x in st["org"]["profile"]["later"]] == ["Finance", "Legal & Compliance"]
+
+        assert (await c.post("/api/org/setup", json={"add_functions": []})).status_code == 400
+        again = (await c.post("/api/org/setup", json={"add_functions": ["finance"]})).json()["id"]
+        fake = FakeAnthropic(research_script, org_planner=lambda kw: finance_plan, searches=3)
+        await run_org_setup(again, MeteredClaude(client=fake))
+        assert fake.agent_calls() == []  # no new web research
+        planner_msg = fake.calls[0]["messages"][0]["content"]
+        assert "add these functions now: Finance" in planner_msg and "Sales, Marketing" in planner_msg
+        assert "Stage and funding: $3M seed" in planner_msg  # earlier research reused
+
+        st = (await c.get("/api/org/setup")).json()
+        assert st["setup"]["status"] == "done", st["setup"]["error"]
+        assert [x["status"] for x in st["setup"]["steps"]] == ["skipped", "skipped", "done", "done"]
+        assert [x["name"] for x in st["org"]["profile"]["later"]] == ["Legal & Compliance"]
+        assert st["org"]["profile"]["size_reason"] == "8 people, $3M seed"  # profile kept
+        org = await org_of(c)
+        assert [d["name"] for d in org["departments"]] == ["Sales", "Marketing", "Finance"]
+        assert org["departments"][2]["agents"][0]["objective"] == "Keep cash collected and burn visible"
+        goals = (await c.get("/api/campaigns")).json()
+        assert len(goals) == 6 and sum(g["name"].startswith("Chase") for g in goals) == 1

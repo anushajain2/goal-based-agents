@@ -361,6 +361,22 @@ export const CATEGORIES: Category[] = [
       ["Cap table and equity", "Keep the cap table and option grants up to date", "Records reconciled", "L"],
     ],
   },
+  {
+    key: "it",
+    name: "IT & security",
+    blurb: "Access, security reviews and compliance evidence; access changes always wait for an OK.",
+    rows: [
+      ["Security reviews", "Answer every customer security questionnaire within 3 days", "Questionnaire returned from approved answers", "H"],
+      ["Security reviews", "Build a library of approved answers to common security questions", "Answers approved and stored", "H"],
+      ["Compliance", "Get SOC 2 ready: gap list and evidence for every control", "Evidence attached per control", "M"],
+      ["Compliance", "Keep a calendar of security and privacy deadlines, with owners", "Calendar shared, nothing missed", "M"],
+      ["Access", "List every app we pay for and who has access to each", "Inventory complete and reviewed", "H"],
+      ["Access", "Find accounts still open for people who have left", "Each account flagged and closed after approval", "H"],
+      ["Onboarding and offboarding", "Prepare accounts and a day-one checklist for each new hire", "Checklist done before the start date", "M"],
+      ["Vendor risk", "Review the security of 10 key vendors", "Review on file per vendor", "M"],
+      ["Spend", "Cut unused software seats and duplicate tools", "Savings confirmed per tool", "H"],
+    ],
+  },
 ];
 
 export const USE_CASES: UseCase[] = CATEGORIES.flatMap((c) =>

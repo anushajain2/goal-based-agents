@@ -57,6 +57,23 @@ TOOLS: dict[str, Tool] = {t.key: t for t in [
     Tool("posthog", "PostHog", "posthog", "app.posthog.com", "https://app.posthog.com/login"),
     Tool("linear", "Linear", "linear", "linear.app", "https://linear.app/login"),
     Tool("jira", "Jira", "jira", "atlassian.net", "https://id.atlassian.com/login"),
+    # Finance
+    Tool("quickbooks", "QuickBooks", "quickbooks", "qbo.intuit.com", "https://qbo.intuit.com"),
+    Tool("xero", "Xero", "xero", "go.xero.com", "https://login.xero.com"),
+    Tool("ramp", "Ramp", "ramp", "app.ramp.com", "https://app.ramp.com/sign-in"),
+    # People
+    Tool("greenhouse", "Greenhouse", "greenhouse", "app.greenhouse.io", "https://app.greenhouse.io/users/sign_in"),
+    Tool("ashby", "Ashby", "ashby", "app.ashbyhq.com", "https://app.ashbyhq.com/signin"),
+    Tool("bamboohr", "BambooHR", "bamboohr", "bamboohr.com", "https://www.bamboohr.com/login"),
+    Tool("gusto", "Gusto", "gusto", "app.gusto.com", "https://app.gusto.com/login"),
+    # IT, security and legal
+    Tool("googleworkspace", "Google Workspace admin", "googlesuper", "admin.google.com", "https://admin.google.com"),
+    Tool("okta", "Okta", "okta", None, None),
+    Tool("docusign", "DocuSign", "docusign", "app.docusign.com", "https://account.docusign.com"),
+    Tool("googledrive", "Google Drive", "googledrive", "drive.google.com", "https://drive.google.com"),
+    # Support
+    Tool("zendesk", "Zendesk", "zendesk", None, None),
+    Tool("intercom", "Intercom", "intercom", "app.intercom.com", "https://app.intercom.com/admins/sign_in"),
 ]}
 
 # Channel names people pick in the goal wizard -> tools.

@@ -204,13 +204,19 @@ export const TOOL_LABELS: Record<string, string> = {
   hubspot: "HubSpot", salesforce: "Salesforce", pipedrive: "Pipedrive", apollo: "Apollo", slack: "Slack", notion: "Notion",
   googlesheets: "Google Sheets", googledocs: "Google Docs", mailchimp: "Mailchimp", shopify: "Shopify", stripe: "Stripe",
   googleads: "Google Ads", metaads: "Meta Ads", producthunt: "Product Hunt", wordpress: "WordPress", webflow: "Webflow",
+  quickbooks: "QuickBooks", xero: "Xero", ramp: "Ramp", greenhouse: "Greenhouse", ashby: "Ashby", bamboohr: "BambooHR",
+  gusto: "Gusto", googleworkspace: "Google Workspace admin", okta: "Okta", docusign: "DocuSign", googledrive: "Google Drive",
+  zendesk: "Zendesk", intercom: "Intercom",
 };
 
 export type CompanyProfile = {
   summary: string; offering: string; customers: string; business_model: string; stage: string; funding: string;
   team: string; traction: string; current_focus: string[]; challenges: string[];
   sources?: { url: string; title: string }[]; researched_at?: string;
+  revenue?: string; size?: "tiny" | "small" | "mid" | "large"; size_reason?: string; later?: LaterFunction[];
 };
+export type LaterFunction = { kind: string; name: string; when: string };
+export const SIZE_LABEL: Record<string, string> = { tiny: "1-10 people", small: "11-50 people", mid: "51-250 people", large: "250+ people" };
 export type SetupStep = { key: string; label: string; status: "pending" | "running" | "done" | "failed" | "skipped"; detail: string };
 export type PlannedGoal = {
   name: string; goal_description: string; done_when: string; primary_metric: string; target_value: number | null; budget_usd: number;
@@ -237,7 +243,7 @@ export type OrgInfo = {
 export const CATEGORY_DEPARTMENT: Record<string, string> = {
   sales: "sales", marketing: "marketing", research: "research", product: "product", fundraising: "fundraising",
   hiring: "hiring", partnerships: "partnerships", success: "success", finance: "finance", operations: "operations",
-  pr: "pr", intel: "research", agency: "sales", founder: "operations", legal: "operations",
+  pr: "pr", intel: "research", agency: "sales", founder: "operations", legal: "legal", it: "it",
 };
 
 export type ActionType = { key: string; label: string; description: string; default: "auto" | "ask" };

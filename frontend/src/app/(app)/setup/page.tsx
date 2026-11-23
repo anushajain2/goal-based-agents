@@ -9,6 +9,7 @@ import { CompanyProfileCard } from "@/components/CompanyProfile";
 import { GoalPanel } from "@/components/GoalPanel";
 import { OrgChart } from "@/components/OrgChart";
 import { StartGoal } from "@/components/StartGoal";
+import { TeamSize } from "@/components/TeamSize";
 import { AgentAvatar } from "@/components/team";
 import { Badge, Button, Card, cx, ErrorNote, Field, Input, Textarea } from "@/components/ui";
 import { api, Campaign, CompanyProfile, OrgInfo, SetupInfo, SetupStep, usd, useApi } from "@/lib/api";
@@ -41,6 +42,7 @@ export default function SetupPage() {
   if (!info) return <p className="text-muted">Loading…</p>;
 
   const name = info.org.name;
+  const adding: string[] = (info.setup?.plan as { include?: string[] } | null)?.include?.map((k) => PRESET_LABEL[k] || k) || [];
   if (!info.setup) {
     return (
       <div className="mx-auto max-w-2xl">
@@ -58,7 +60,7 @@ export default function SetupPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">
-            {working ? `Getting to know ${name}…` : status === "done" ? "Meet your AI team" : `Setting up ${name} didn't finish`}
+            {working ? (adding.length ? `Adding ${adding.join(", ")} to your team…` : `Getting to know ${name}…`) : status === "done" ? "Meet your AI team" : `Setting up ${name} didn't finish`}
           </h1>
           <p className="text-sm text-muted">
             {working
@@ -109,7 +111,7 @@ export default function SetupPage() {
       {status === "done" && info.setup.plan && (
         <>
           <Learned profile={info.org.profile || info.setup.plan.profile} name={name} />
-          <SuggestedTeam info={info} />
+          <SuggestedTeam info={info} onAdding={load} />
         </>
       )}
     </div>
@@ -219,7 +221,13 @@ function TeamLaunch({ info, goals, org, onStart }: { info: SetupInfo; goals: Cam
   );
 }
 
-function SuggestedTeam({ info }: { info: SetupInfo }) {
+const PRESET_LABEL: Record<string, string> = {
+  finance: "Finance", hiring: "People & Hiring", it: "IT & Security", legal: "Legal & Compliance", operations: "Operations",
+  success: "Customer Success", product: "Product", engineering: "Engineering", sales: "Sales", marketing: "Marketing",
+  research: "Customer Research", fundraising: "Fundraising", partnerships: "Partnerships", pr: "Brand & PR",
+};
+
+function SuggestedTeam({ info, onAdding }: { info: SetupInfo; onAdding: () => void }) {
   const { data: goals, reload } = useApi<Campaign[]>("/api/campaigns");
   const { data: org, reload: reloadOrg } = useApi<OrgInfo>("/api/org");
   const [panel, setPanel] = useState<Campaign | null>(null);
@@ -228,7 +236,7 @@ function SuggestedTeam({ info }: { info: SetupInfo }) {
   const createdIds = info.setup!.created?.goals;
   const mine = useMemo(() => {
     const created = new Set(createdIds || []);
-    return (goals || []).filter((g) => created.has(g.id));
+    return (goals || []).filter((g) => created.has(g.id) || g.origin === "setup");
   }, [goals, createdIds]);
   const oldBudgets = mine.filter((g) => g.status === "draft" && !g.budget_basis?.starter);
 
@@ -263,6 +271,7 @@ function SuggestedTeam({ info }: { info: SetupInfo }) {
           AI employees work in departments and report to the department&apos;s head, who approves their work. No heads yet? Approvals come to you.
           Click any goal to see what it does; change the team whenever you like.
         </p>
+        <div className="mb-3"><TeamSize profile={info.org.profile} canAdd={info.can_run && info.can_research} onAdding={onAdding} /></div>
         {org && <OrgChart org={org} goals={mine} onGoalClick={setPanel} onChanged={refresh} />}
       </section>
 

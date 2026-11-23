@@ -45,6 +45,15 @@ body {
   height: 22px;
   border-left: 2px solid #c9ced6;
 }
+.org-trunk::after {
+  /* the line down to the next row, through the gap between the middle departments */
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: -22px;
+  left: 50%;
+  border-left: 2px solid #c9ced6;
+}
 .org-child {
   position: relative;
   padding-top: 22px;
