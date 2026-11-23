@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Hand, Home, ListTree, LogOut, Settings, Sparkles, Target, Users } from "lucide-react";
+import { Bot, Hand, Home, ListTree, LogOut, Plug, Settings, Sparkles, Target, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
@@ -16,6 +16,7 @@ const NAV = [
   { href: "/team", label: "Team", icon: Users, match: (p: string) => p.startsWith("/team") || p.startsWith("/setup") },
   { href: "/goals", label: "Goals", icon: Target, match: (p: string) => p.startsWith("/goals") },
   { href: "/work", label: "Work log", icon: ListTree, match: (p: string) => p.startsWith("/work") },
+  { href: "/connections", label: "Connections", icon: Plug, match: (p: string) => p.startsWith("/connections") },
   { href: "/capabilities", label: "Goal ideas", icon: Sparkles, match: (p: string) => p.startsWith("/capabilities") },
   { href: "/settings", label: "Settings", icon: Settings, match: (p: string) => p.startsWith("/settings") },
 ];
@@ -95,7 +96,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
         <div className="mt-auto space-y-3 p-3">
           {status && !status.anthropic_configured && (
-            <Link href="/settings" className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-900 ring-1 ring-inset ring-amber-100">
+            <Link href="/connections" className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-900 ring-1 ring-inset ring-amber-100">
               <Dot tone="amber" /> Add your Claude API key
             </Link>
           )}

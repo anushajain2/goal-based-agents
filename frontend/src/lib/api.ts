@@ -214,7 +214,7 @@ export type Deliverable = {
   status: "submitted" | "approved" | "changes_requested" | "handed_off"; campaign_id: string; agent_id: string | null;
   handed_to_campaign_id: string | null; created_at: string;
 };
-export type IntegrationInfo = { id: string; kind: "github" | "postgres"; name: string; config: Record<string, unknown>; error: string | null };
+export type IntegrationInfo = { id: string; kind: "github" | "postgres" | "github_pending" | "composio"; name: string; config: Record<string, unknown>; error: string | null };
 export type Readiness = {
   tools: ToolNeed[]; composio_enabled: boolean; mcp_servers: { id: string; name: string; tools: number; error: string | null }[];
   permissions: Permission[]; department: string | null; approvers: string[]; playbook: Playbook | null;

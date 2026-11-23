@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { KIND_BADGE } from "@/components/ApprovalCard";
 import { GoalProgress } from "@/components/goal";
 import { EmployeeAvatar } from "@/components/Shell";
+import { ConnectChecklist } from "@/components/ConnectChecklist";
 import { TargetLine } from "@/components/Target";
 import { Badge, Card, cx, ErrorNote, PageHeader } from "@/components/ui";
 import { CATEGORY_ICON, UseCaseCard } from "@/components/UseCaseLibrary";
@@ -77,6 +78,7 @@ export default function HomePage() {
       </div>
 
       {researchBanner}
+      <ConnectChecklist only="missing_live" />
       {suggested.length > 0 && (
         <Link href="/setup" className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-brand-500 to-violet-600 px-5 py-4 text-white shadow-[var(--shadow-pop)] transition hover:brightness-105">
           <Sparkles size={20} className="shrink-0" />

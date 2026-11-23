@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.llm import MeteredClaude
 from app.agent.playbook import default_playbook, generate_playbook, tools_needed
-from app.connectors.composio_hub import get_hub
+from app.connectors.composio_hub import hub_for_org
 from app.db import get_session
 from app.models import (
     Campaign,
@@ -160,7 +160,7 @@ async def signed_in_sites(s: AsyncSession, org_id: str) -> set[str]:
 @router.get("/campaigns/{campaign_id}/readiness")
 async def readiness(campaign_id: str, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
     c = await get_goal(s, me, campaign_id)
-    hub = get_hub()
+    hub = await hub_for_org(c.org_id, s)
     connected: set[str] = set()
     if hub.enabled:
         try:

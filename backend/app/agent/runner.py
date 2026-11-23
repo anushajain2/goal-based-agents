@@ -23,7 +23,7 @@ from app.agent.llm import MeteredClaude
 from app.agent.planner import make_plan
 from app.agent.tools import MAX_WEB_SEARCHES_PER_CALL, all_tools
 from app.config import get_settings
-from app.connectors.composio_hub import get_hub
+from app.connectors.composio_hub import hub_for_org
 from app.db import session_scope
 from app.models import (
     Activity,
@@ -81,7 +81,6 @@ class CycleRunner:
     def __init__(self, claude: MeteredClaude | None = None):
         self.claude = claude or MeteredClaude()
         self.settings = get_settings()
-        self.hub = get_hub()
 
     # ------------------------------------------------------------------ persistence
 
@@ -140,7 +139,8 @@ class CycleRunner:
             return
 
         if not messages:
-            uses_apps = self.hub.enabled
+            hub = await hub_for_org(owner_id)
+            uses_apps = hub.enabled
             async with session_scope() as s:
                 uses_mcp = bool((await s.execute(select(McpServer.id).where(McpServer.org_id == owner_id).limit(1))).first())
                 kinds = {k for (k,) in (await s.execute(select(Integration.kind).where(Integration.org_id == owner_id))).all()}
@@ -314,7 +314,7 @@ class CycleRunner:
         connections = None
         if uses_apps:
             try:
-                connections = await self.hub.connected_apps(owner_id)
+                connections = await (await hub_for_org(owner_id)).connected_apps(owner_id)
             except Exception:
                 log.warning("could not list Composio connections", exc_info=True)
         async with session_scope() as s:

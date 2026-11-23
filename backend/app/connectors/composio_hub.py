@@ -5,8 +5,11 @@ from our own backend, never let the model reach it directly, so every write goes
 the policy pipeline (agent/actions.py) before `execute()` runs.
 
 The Composio SDK is synchronous; calls are pushed to a thread so the event loop stays free.
-When no COMPOSIO_API_KEY is configured, `ComposioHub.enabled` is False and the agent falls
-back to Agent Chrome for everything.
+One Composio key serves every organization: each organization's connected accounts are kept
+apart under its own Composio user ("autopilot-<org id>"). The key is the platform's
+(COMPOSIO_API_KEY in .env), or an organization can use its own, pasted in the app (stored
+encrypted). With neither, `ComposioHub.enabled` is False and the agent falls back to Agent
+Chrome for everything.
 """
 
 from __future__ import annotations
@@ -82,19 +85,21 @@ def _to_action(tool: Any) -> AppAction:
 
 
 class ComposioHub:
-    def __init__(self) -> None:
+    def __init__(self, api_key: str | None = None, source: str = "platform") -> None:
         self.settings = get_settings()
+        self.api_key = api_key if api_key is not None else self.settings.composio_api_key
+        self.source = source if self.api_key else None  # "platform" | "org" | None
         self._schema_cache: dict[str, AppAction] = {}
 
     @property
     def enabled(self) -> bool:
-        return self.settings.composio_enabled
+        return bool(self.api_key)
 
     @cached_property
     def _client(self):
         from composio import Composio
 
-        return Composio(api_key=self.settings.composio_api_key)
+        return Composio(api_key=self.api_key)
 
     def user_id(self, owner_id: str | None) -> str:
         """Composio keeps each Autopilot user's connected accounts separate."""
@@ -192,11 +197,34 @@ class ComposioHub:
         return out
 
 
-_hub: ComposioHub | None = None
+_hubs: dict[tuple[str, str], ComposioHub] = {}
 
 
-def get_hub() -> ComposioHub:
-    global _hub
-    if _hub is None:
-        _hub = ComposioHub()
-    return _hub
+def get_hub(api_key: str | None = None, source: str = "platform") -> ComposioHub:
+    """One hub (and SDK client) per key."""
+    key = api_key if api_key is not None else (get_settings().composio_api_key or "")
+    if (key, source) not in _hubs:
+        _hubs[(key, source)] = ComposioHub(key, source)
+    return _hubs[(key, source)]
+
+
+async def hub_for_org(org_id: str | None, s=None) -> ComposioHub:
+    """The organization's own Composio key if it added one, else the platform's. Pass the
+    request's session when there is one (SQLite allows one writer at a time)."""
+    if org_id:
+        from sqlalchemy import select
+
+        from app.db import session_scope
+        from app.models import Integration
+        from app.services.secrets_box import unseal
+
+        q = select(Integration.secret_encrypted).where(Integration.org_id == org_id, Integration.kind == "composio").limit(1)
+        if s is not None:
+            row = (await s.execute(q)).scalar_one_or_none()
+        else:
+            async with session_scope() as own:
+                row = (await own.execute(q)).scalar_one_or_none()
+        key = unseal(row) if row else None
+        if key:
+            return get_hub(key, "org")
+    return get_hub()

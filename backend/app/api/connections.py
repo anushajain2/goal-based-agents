@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.browser import chrome
 from app.config import get_settings
-from app.connectors.composio_hub import get_hub
+from app.connectors.composio_hub import hub_for_org
 from app.db import get_session
 from app.models import Campaign, RequestKind, RequestStatus, SiteSignIn, UserRequest
 from app.org import Member, current_member
@@ -28,11 +28,14 @@ class UrlIn(BaseModel):
 
 
 @router.get("/status")
-async def status():
+async def status(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
     settings = get_settings()
+    hub = await hub_for_org(me.org_id, s)
     return {
         "anthropic_configured": bool(settings.anthropic_api_key),
-        "composio_enabled": settings.composio_enabled,
+        "composio_enabled": hub.enabled,
+        "composio_source": hub.source,  # "platform", "org" (its own key) or None
+        "github_sign_in": bool(settings.github_client_id and settings.github_client_secret),
         "chrome_path": chrome.find_chrome(),
         "agent_chrome_running": await chrome.cdp_ready(),
         "manual_signin_mode": chrome.manual_mode_active(),
@@ -45,8 +48,8 @@ async def status():
 
 
 @router.get("/apps")
-async def apps():
-    hub = get_hub()
+async def apps(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    hub = await hub_for_org(me.org_id, s)
     if not hub.enabled:
         return {"enabled": False, "apps": []}
     return {"enabled": True, "apps": await hub.list_apps()}
@@ -54,7 +57,7 @@ async def apps():
 
 @router.get("/connections")
 async def connections(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
-    hub = get_hub()
+    hub = await hub_for_org(me.org_id, s)
     app_conns: list[dict] = []
     error = None
     if hub.enabled:
@@ -78,6 +81,7 @@ async def connections(s: AsyncSession = Depends(get_session), me: Member = Depen
             latest[site] = at
     return {
         "composio_enabled": hub.enabled,
+        "composio_source": hub.source,
         "apps": app_conns,
         "error": error,
         "sites": [{"site": site, "signed_in_at": at.isoformat() if at else None} for site, at in latest.items()],
@@ -85,11 +89,77 @@ async def connections(s: AsyncSession = Depends(get_session), me: Member = Depen
 
 
 @router.post("/connections/{app}/connect")
-async def connect_app(app: str, me: Member = Depends(current_member)):
-    hub = get_hub()
+async def connect_app(app: str, back: str = "/connections", s: AsyncSession = Depends(get_session),
+                      me: Member = Depends(current_member)):
+    hub = await hub_for_org(me.org_id, s)
     if not hub.enabled:
-        raise HTTPException(400, "Add COMPOSIO_API_KEY to .env to use app connectors")
-    return await hub.connect_link(app, me.org_id, callback_url=get_settings().frontend_origin + "/settings")
+        raise HTTPException(400, "App connections aren't set up yet. Add a Composio key under Connections.")
+    back = back if back.startswith("/") and not back.startswith("//") else "/connections"
+    return await hub.connect_link(app, me.org_id, callback_url=get_settings().frontend_origin + back)
+
+
+# --- everything the organization's goals use, in one place -----------------------------------
+
+@router.get("/connections/overview")
+async def overview(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    """Every tool the organization's goals use (live, paused or suggested), whether it's connected,
+    which goals need it, and what those goals do with it on their own or only after an OK."""
+    from app.agent.playbook import tools_needed
+    from app.api.plan import signed_in_sites
+    from app.models import Integration, McpServer
+    from app.services.policy import ACTION_TYPES, domain_of
+
+    hub = await hub_for_org(me.org_id, s)
+    connected: set[str] = set()
+    error = None
+    if hub.enabled:
+        try:
+            connected = {a["app"] for a in await hub.connected_apps(me.org_id) if (a.get("status") or "").upper() == "ACTIVE"}
+        except Exception as e:  # noqa: BLE001
+            error = f"Couldn't reach Composio: {type(e).__name__}"
+    sites = await signed_in_sites(s, me.org_id)
+    linked = {k for (k,) in (await s.execute(select(Integration.kind).where(Integration.org_id == me.org_id))).all()}
+    goals = (await s.execute(select(Campaign).where(
+        Campaign.org_id == me.org_id, Campaign.status.in_(["active", "paused", "draft", "out_of_budget"]))
+        .order_by(Campaign.created_at))).scalars().all()
+    tools: dict[str, dict] = {}
+    for g in goals:
+        steps = (g.playbook or {}).get("steps") or []
+        for t in tools_needed(g):
+            e = tools.setdefault(t["key"], {**{k: t[k] for k in ("key", "label", "app", "site", "login_url", "kind")},
+                                            "goals": [], "required": False, "on_its_own": [], "needs_ok": []})
+            e["goals"].append({"id": g.id, "name": g.name, "status": g.status})
+            e["required"] = e["required"] or (t["required"] and g.status != "draft")
+            for i in t["steps"]:
+                st = steps[i - 1] if 0 < i <= len(steps) else None
+                if not st:
+                    continue
+                kind = ACTION_TYPES.get(st["action_type"])
+                label = (kind.label if kind else st["action_type"]).lower()
+                bucket = "on_its_own" if kind and kind.default == "auto" else "needs_ok"
+                if label not in e[bucket]:
+                    e[bucket].append(label)
+    out = []
+    for t in tools.values():
+        if t["kind"] in ("github", "postgres"):
+            state = "connected" if t["kind"] in linked else "missing"
+        else:
+            state = ("connected" if t["app"] and t["app"] in connected
+                     else "signed_in" if t["site"] and domain_of(t["site"]) in sites else "missing")
+        live = sum(1 for g in t["goals"] if g["status"] != "draft")
+        out.append({**t, "status": state, "live_goals": live, "can_connect_app": bool(hub.enabled and t["app"])})
+    # Missing tools that live goals need first, then the rest; connected ones last.
+    out.sort(key=lambda t: (t["status"] != "missing", -t["live_goals"], t["label"]))
+    servers = (await s.execute(select(McpServer).where(McpServer.org_id == me.org_id))).scalars().all()
+    return {
+        "tools": out,
+        "summary": {"needed": len(out), "connected": sum(1 for t in out if t["status"] != "missing"),
+                    "missing_live": sum(1 for t in out if t["status"] == "missing" and t["live_goals"])},
+        "composio": {"enabled": hub.enabled, "source": hub.source, "error": error},
+        "github_sign_in": bool(get_settings().github_client_id and get_settings().github_client_secret),
+        "code_and_data": sorted(k for k in linked if k in ("github", "postgres")),
+        "mcp_servers": len(servers),
+    }
 
 
 @router.post("/browser/open")

@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     # Composio scopes connected accounts per "user"; locally there is one user.
     composio_user_id: str = "autopilot-local-user"
 
+    # --- GitHub sign-in (optional) ---------------------------------------------
+    # An OAuth app (github.com/settings/developers) lets people connect a repository with
+    # "Sign in with GitHub". Its callback URL is <frontend origin>/api/integrations/github/callback.
+    # Without it, people paste a fine-grained token instead.
+    github_client_id: str | None = None
+    github_client_secret: str | None = None
+
     # --- Agent Chrome ---------------------------------------------------------
     chrome_path: str | None = None  # auto-detected when unset
     chrome_profile_dir: Path = REPO_ROOT / "data" / "agent-chrome-profile"

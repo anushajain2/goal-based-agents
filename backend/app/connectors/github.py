@@ -51,6 +51,12 @@ class GitHub:
             raise GitHubError(f"GitHub error {r.status_code}: {msg}")
         return r.json() if r.content else {}
 
+    async def my_repos(self) -> list[dict]:
+        """Repositories the signed-in person can push to (for picking one after GitHub sign-in)."""
+        repos = await self._call("GET", "/user/repos?per_page=100&sort=pushed&affiliation=owner,collaborator,organization_member")
+        return [{"full_name": r["full_name"], "private": r.get("private", False), "pushed_at": r.get("pushed_at")}
+                for r in repos if (r.get("permissions") or {}).get("push", True)]
+
     async def repo_info(self) -> dict:
         info = await self._call("GET", f"/repos/{self.repo}")
         return {"full_name": info.get("full_name", self.repo), "default_branch": info.get("default_branch", "main"),
