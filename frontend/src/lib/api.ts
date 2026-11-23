@@ -175,7 +175,7 @@ export type Grant = {
 
 export type Person = { id: string; name: string; email: string };
 export type AgentSummary = {
-  id: string; name: string; title: string; objective: string; reports_to: Person | null;
+  id: string; name: string; title: string; objective: string; role?: string; reports_to: Person | null;
   handoff_to_agent_id: string | null; handoff_review: boolean;
   goals: number; active_goals: number; spent: number; working: boolean; needs_you: number;
 };
@@ -234,7 +234,8 @@ export const TOOL_LABELS: Record<string, string> = {
   googleads: "Google Ads", metaads: "Meta Ads", producthunt: "Product Hunt", wordpress: "WordPress", webflow: "Webflow",
   quickbooks: "QuickBooks", xero: "Xero", ramp: "Ramp", greenhouse: "Greenhouse", ashby: "Ashby", bamboohr: "BambooHR",
   gusto: "Gusto", googleworkspace: "Google Workspace admin", okta: "Okta", docusign: "DocuSign", googledrive: "Google Drive",
-  zendesk: "Zendesk", intercom: "Intercom",
+  zendesk: "Zendesk", intercom: "Intercom", searchconsole: "Google Search Console", klaviyo: "Klaviyo", discord: "Discord",
+  sentry: "Sentry",
 };
 
 export type CompanyProfile = {
@@ -242,6 +243,7 @@ export type CompanyProfile = {
   team: string; traction: string; current_focus: string[]; challenges: string[];
   sources?: { url: string; title: string }[]; researched_at?: string;
   revenue?: string; size?: "tiny" | "small" | "mid" | "large"; size_reason?: string; later?: LaterFunction[];
+  company_type?: string; pack_label?: string;
 };
 export type LaterFunction = { kind: string; name: string; when: string };
 export const SIZE_LABEL: Record<string, string> = { tiny: "1-10 people", small: "11-50 people", mid: "51-250 people", large: "250+ people" };

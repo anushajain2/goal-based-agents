@@ -49,6 +49,13 @@ DEPARTMENT_PRESETS: list[tuple[str, str]] = [
     ("it", "IT & Security"),
     ("legal", "Legal & Compliance"),
     ("pr", "Brand & PR"),
+    ("support", "Customer Support"),
+    ("revops", "Revenue Operations"),
+    ("data", "Data & Analytics"),
+    ("community", "Community"),
+    ("exec", "Founder's Office"),
+    ("delivery", "Client Delivery"),
+    ("store", "Store & Merchandising"),
 ]
 PRESET_NAMES = dict(DEPARTMENT_PRESETS)
 

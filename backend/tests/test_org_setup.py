@@ -198,7 +198,8 @@ async def test_failed_plan_offers_retry_and_basic_team(with_key, fake_site):
         assert (await org_of(c))["org"]["description"].startswith("Route planning")
         # ...or start with a basic team instead.
         assert (await c.post("/api/org/setup/basic")).status_code == 200
-        assert [d["name"] for d in (await org_of(c))["departments"]] == ["Sales", "Marketing", "Customer Research"]
+        names = [d["name"] for d in (await org_of(c))["departments"]]
+        assert names == ["Sales", "Marketing", "Product", "Customer Research"]  # the B2B startup pack ("Route planning SaaS")
 
 
 async def test_rerun_adds_only_whats_missing(with_key, fake_site):
@@ -215,9 +216,17 @@ async def test_without_a_claude_key_starts_with_a_basic_team(monkeypatch):
     monkeypatch.setattr(get_settings(), "anthropic_api_key", "")
     async with client() as c:
         await sign_in(c, "solo@acme.test")
-        r = (await c.post("/api/org", json={"name": "Acme", "description": "We make routing software"})).json()
-        assert r["setup_id"] is None and r["setup_skipped"] == "no_api_key"
-        assert len((await org_of(c))["departments"]) == 3
+        r = (await c.post("/api/org", json={"name": "Acme", "description": "B2B SaaS platform for logistics teams. Book a demo."})).json()
+        assert r["setup_id"] is None and r["setup_skipped"] == "no_api_key" and r["company_type"] == "startup"
+        org = await org_of(c)
+        # The usual team for a small B2B startup, from the pack: one AI employee per role, each with a starter goal.
+        assert [d["name"] for d in org["departments"]] == ["Sales", "Marketing", "Product", "Customer Research"]  # 4 for a tiny team
+        assert org["departments"][0]["agents"][0]["name"] == "Outbound Agent"
+        assert org["org"]["profile"]["pack_label"] == "B2B startup"
+        goals = (await c.get("/api/campaigns")).json()
+        assert len(goals) == 4 and {g["status"] for g in goals} == {"draft"}
+        book = next(g for g in goals if g["name"] == "Book meetings with ideal customers")
+        assert book["target"]["target"] == 4 and book["target"]["period"] == "week" and book["budget"]["total"] > 0
         assert (await c.post("/api/org/setup", json={})).status_code == 400
 
 
@@ -351,3 +360,38 @@ async def test_adding_a_function_later_reuses_research(with_key, fake_site):
         assert org["departments"][2]["agents"][0]["objective"] == "Keep cash collected and burn visible"
         goals = (await c.get("/api/campaigns")).json()
         assert len(goals) == 6 and sum(g["name"].startswith("Chase") for g in goals) == 1
+
+
+async def test_planner_starts_from_the_pack_and_staffs_several_ai_employees(with_key, fake_site):
+    plan = {"profile": {**PLAN["profile"], "size": "small", "company_type": "startup"}, "later": [], "departments": [
+        {"kind": "marketing", "name": "Marketing", "why": "No pipeline from content yet.", "agents": [
+            {"role": "seo", "name": "SEO Agent", "title": "Search for logistics buyers", "objective": "Own 'route planning' searches",
+             "goals": [goal("Grow organic search traffic", "Marketing & demand gen")]},
+            {"role": "content", "name": "Content Agent", "title": "LinkedIn for dispatchers", "objective": "Be the voice of dispatchers",
+             "goals": [goal("Grow LinkedIn following among dispatchers", "Marketing & demand gen")]}]},
+        {"kind": "product", "name": "Product", "why": "", "agents": [
+            {"role": "pm", "name": "Product Agent", "title": "Metrics and PRDs", "objective": "Know what to build", "goals": [goal("PRDs")]}]},
+        {"kind": "engineering", "name": "Engineering", "why": "", "agents": [
+            {"role": "engineer", "name": "Engineering Agent", "title": "Fixes", "objective": "Ship", "goals": [goal("Ship fixes")]}]},
+    ]}
+    async with client() as c:
+        setup_id = await start_setup(c, description="Route planning SaaS for logistics teams. Book a demo.")
+        fake = FakeAnthropic(research_script, org_planner=lambda kw: plan)
+        await run_org_setup(setup_id, MeteredClaude(client=fake))
+        planner = next(k for k in fake.calls if k.get("output_config", {}).get("format"))
+        assert "Likely type: B2B startup" in planner["messages"][0]["content"]
+        assert "sdr (Sales)" in planner["messages"][0]["content"]  # the pack's roles by size
+        assert "seo: SEO" in planner["system"]  # the role catalog
+
+        org = await org_of(c)
+        marketing = next(d for d in org["departments"] if d["name"] == "Marketing")
+        assert [(a["name"], a["title"], a["role"]) for a in marketing["agents"]] == [
+            ("SEO Agent", "Search for logistics buyers", "seo"), ("Content Agent", "LinkedIn for dispatchers", "content")]
+        product = next(d for d in org["departments"] if d["name"] == "Product")["agents"][0]
+        engineering = next(d for d in org["departments"] if d["name"] == "Engineering")["agents"][0]
+        assert product["handoff_to_agent_id"] == engineering["id"]
+        goals = {g["name"]: g for g in (await c.get("/api/campaigns")).json()}
+        assert goals["Grow organic search traffic"]["agent"]["name"] == "SEO Agent"
+        assert goals["Grow LinkedIn following among dispatchers"]["agent"]["name"] == "Content Agent"
+        st = (await c.get("/api/org/setup")).json()
+        assert st["org"]["profile"]["company_type"] == "startup" and st["org"]["profile"]["pack_label"] == "B2B startup"

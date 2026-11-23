@@ -34,7 +34,8 @@ async def apply_change(s: AsyncSession, c: Campaign, change: dict, reasoning: st
             raise ValueError("That team no longer exists.")
         if not c.agent_id:
             agent = Agent(org_id=c.org_id, department_id=dept.id, name=(spec.get("name") or "New Agent")[:120],
-                          title=(spec.get("title") or "")[:160], objective=spec.get("objective") or "")
+                          title=(spec.get("title") or "")[:160], objective=spec.get("objective") or "",
+                          role_key=spec.get("role") or "")
             s.add(agent)
             await s.flush()
             c.agent_id = agent.id

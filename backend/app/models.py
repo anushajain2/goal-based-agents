@@ -274,6 +274,8 @@ class Agent(Base):
     department_id: Mapped[str] = mapped_column(ForeignKey("departments.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(120))
     title: Mapped[str] = mapped_column(String(160), default="")  # e.g. "Outbound sales"
+    # Which kind of AI employee it is, from the role catalog (agent/packs.py), e.g. "sdr", "seo".
+    role_key: Mapped[str] = mapped_column(String(40), default="", server_default="")
     # Its objective, like an employee's OKR objective: what it is there to achieve.
     objective: Mapped[str] = mapped_column(Text, default="")
     # Who it reports to: its requests go to this person. Empty = the department's head, or, with

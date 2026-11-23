@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import case, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.org_setup import initial_steps
+from app.agent.org_setup import build_starter_team, initial_steps
 from app.auth import EMAIL_PATTERN, current_user
 from app.config import get_settings
 from app.db import get_session
@@ -92,9 +92,12 @@ async def create_org(body: OrgIn, s: AsyncSession = Depends(get_session), user: 
     if not website and not body.description.strip():
         raise HTTPException(400, "Add your website or a sentence about what you do, so we can set up your team.")
     if not _can_research():
-        # Without a Claude key there's no research: start with a basic team instead.
-        org = await create_organization(s, user, body.name, BASIC_TEAM, website, body.description)
-        return {"id": org.id, "name": org.name, "setup_id": None, "setup_skipped": "no_api_key"}
+        # Without a Claude key there's no research: start with the usual team for this type of company.
+        org = await create_organization(s, user, body.name, [], website, body.description)
+        await s.commit()  # the starter team is built in its own transaction
+        built = await build_starter_team(org.id, user.id)
+        return {"id": org.id, "name": org.name, "setup_id": None, "setup_skipped": "no_api_key",
+                "company_type": built["company_type"]}
     org = await create_organization(s, user, body.name, [], website, body.description)
     setup = OrgSetup(org_id=org.id, requested_by=user.id, steps=initial_steps())
     s.add(setup)
@@ -192,14 +195,14 @@ async def use_starter_budgets(s: AsyncSession = Depends(get_session), me: Member
 
 @router.post("/org/setup/basic")
 async def basic_team(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
-    """Research failed or was skipped: start with a few standard departments instead."""
+    """Research failed or was skipped: start with the usual team for this type of company instead."""
     require_admin(me)
     n = (await s.execute(select(func.count()).select_from(Department).where(Department.org_id == me.org_id))).scalar_one()
     if n == 0:
-        admins = [u for (u,) in (await s.execute(select(Membership.user_id).where(
-            Membership.org_id == me.org_id, Membership.role.in_([Role.owner.value, Role.admin.value])))).all()]
-        for kind in BASIC_TEAM:
-            await add_department(s, me.org_id, PRESET_NAMES[kind], kind, members=admins)
+        org_id, user_id = me.org_id, me.user.id
+        await s.commit()
+        built = await build_starter_team(org_id, user_id)
+        return {"ok": True, "company_type": built["company_type"]}
     return {"ok": True}
 
 
@@ -289,7 +292,7 @@ async def get_org(s: AsyncSession = Depends(get_session), me: Member = Depends(c
                          "last": review_json(last_reviews[d.id]) if d.id in last_reviews else None},
                 "people": [_user(users[u]) for u in by_dept.get(d.id, []) if u in users],
                 "agents": [
-                    {"id": a.id, "name": a.name, "title": a.title, "objective": a.objective,
+                    {"id": a.id, "name": a.name, "title": a.title, "objective": a.objective, "role": a.role_key,
                      "reports_to": _user(users[a.reports_to_user_id]) if a.reports_to_user_id in users else None,
                      "handoff_to_agent_id": a.handoff_to_agent_id, "handoff_review": a.handoff_review,
                      **stats.get(a.id, empty)}

@@ -24,6 +24,7 @@ from app.agent.llm import MeteredClaude
 from app.db import session_scope
 from app.models import Agent, Campaign, Department, Membership, Organization, OrgSetup, Role, utcnow
 from app.org import CATEGORY_KEYS, DEPARTMENT_PRESETS, PRESET_NAMES, add_department
+from app.agent import packs
 from app.agent.playbook import STEP_GUIDANCE, default_key_results, step_schema, tidy_steps
 from app.services import activity, estimate, targets
 from app.services.website import read_site
@@ -31,12 +32,13 @@ from app.services.website import read_site
 log = logging.getLogger(__name__)
 
 MAX_GOALS_PER_DEPARTMENT = 3
+MAX_AGENTS_PER_DEPARTMENT = 3
 # How big a team fits a company: set from headcount, revenue and funding found by the research.
 SIZES: dict[str, dict] = {
-    "tiny": {"label": "1-10 people", "departments": 4, "goals": 8},
-    "small": {"label": "11-50 people", "departments": 6, "goals": 12},
-    "mid": {"label": "51-250 people", "departments": 8, "goals": 16},
-    "large": {"label": "250+ people", "departments": 10, "goals": 20},
+    "tiny": {"label": "1-10 people", "departments": 4, "agents": 6, "goals": 8},
+    "small": {"label": "11-50 people", "departments": 6, "agents": 9, "goals": 12},
+    "mid": {"label": "51-250 people", "departments": 8, "agents": 13, "goals": 16},
+    "large": {"label": "250+ people", "departments": 10, "agents": 18, "goals": 20},
 }
 DEFAULT_SIZE = "small"
 MAX_DEPARTMENTS = SIZES[DEFAULT_SIZE]["departments"]
@@ -116,24 +118,9 @@ competitors; explains sudden metric changes; and writes and prioritises PRDs. An
 employee reads the code on GitHub, implements small, well-scoped changes (often from approved \
 PRDs or open issues) as pull requests, and asks an engineer to review and merge.
 
-They also support back-office functions, always asking before anything goes out or changes:
-- Finance: categorise and reconcile transactions in the accounting app and flag anomalies; chase \
-overdue invoices; monthly burn, runway and spend reports; find unused or duplicate SaaS \
-subscriptions; month-end close checklist and investor-update numbers. They never pay, refund or \
-move money without approval.
-- People & Hiring: job descriptions and postings; sourcing candidates; screening applicants against \
-the role's stated requirements only (never protected traits such as age, gender or ethnicity) and \
-ranking them for a person to decide; scheduling interviews; onboarding plans and handbook drafts. \
-People make every hiring decision.
-- IT & Security: inventory of apps and who has access; accounts still open for people who left; \
-answering customer security questionnaires from approved material; SOC 2 / ISO 27001 readiness \
-checklists and evidence; onboarding and offboarding checklists. Access changes wait for approval.
-- Legal & Compliance: contract summaries that flag unusual or risky terms; renewal and notice-period \
-tracking; a compliance calendar of filings and deadlines; privacy policy and GDPR basics; trademark \
-searches. This prepares work for a lawyer and is not legal advice; people sign.
-- Operations: vendor research and quotes, process documentation, procurement follow-ups.
-- Customer Success: onboarding check-ins, account health, renewal and churn-risk follow-ups, \
-support-ticket trends.
+AI employee roles you can staff, by team (use the role key; personalise each one's name, focus, \
+objective and goals for this company):
+{catalog}
 
 Choose functions and goals that fit THIS company at its CURRENT size and stage:
 - First size the company and set profile.size. Weigh headcount and revenue (real operations) \
@@ -153,6 +140,10 @@ brief", "Explain the drop in activation", "3 prioritised PRDs for the top user p
 invoices", "Monthly burn and runway report", "Answer the 3 open security questionnaires", \
 "Summarise and flag risks in the 10 contracts up for renewal", "Shortlist 20 candidates for the \
 AE role".
+- Staff each function with 1 to {max_agents} AI employees (usually 1 or 2), each one role from the \
+catalog (or "custom" for something it doesn't cover), within the size's limit. Name each for its \
+job ("Outbound Agent", "SEO Agent"). Start from the template you're given for this type of company: \
+keep what fits, drop what doesn't, and add roles it misses.
 - 1 to {max_per_dept} goals per function (2 is typical), within the size's goal limit. Fewer, \
 sharper goals beat many. No two goals should overlap.
 - later lists up to {max_later} functions you left out that will matter as the company grows, \
@@ -172,7 +163,7 @@ sentence a busy founder would be glad to read, e.g. "A list of 40 procurement le
 contractors with verified emails, and a personal first email drafted for each, waiting for your \
 OK". It must be realistic for one week. Goals start with a one-week budget so people can see \
 this before committing more.
-- objective (per function) is the AI employee's objective, like an employee's OKR objective: one \
+- objective (per AI employee) is its objective, like an employee's OKR objective: one \
 short sentence on what it is there to achieve for this company, e.g. "Fill the pipeline with EPC \
 procurement leads ready to pilot Oton".
 - key_results (per goal) are 2 or 3 short, measurable outcomes for the first period that show \
@@ -209,6 +200,11 @@ What their website says (extracted text, may be partial):
 {site}
 </website>
 
+Starting template for this type of company:
+<template>
+{template}
+</template>
+
 {task}"""
 
 FULL_TASK = "Design their AI team: the profile, the functions, and the first goals for each."
@@ -217,8 +213,8 @@ ADD_TASK = ("The team already has: {existing}. The founders asked to add these f
 
 
 def sizes_text() -> str:
-    return "\n".join(f"  {k} = {v['label']}: up to {v['departments']} functions and {v['goals']} goals."
-                     for k, v in SIZES.items())
+    return "\n".join(f"  {k} = {v['label']}: up to {v['departments']} functions, {v['agents']} AI employees and "
+                     f"{v['goals']} goals." for k, v in SIZES.items())
 
 
 def plan_schema() -> dict:
@@ -249,17 +245,27 @@ def plan_schema() -> dict:
                      "use_case", "cycle_hours", "duration_days", "paid_spend_usd", "steps", "channels", "why"],
         "additionalProperties": False,
     }
+    agent = {
+        "type": "object",
+        "properties": {
+            "role": {"type": "string", "enum": list(packs.ROLES) + ["custom"]},
+            "name": {"type": "string", "description": "e.g. Outbound Agent"},
+            "title": {"type": "string", "description": "Its focus, 2-4 words"},
+            "objective": {"type": "string"},
+            "goals": {"type": "array", "items": goal},
+        },
+        "required": ["role", "name", "title", "objective", "goals"],
+        "additionalProperties": False,
+    }
     department = {
         "type": "object",
         "properties": {
             "kind": {"type": "string", "enum": kinds},
             "name": {"type": "string"},
-            "agent_title": {"type": "string", "description": "The AI employee's focus, 2-4 words"},
-            "objective": {"type": "string"},
             "why": {"type": "string"},
-            "goals": {"type": "array", "items": goal},
+            "agents": {"type": "array", "items": agent},
         },
-        "required": ["kind", "name", "agent_title", "objective", "why", "goals"],
+        "required": ["kind", "name", "why", "agents"],
         "additionalProperties": False,
     }
     later = {
@@ -275,8 +281,9 @@ def plan_schema() -> dict:
         "type": "object",
         "properties": {**{f: {"type": "string"} for f in profile_fields},
                        "size": {"type": "string", "enum": list(SIZES)},
+                       "company_type": {"type": "string", "enum": list(packs.PACKS)},
                        "current_focus": string_list, "challenges": string_list},
-        "required": [*profile_fields, "size", "current_focus", "challenges"],
+        "required": [*profile_fields, "size", "company_type", "current_focus", "challenges"],
         "additionalProperties": False,
     }
     return {
@@ -365,17 +372,18 @@ def include_names(include: list[str]) -> list[str]:
 
 async def plan_team(claude: MeteredClaude, setup_id: str, name: str, website: str, description: str,
                     research: str, site_text: str, include: list[str] | None = None,
-                    existing: list[str] | None = None) -> dict:
+                    existing: list[str] | None = None, template: str = "") -> dict:
     task = ADD_TASK.format(existing=", ".join(existing or []) or "nothing yet",
                            include=", ".join(include_names(include))) if include else FULL_TASK
     result = await claude.create(
         campaign_id=None, run_id=None, purpose="setup plan", role="planner",
         system=PLAN_SYSTEM.format(sizes=sizes_text(), max_per_dept=MAX_GOALS_PER_DEPARTMENT, max_later=MAX_LATER,
-                                  step_guidance=STEP_GUIDANCE),
+                                  max_agents=MAX_AGENTS_PER_DEPARTMENT, step_guidance=STEP_GUIDANCE,
+                                  catalog=packs.catalog_text()),
         messages=[{"role": "user", "content": PLAN_TASK.format(
             name=name, website=website or "(none given)", description=description or "(not given)",
             research=research or "(no research available)", site=(site_text or "(not available)")[:12000],
-            task=task)}],
+            task=task, template=template or packs.pack_brief("general", []))}],
         max_tokens=16000, output_format=plan_schema(),
     )
     if result.stop_reason == "refusal":
@@ -399,16 +407,50 @@ def _clamp(value: Any, lo: float, hi: float, default: float) -> float:
     return min(hi, max(lo, v))
 
 
+def _tidy_goal(g: dict) -> dict | None:
+    title = (g.get("name") or g.get("goal_description") or "").strip()
+    if not title or not (g.get("goal_description") or "").strip():
+        return None
+    target = g.get("target_value")
+    target = float(target) if isinstance(target, (int, float)) and target > 0 else None
+    cycle = _clamp(g.get("cycle_hours"), 1, 48, 6)
+    return {
+        "name": title[:200],
+        "goal_description": g["goal_description"].strip(),
+        "done_when": (g.get("done_when") or "").strip(),
+        "primary_metric": (g.get("primary_metric") or "results").strip()[:120],
+        "target_value": target,
+        "target_period": g.get("target_period") if g.get("target_period") in ("week", "month", "quarter") else "week",
+        "category": g.get("category") if g.get("category") in CATEGORY_KEYS else "",
+        "use_case": (g.get("use_case") or "").strip()[:120],
+        "cycle_hours": float(min(CYCLE_CHOICES, key=lambda c: abs(c - cycle))),
+        "duration_days": round(_clamp(g.get("duration_days"), 7, 90, 30)),
+        "paid_spend_usd": round(_clamp(g.get("paid_spend_usd"), 0, 5000, 0), 2),
+        "steps": tidy_steps(g.get("steps")),
+        "channels": [str(c)[:60] for c in (g.get("channels") or [])][:8],
+        "why": (g.get("why") or "").strip(),
+        "first_week": (g.get("first_week") or "").strip(),
+        "key_results": [str(k).strip()[:160] for k in (g.get("key_results") or []) if str(k).strip()][:3],
+        "start_here": bool(g.get("start_here")),
+    }
+
+
 def tidy_plan(plan: dict, include: list[str] | None = None) -> dict:
-    """Enforce the limits the prompt asks for: a team that fits the company's size, few goals,
-    sane numbers. With include, keep only the functions people asked to add."""
+    """Enforce the limits the prompt asks for: a team that fits the company's size, a few AI
+    employees per function, few goals, sane numbers. With include, keep only the functions people
+    asked to add. Each function comes back with its AI employees (each with its goals), plus the
+    function's goals listed together for display."""
     profile = dict(plan.get("profile") or {})
     profile["size"] = profile.get("size") if profile.get("size") in SIZES else DEFAULT_SIZE
-    max_departments, max_goals = SIZES[profile["size"]]["departments"], SIZES[profile["size"]]["goals"]
+    if profile.get("company_type") not in packs.PACKS:
+        profile.pop("company_type", None)
+    limits = SIZES[profile["size"]]
+    max_departments, max_agents, max_goals = limits["departments"], limits["agents"], limits["goals"]
     wanted = {x.lower() for x in (include or [])} | {x.lower() for x in include_names(include or [])}
     if include:
         max_departments, max_goals = len(include), MAX_GOALS_PER_DEPARTMENT * len(include)
-    departments, seen_names, seen_goals, total = [], set(), set(), 0
+        max_agents = MAX_AGENTS_PER_DEPARTMENT * len(include)
+    departments, seen_names, seen_goals, total_goals, total_agents = [], set(), set(), 0, 0
     for d in plan.get("departments") or []:
         kind = d.get("kind") if d.get("kind") in PRESET_NAMES else ""
         name = (d.get("name") or PRESET_NAMES.get(kind, "")).strip()[:120] or "General"
@@ -416,43 +458,39 @@ def tidy_plan(plan: dict, include: list[str] | None = None) -> dict:
             continue
         if include and kind not in wanted and name.lower() not in wanted:
             continue
-        goals = []
-        for g in d.get("goals") or []:
-            title = (g.get("name") or g.get("goal_description") or "").strip()
-            if not title or title.lower() in seen_goals or not (g.get("goal_description") or "").strip():
-                continue
-            if len(goals) >= MAX_GOALS_PER_DEPARTMENT or total >= max_goals:
+        # Older plans (and simple ones) have one AI employee per function, with the goals on the function.
+        specs = d.get("agents") if isinstance(d.get("agents"), list) else [
+            {"role": "", "name": "", "title": d.get("agent_title") or "", "objective": d.get("objective") or "",
+             "goals": d.get("goals") or []}]
+        agents, dept_goals = [], 0
+        for a in specs:
+            if len(agents) >= MAX_AGENTS_PER_DEPARTMENT or total_agents >= max_agents:
                 break
-            target = g.get("target_value")
-            target = float(target) if isinstance(target, (int, float)) and target > 0 else None
-            cycle = _clamp(g.get("cycle_hours"), 1, 48, 6)
-            goals.append({
-                "name": title[:200],
-                "goal_description": g["goal_description"].strip(),
-                "done_when": (g.get("done_when") or "").strip(),
-                "primary_metric": (g.get("primary_metric") or "results").strip()[:120],
-                "target_value": target,
-                "target_period": g.get("target_period") if g.get("target_period") in ("week", "month", "quarter") else "week",
-                "category": g.get("category") if g.get("category") in CATEGORY_KEYS else "",
-                "use_case": (g.get("use_case") or "").strip()[:120],
-                "cycle_hours": float(min(CYCLE_CHOICES, key=lambda c: abs(c - cycle))),
-                "duration_days": round(_clamp(g.get("duration_days"), 7, 90, 30)),
-                "paid_spend_usd": round(_clamp(g.get("paid_spend_usd"), 0, 5000, 0), 2),
-                "steps": tidy_steps(g.get("steps")),
-                "channels": [str(c)[:60] for c in (g.get("channels") or [])][:8],
-                "why": (g.get("why") or "").strip(),
-                "first_week": (g.get("first_week") or "").strip(),
-                "key_results": [str(k).strip()[:160] for k in (g.get("key_results") or []) if str(k).strip()][:3],
-                "start_here": bool(g.get("start_here")),
-            })
-            seen_goals.add(title.lower())
-            total += 1
-        if not goals:
+            goals = []
+            for g in a.get("goals") or []:
+                if dept_goals >= MAX_GOALS_PER_DEPARTMENT or total_goals >= max_goals:
+                    break
+                tidy = _tidy_goal(g)
+                if not tidy or tidy["name"].lower() in seen_goals:
+                    continue
+                goals.append(tidy)
+                seen_goals.add(tidy["name"].lower())
+                dept_goals += 1
+                total_goals += 1
+            if not goals:
+                continue
+            role = a.get("role") if a.get("role") in packs.ROLES else ""
+            agents.append({"role": role, "name": (a.get("name") or "").strip()[:120],
+                           "title": (a.get("title") or "").strip()[:160] or (packs.ROLES[role].title if role else ""),
+                           "objective": (a.get("objective") or "").strip()[:400], "goals": goals})
+            total_agents += 1
+        if not agents:
             continue
         seen_names.add(name.lower())
-        departments.append({"kind": kind, "name": name, "agent_title": (d.get("agent_title") or "").strip()[:160],
-                            "objective": (d.get("objective") or "").strip()[:400],
-                            "why": (d.get("why") or "").strip(), "goals": goals})
+        departments.append({"kind": kind, "name": name, "why": (d.get("why") or "").strip(), "agents": agents,
+                            # for display (setup page) and older readers
+                            "agent_title": agents[0]["title"], "objective": agents[0]["objective"],
+                            "goals": [g for a in agents for g in a["goals"]]})
         if len(departments) >= max_departments:
             break
     # Two or three goals to start with: the planner's picks, else the first goal of the top functions.
@@ -491,7 +529,7 @@ def company_context(org: Organization, profile: dict) -> str:
     return "\n".join(lines)
 
 
-async def create_team(setup_id: str, org_id: str, requested_by: str | None, plan: dict) -> dict:
+async def create_team(setup_id: str | None, org_id: str, requested_by: str | None, plan: dict) -> dict:
     """Departments, AI employees and draft goals. Reuses departments that already exist."""
     created = {"departments": [], "agents": [], "goals": []}
     async with session_scope() as s:
@@ -511,49 +549,80 @@ async def create_team(setup_id: str, org_id: str, requested_by: str | None, plan
                 dept = await add_department(s, org_id, d["name"], d["kind"], members=admins)
                 existing.append(dept)
                 created["departments"].append(dept.id)
-            agent = (await s.execute(select(Agent).where(Agent.department_id == dept.id)
-                                     .order_by(Agent.created_at).limit(1))).scalar_one_or_none()
-            if agent is None:
-                agent = Agent(org_id=org_id, department_id=dept.id, name=f"{dept.name} Agent")
-                s.add(agent)
-                await s.flush()
-            if d["agent_title"] and not agent.title:
-                agent.title = d["agent_title"]
-            if d.get("objective") and not agent.objective:
-                agent.objective = d["objective"]
-            created["agents"].append(agent.id)
-            by_kind[d["kind"] or d["name"].lower()] = agent
-            for g in d["goals"]:
-                if g["name"].lower() in goal_names:
-                    continue
-                goal_names.add(g["name"].lower())
-                c = Campaign(
-                    org_id=org_id, owner_id=requested_by, agent_id=agent.id, name=g["name"],
-                    goal_type=CATEGORY_KEYS.get(g["category"], "custom"), goal_description=g["goal_description"],
-                    primary_metric=g["primary_metric"], target_value=g["target_value"], done_when=g["done_when"],
-                    category=g["category"], use_case=g["use_case"], context=context, channels=g["channels"],
-                    budget_total=Decimal(str(g["budget_usd"])), cycle_hours=g["cycle_hours"],
-                    origin="setup", suggested_reason=g["why"], first_deliverable=g.get("first_week", ""),
-                    key_results=g.get("key_results") or default_key_results(g["primary_metric"], g["target_value"]),
-                    budget_basis={**g["budget_basis"], "chosen_usd": g["budget_usd"]},
-                    playbook={"steps": g["steps"], "source": "setup"} if g["steps"] else None,
-                )
-                targets.plan_first(c, g["target_value"], g.get("target_period", "week"), set_by="setup")
-                s.add(c)
-                await s.flush()
-                await activity.log(s, c.id, "system", f"Suggested by setup research for {agent.name}",
-                                   details={"why": g["why"]} if g["why"] else None, status="info")
-                created["goals"].append(c.id)
+            staff = list((await s.execute(select(Agent).where(Agent.department_id == dept.id)
+                                          .order_by(Agent.created_at))).scalars())
+            fresh = dept.id in created["departments"]
+            specs = d.get("agents") or [{"role": "", "name": "", "title": d.get("agent_title", ""),
+                                          "objective": d.get("objective", ""), "goals": d["goals"]}]
+            for i, spec in enumerate(specs):
+                agent = await _staff(s, org_id, dept, staff, i, spec, fresh)
+                created["agents"].append(agent.id)
+                by_kind.setdefault(d["kind"] or d["name"].lower(), agent)
+                if spec.get("role"):
+                    by_kind.setdefault("role:" + spec["role"], agent)
+                await _add_goals(s, org_id, requested_by, agent, spec["goals"], goal_names, context, created)
+        await s.flush()
     # Product hands its PRDs to Engineering, after the person it reports to approves them.
     async with session_scope() as s:
-        if "product" in by_kind and "engineering" in by_kind:
-            product = await s.get(Agent, by_kind["product"].id)
+        pm = by_kind.get("role:pm") or by_kind.get("product")
+        eng = by_kind.get("role:engineer") or by_kind.get("engineering")
+        if pm and eng:
+            product = await s.get(Agent, pm.id)
             if not product.handoff_to_agent_id:
-                product.handoff_to_agent_id = by_kind["engineering"].id
+                product.handoff_to_agent_id = eng.id
                 product.handoff_review = True
-    await _step(setup_id, "create", "done",
-                f"{len(created['agents'])} AI employees, {len(created['goals'])} goals ready to review")
+    if setup_id:
+        await _step(setup_id, "create", "done",
+                    f"{len(created['agents'])} AI employees, {len(created['goals'])} goals ready to review")
     return created
+
+
+async def _staff(s, org_id: str, dept: Department, staff: list[Agent], i: int, spec: dict, fresh: bool) -> Agent:
+    """The AI employee for one spec: the department's existing one (by role, name or position) or a
+    new hire. A department set up just now gets the plan's names; existing ones keep theirs."""
+    agent = next((a for a in staff if spec.get("role") and a.role_key == spec["role"]), None) \
+        or next((a for a in staff if spec.get("name") and a.name.lower() == spec["name"].lower()), None)
+    if agent is None and i < len(staff) and not staff[i].role_key and (i == 0 or fresh):
+        agent = staff[i]
+    if agent is None:
+        agent = Agent(org_id=org_id, department_id=dept.id, name=spec.get("name") or f"{dept.name} Agent {len(staff) + 1}")
+        s.add(agent)
+        await s.flush()
+        staff.append(agent)
+    elif fresh and spec.get("name"):
+        agent.name = spec["name"]
+    if spec.get("role") and not agent.role_key:
+        agent.role_key = spec["role"]
+    if spec.get("title") and not agent.title:
+        agent.title = spec["title"]
+    if spec.get("objective") and not agent.objective:
+        agent.objective = spec["objective"]
+    return agent
+
+
+async def _add_goals(s, org_id: str, requested_by: str | None, agent: Agent, goals: list[dict], goal_names: set[str],
+                     context: str, created: dict) -> None:
+    for g in goals:
+        if g["name"].lower() in goal_names:
+            continue
+        goal_names.add(g["name"].lower())
+        c = Campaign(
+            org_id=org_id, owner_id=requested_by, agent_id=agent.id, name=g["name"],
+            goal_type=CATEGORY_KEYS.get(g["category"], "custom"), goal_description=g["goal_description"],
+            primary_metric=g["primary_metric"], target_value=g["target_value"], done_when=g["done_when"],
+            category=g["category"], use_case=g["use_case"], context=context, channels=g["channels"],
+            budget_total=Decimal(str(g["budget_usd"])), cycle_hours=g["cycle_hours"],
+            origin="setup", suggested_reason=g["why"], first_deliverable=g.get("first_week", ""),
+            key_results=g.get("key_results") or default_key_results(g["primary_metric"], g["target_value"]),
+            budget_basis={**g["budget_basis"], "chosen_usd": g["budget_usd"]},
+            playbook={"steps": g["steps"], "source": "setup"} if g["steps"] else None,
+        )
+        targets.plan_first(c, g["target_value"], g.get("target_period", "week"), set_by="setup")
+        s.add(c)
+        await s.flush()
+        await activity.log(s, c.id, "system", f"Suggested by setup research for {agent.name}",
+                           details={"why": g["why"]} if g["why"] else None, status="info")
+        created["goals"].append(c.id)
 
 
 async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> None:
@@ -566,6 +635,7 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
         setup.steps = setup.steps or initial_steps()
         setup.error = None
         include = list((setup.plan or {}).get("include") or [])
+        org_profile = dict(org.profile or {})
         earlier_research, existing = "", []
         if include:  # adding functions later: reuse what setup learned before
             earlier_research = (await s.execute(
@@ -617,8 +687,14 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
         # 3. Plan
         current = "plan"
         await _step(setup_id, "plan", "running")
+        # A starting template for this type of company; the planner personalises it.
+        known_type = (org_profile or {}).get("company_type") if include else None
+        pack_key, matched = (known_type, []) if known_type in packs.PACKS else packs.classify(description, site_text, research)
         plan = await plan_team(claude, setup_id, name, website, description, research, site_text,
-                               include=include or None, existing=existing)
+                               include=include or None, existing=existing, template=packs.pack_brief(pack_key, matched))
+        company_type = (plan.get("profile") or {}).get("company_type") or pack_key
+        plan["profile"] = {**(plan.get("profile") or {}), "company_type": company_type,
+                           "pack_label": packs.PACKS[company_type].label, "pack_guess": pack_key}
         if not plan["departments"]:
             raise RuntimeError("Couldn't work out any functions to set up. Add a few words about what you do and try again.")
         async with session_scope() as s:
@@ -656,6 +732,28 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
             setup.status = "failed"
             setup.error = str(e)[:1000] or type(e).__name__
             setup.locked_by = None
+
+
+async def build_starter_team(org_id: str, requested_by: str | None) -> dict:
+    """Without research (no Claude key, or research failed): a starter team from the pack for this
+    type of company, guessed from the name, website and description. Templates, not personalised;
+    people edit them, or research the company later to personalise."""
+    async with session_scope() as s:
+        org = await s.get(Organization, org_id)
+        pack_key, _ = packs.classify(org.description, org.website, org.name)
+        per, basis, n = await estimate.session_cost(s, org_id)
+    plan = tidy_plan(packs.starter_plan(pack_key, "tiny"))
+    for d in plan["departments"]:
+        for g in d["goals"]:
+            g["budget_basis"] = estimate.starter(per, g["cycle_hours"], g["duration_days"], g["paid_spend_usd"], basis, n)
+            g["budget_usd"] = g["budget_basis"]["suggested_usd"]
+            g["why"] = g["why"] or f"A usual starting point for a {packs.PACKS[pack_key].label.lower()}."
+    created = await create_team(None, org_id, requested_by, plan)
+    async with session_scope() as s:
+        org = await s.get(Organization, org_id)
+        org.profile = {**(org.profile or {}), "company_type": pack_key, "pack_label": packs.PACKS[pack_key].label,
+                       "later": plan["later"], "summary": (org.profile or {}).get("summary") or org.description}
+    return {"company_type": pack_key, **created}
 
 
 async def org_needs_basic_team(org_id: str) -> bool:

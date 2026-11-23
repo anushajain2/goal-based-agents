@@ -89,7 +89,7 @@ function TeamPage() {
 
       {params.get("basic") && (
         <Card className="border-amber-200 bg-amber-50/60 p-4 text-sm text-amber-900">
-          We started you with a basic team. To have Autopilot research {org.org.name} and suggest AI employees and goals that fit, add
+          We started you with the usual team for {org.org.profile?.pack_label ? `a company like yours (${org.org.profile.pack_label})` : "a company like yours"}. To have Autopilot research {org.org.name} and personalise it, add
           <code className="mx-1">ANTHROPIC_API_KEY</code> to the <code>.env</code> file, restart, then use <Link href="/setup" className="font-semibold underline">Research my company</Link>.
         </Card>
       )}

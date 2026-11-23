@@ -71,6 +71,11 @@ TOOLS: dict[str, Tool] = {t.key: t for t in [
     Tool("okta", "Okta", "okta", None, None),
     Tool("docusign", "DocuSign", "docusign", "app.docusign.com", "https://account.docusign.com"),
     Tool("googledrive", "Google Drive", "googledrive", "drive.google.com", "https://drive.google.com"),
+    # Marketing, community and engineering extras
+    Tool("searchconsole", "Google Search Console", "google_search_console", "search.google.com", "https://search.google.com/search-console"),
+    Tool("klaviyo", "Klaviyo", "klaviyo", "klaviyo.com", "https://www.klaviyo.com/login"),
+    Tool("discord", "Discord", "discord", "discord.com", "https://discord.com/login"),
+    Tool("sentry", "Sentry", "sentry", "sentry.io", "https://sentry.io/auth/login/"),
     # Support
     Tool("zendesk", "Zendesk", "zendesk", None, None),
     Tool("intercom", "Intercom", "intercom", "app.intercom.com", "https://app.intercom.com/admins/sign_in"),

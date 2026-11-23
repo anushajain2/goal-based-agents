@@ -21,6 +21,7 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
+from app.agent import packs
 from app.agent.llm import MeteredClaude
 from app.agent.org_setup import company_context
 from app.db import session_scope
@@ -111,6 +112,8 @@ Goals:
 Waiting for a decision already:
 {pending}
 
+Roles you could hire for this team (role key: focus): {roles}.
+
 Tools you have: {tools}.
 
 Review the team and propose changes (or none) with submit_review."""
@@ -119,9 +122,10 @@ Review the team and propose changes (or none) with submit_review."""
 def review_tool() -> dict:
     new_agent = {
         "type": "object",
-        "properties": {"name": {"type": "string"}, "title": {"type": "string", "description": "Its focus, 2-4 words"},
+        "properties": {"role": {"type": "string", "enum": list(packs.ROLES) + ["custom"]},
+                       "name": {"type": "string"}, "title": {"type": "string", "description": "Its focus, 2-4 words"},
                        "objective": {"type": "string"}},
-        "required": ["name", "title", "objective"],
+        "required": ["role", "name", "title", "objective"],
         "additionalProperties": False,
     }
     new_goal = {
@@ -220,7 +224,9 @@ async def _snapshot(s, dept: Department, tools: str = "") -> tuple[str, list[Age
                             + (f": {a.objective}" if a.objective else "") for a in agents) or "(none)"
     pending_text = "\n".join(f"- {g.name}" for g in goals if g.id in pending) or "(nothing)"
     task = TASK.format(company=company, team=dept.name, agents=agents_text, goals="\n".join(lines) or "(no goals yet)",
-                       pending=pending_text, tools=tools or "goal_details, web_search, web_fetch")
+                       pending=pending_text, tools=tools or "goal_details, web_search, web_fetch",
+                       roles="; ".join(f"{r.key}: {r.title}" for r in packs.ROLES.values() if r.kind == dept.kind)
+                       or "any role from the catalog that fits, or custom")
     return task, agents, {g.id: g for g in goals}, pending
 
 
@@ -242,7 +248,8 @@ def tidy(raw: dict, agents: list[Agent], goals: dict[str, Campaign], pending: se
                 if not (na.get("name") or "").strip() or any(o["type"] == "new_agent" for o in out):
                     continue  # one new hire per review at most
                 out.append({"type": "new_agent", "reasoning": reasoning, "new_goal": ng,
-                            "new_agent": {"name": na["name"].strip()[:120], "title": (na.get("title") or "").strip()[:160],
+                            "new_agent": {"role": na.get("role") if na.get("role") in packs.ROLES else "",
+                                          "name": na["name"].strip()[:120], "title": (na.get("title") or "").strip()[:160],
                                           "objective": (na.get("objective") or "").strip()[:400]}})
             else:
                 agent = next((a for a in agents if a.id == ng.get("agent_id")), agents[0] if agents else None)

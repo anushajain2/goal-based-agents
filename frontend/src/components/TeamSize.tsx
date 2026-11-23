@@ -10,7 +10,7 @@ import { ErrorNote } from "./ui";
 export function TeamSize({ profile, canAdd, onAdding }: { profile: CompanyProfile | null; canAdd: boolean; onAdding: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  if (!profile || (!profile.size && !profile.later?.length)) return null;
+  if (!profile || (!profile.size && !profile.later?.length && !profile.pack_label)) return null;
   const later = profile.later || [];
 
   async function add(key: string) {
@@ -27,15 +27,15 @@ export function TeamSize({ profile, canAdd, onAdding }: { profile: CompanyProfil
 
   return (
     <div className="rounded-xl border border-line bg-white px-4 py-3">
-      {profile.size && (
+      {(profile.size || profile.pack_label) && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
           <Ruler size={15} className="text-brand-600" />
-          <b>Sized for {SIZE_LABEL[profile.size]}</b>
+          <b>{[profile.pack_label, profile.size ? `sized for ${SIZE_LABEL[profile.size]}` : ""].filter(Boolean).join(" · ")}</b>
           {profile.size_reason && <span className="text-muted">· {profile.size_reason}</span>}
         </div>
       )}
       {later.length > 0 && (
-        <div className={profile.size ? "mt-3" : ""}>
+        <div className={profile.size || profile.pack_label ? "mt-3" : ""}>
           <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Add when you&apos;re ready</div>
           <ul className="flex flex-wrap gap-2">
             {later.map((x) => {
