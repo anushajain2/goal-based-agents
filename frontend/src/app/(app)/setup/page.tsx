@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, ChevronDown, CircleAlert, Loader2, Minus, Play, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, CircleAlert, Loader2, Minus, RefreshCw, Rocket, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -173,23 +173,63 @@ function StepIcon({ status }: { status: SetupStep["status"] }) {
   return <span className={cx(base, "border-2 border-gray-200")} />;
 }
 
+/** The one big decision: start the whole AI team, with a small, capped first-week budget. */
+function TeamLaunch({ info, goals, org, onStart }: { info: SetupInfo; goals: Campaign[]; org: OrgInfo | null; onStart: (g: Campaign[]) => void }) {
+  const drafts = goals.filter((g) => g.status === "draft" && g.can_manage !== false);
+  const running = goals.filter((g) => g.status !== "draft");
+  const total = drafts.reduce((t, g) => t + g.budget.total, 0);
+  const agents = new Set(goals.map((g) => g.agent?.id)).size;
+  const starter = drafts.every((g) => g.budget_basis?.starter);
+  if (!goals.length) return null;
+  if (!drafts.length) {
+    return (
+      <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 p-6 text-white">
+        <Rocket size={28} />
+        <div className="min-w-0 flex-1">
+          <div className="text-xl font-bold">Your AI team is at work</div>
+          <div className="text-sm text-white/85">{running.length} goals running. Anything that needs a yes will show up in Needs you.</div>
+        </div>
+        <Link href="/home" className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-white px-4 text-sm font-semibold text-emerald-700 hover:bg-white/90">See what they&apos;re doing <ArrowRight size={15} /></Link>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 p-6 text-white">
+      <div className="flex flex-wrap items-start gap-6">
+        <div className="min-w-0 flex-1">
+          <div className="text-2xl font-bold tracking-tight">Your AI team is ready</div>
+          <p className="mt-1 max-w-xl text-white/85">
+            {agents} AI employees with {drafts.length} goals, picked for where {info.org.name} is right now. Start them together and they begin
+            today: researching, drafting and reaching out, and asking you before anything goes out.
+          </p>
+          <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
+            <li className="rounded-lg bg-white/10 px-3 py-2"><b className="block text-lg">{usd(total)}</b>{starter ? "for the whole team's first week" : "in total"}</li>
+            <li className="rounded-lg bg-white/10 px-3 py-2"><b className="block text-lg">Hard limit</b>work pauses when it&apos;s used up</li>
+            <li className="rounded-lg bg-white/10 px-3 py-2"><b className="block text-lg">Your OK first</b>on every message, post and payment</li>
+          </ul>
+        </div>
+        <div className="flex w-full flex-col gap-2 sm:w-auto">
+          <button onClick={() => onStart(drafts)} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-6 text-[15px] font-bold text-brand-700 shadow-sm hover:bg-white/90">
+            <Rocket size={18} /> Start my AI team
+          </button>
+          <span className="text-center text-xs text-white/75">{running.length ? `${running.length} already running · ` : ""}or start goals one by one below</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SuggestedTeam({ info }: { info: SetupInfo }) {
   const { data: goals, reload } = useApi<Campaign[]>("/api/campaigns");
   const { data: org, reload: reloadOrg } = useApi<OrgInfo>("/api/org");
   const [panel, setPanel] = useState<Campaign | null>(null);
   const [starting, setStarting] = useState<Campaign[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const plan = info.setup!.plan!;
   const createdIds = info.setup!.created?.goals;
   const mine = useMemo(() => {
     const created = new Set(createdIds || []);
     return (goals || []).filter((g) => created.has(g.id));
   }, [goals, createdIds]);
-  const picksNames = new Set(plan.departments.flatMap((d) => d.goals.filter((g) => g.start_here).map((g) => g.name)));
-  // Older setups have no picks: suggest the first goal of the top two functions.
-  if (picksNames.size === 0) plan.departments.slice(0, 2).forEach((d) => d.goals[0] && picksNames.add(d.goals[0].name));
-  const picks = mine.filter((g) => picksNames.has(g.name) && g.status === "draft" && g.can_manage !== false);
-  const picksBudget = picks.reduce((t, g) => t + g.budget.total, 0);
   const oldBudgets = mine.filter((g) => g.status === "draft" && !g.budget_basis?.starter);
 
   async function starterBudgets() {
@@ -215,38 +255,7 @@ function SuggestedTeam({ info }: { info: SetupInfo }) {
         </div>
       )}
 
-      {picks.length > 0 && (
-        <section>
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h2 className="text-lg font-bold">Start here</h2>
-              <p className="text-sm text-muted">The {picks.length === 1 ? "goal" : `${picks.length} goals`} most likely to show results fastest. Each runs for a week on a small budget.</p>
-            </div>
-            {picks.length > 1 && (
-              <Button variant="primary" onClick={() => setStarting(picks)}><Play size={15} /> Start {picks.length === 2 ? "both" : `these ${picks.length}`} · {usd(picksBudget)} for the week</Button>
-            )}
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {picks.map((g) => (
-              <div key={g.id} className="flex flex-col rounded-xl border border-line bg-white p-4 shadow-sm">
-                <div className="mb-2 flex items-center gap-2">
-                  {g.agent && <AgentAvatar name={g.agent.name} size={26} />}
-                  <span className="text-xs font-semibold text-muted">{g.agent?.name}</span>
-                </div>
-                <div className="text-[15px] font-bold leading-snug">{g.name}</div>
-                <div className="mt-2 flex-1 rounded-lg bg-brand-50 px-3 py-2">
-                  <div className="text-[10.5px] font-bold uppercase tracking-wide text-brand-700">{g.first_deliverable ? "In your first week you get" : "The goal"}</div>
-                  <div className="mt-0.5 text-[13px] leading-snug">{g.first_deliverable || g.goal_description}</div>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <Button size="sm" variant="primary" onClick={() => setStarting([g])}><Play size={13} /> Start · {usd(g.budget.total)}</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setPanel(g)}>How it works</Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      <TeamLaunch info={info} goals={mine} org={org} onStart={setStarting} />
 
       <section>
         <h2 className="text-lg font-bold">Your team</h2>

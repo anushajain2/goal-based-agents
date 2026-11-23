@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Check, ExternalLink, Globe, Loader2, Plug, Play, RefreshCw, Server, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ExternalLink, Globe, Loader2, Lock, Plug, Play, RefreshCw, Server, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -76,7 +76,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
         <div className="flex items-start gap-3 border-b border-line bg-white px-5 py-4">
           <div className="min-w-0 flex-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted">Before it starts · step {step} of 2</div>
-            <h2 className="truncate text-lg font-bold">{step === 1 ? "Connect what it needs" : "Check what it will do"}</h2>
+            <h2 className="truncate text-lg font-bold">{step === 1 ? "Connect what it needs" : goals.length > 1 ? "Check what your team will do" : "Check what it will do"}</h2>
             <p className="truncate text-sm text-muted">{title}</p>
           </div>
           <button onClick={onClose} className="rounded p-1 text-muted hover:bg-gray-100" aria-label="Close"><X size={18} /></button>
@@ -117,7 +117,25 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
             </>
           )}
 
+          {!loading && step === 2 && goals.length > 1 && (
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 text-sm">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-600 text-white"><Lock size={15} /></span>
+              <div>
+                <div className="font-bold text-emerald-900">Nothing goes out without a yes</div>
+                <p className="mt-0.5 text-gray-700">
+                  Each AI employee researches and drafts on its own, then asks its department (you, until you add heads) before it sends, posts,
+                  spends or changes anything. You see exactly what it wants to do and can edit it. Enforced by Autopilot, not left to the AI.
+                </p>
+              </div>
+            </div>
+          )}
           {!loading && step === 2 && goals.map((g) => <GoalReview key={g.id} goal={g} single={goals.length === 1} />)}
+          {!loading && step === 2 && goals.length > 1 && (
+            <p className="text-sm text-gray-700">
+              Total for the first week: <b>{usd(goals.reduce((t, g) => t + g.budget.total, 0))}</b>, a hard limit. Each goal pauses when its budget is
+              used up, and you decide whether to add more.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-white px-5 py-3">
@@ -128,7 +146,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
             </Button>
           ) : (
             <Button variant="primary" disabled={busy} onClick={start}>
-              <Play size={15} /> {goals.length === 1 ? "Start" : `Start ${goals.length} goals`}: it asks before anything goes out
+              <Play size={15} /> {goals.length === 1 ? "Start: it asks before anything goes out" : `Start all ${goals.length}: nothing goes out without your OK`}
             </Button>
           )}
         </div>
@@ -213,15 +231,38 @@ function GoalReview({ goal, single }: { goal: Campaign; single: boolean }) {
     if (!book) api<Campaign>(`/api/campaigns/${goal.id}`).then((g) => setBook(g.playbook || null)).catch(() => null);
   }, [goal.id, book]);
   const agent = goal.agent?.name || "It";
+  const [open, setOpen] = useState(single);
+  const modeOf = (k: string) => perms?.action_types.find((p) => p.key === k)?.mode ?? "ask";
+  const auto = book ? book.steps.filter((st) => modeOf(st.action_type) === "auto").length : 0;
+  const asks = book ? book.steps.filter((st) => modeOf(st.action_type) === "ask").length : 0;
+  if (!single && !open) {
+    return (
+      <button onClick={() => setOpen(true)} className="flex w-full items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 text-left hover:border-gray-400">
+        {goal.agent && <AgentAvatar name={goal.agent.name} size={28} />}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold">{goal.name}</span>
+          <span className="block text-xs text-muted">
+            {goal.agent?.name}{book ? ` · ${auto} automatic, ${asks} ${asks === 1 ? "waits" : "wait"} for your OK` : ""}
+          </span>
+        </span>
+        <span className="shrink-0 text-sm font-semibold">{usd(goal.budget.total)}</span>
+        <ChevronDown size={16} className="shrink-0 text-muted" />
+      </button>
+    );
+  }
   return (
     <div className={cx("space-y-3", !single && "rounded-xl border border-line bg-white p-4")}>
       {!single && (
-        <div className="flex items-center gap-2">
+        <button onClick={() => setOpen(false)} className="flex w-full items-center gap-2 text-left">
           {goal.agent && <AgentAvatar name={goal.agent.name} size={26} />}
-          <div className="min-w-0"><div className="truncate text-sm font-bold">{goal.name}</div><div className="text-xs text-muted">{goal.agent?.name}</div></div>
-        </div>
+          <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{goal.name}</div><div className="text-xs text-muted">{goal.agent?.name}</div></div>
+          <ChevronDown size={16} className="shrink-0 rotate-180 text-muted" />
+        </button>
       )}
-      {perms && <Assurance perms={perms} agent={agent} compact={!single} />}
+      {perms && single && <Assurance perms={perms} agent={agent} />}
+      {!single && goal.first_deliverable && (
+        <p className="rounded-lg bg-brand-50 px-3 py-2 text-[13px]"><b className="text-brand-700">First week:</b> {goal.first_deliverable}</p>
+      )}
       {book && perms && (
         <div>
           <div className="mb-2.5 flex items-center justify-between">
