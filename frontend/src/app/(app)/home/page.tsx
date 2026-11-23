@@ -57,16 +57,16 @@ export default function HomePage() {
         title={`${hello}${firstName ? `, ${firstName}` : ""}`}
         subtitle={<>
           {team.length} AI employees on {live.length} live goal{live.length === 1 ? "" : "s"}
-          {ov.waiting_on_you ? <> · <Link href="/approvals" className="font-semibold text-amber-700 hover:underline">{ov.waiting_on_you} {ov.waiting_on_you === 1 ? "thing needs" : "things need"} you</Link></> : " · nothing needs you"}
+          {ov.waiting_on_you ? <> · <Link href="/approvals" className="font-semibold text-signal-700 hover:underline">{ov.waiting_on_you} {ov.waiting_on_you === 1 ? "thing needs" : "things need"} you</Link></> : " · nothing needs you"}
         </>}
         actions={<Link href="/goals/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-sm hover:bg-brand-600"><Plus size={16} /> New goal</Link>}
       />
 
       {state === "working" && ov.now && (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white px-4 py-3">
-          <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
-          <span className="min-w-0 flex-1 truncate text-[13.5px]"><b className="font-semibold">Working now</b> <span className="text-zinc-600">· {ov.now.title}</span></span>
-          <Link href="/work" className="shrink-0 text-[13px] font-semibold text-emerald-700 hover:underline">Watch</Link>
+        <div className="flex items-center gap-3 rounded-2xl border border-signal-100 bg-gradient-to-r from-signal-50 to-white px-4 py-3">
+          <span className="signal-dot" />
+          <span className="min-w-0 flex-1 truncate text-[13.5px]"><b className="font-semibold">Working now</b> <span className="text-stone-600">· {ov.now.title}</span></span>
+          <Link href="/work" className="shrink-0 text-[13px] font-semibold text-signal-700 hover:underline">Watch</Link>
         </div>
       )}
 
@@ -80,7 +80,7 @@ export default function HomePage() {
       {researchBanner}
       <ConnectChecklist only="missing_live" />
       {suggested.length > 0 && (
-        <Link href="/setup" className="flex items-center gap-4 rounded-2xl bg-zinc-900 px-5 py-4 text-white shadow-[var(--shadow-pop)] transition hover:brightness-105">
+        <Link href="/setup" className="flex items-center gap-4 rounded-2xl bg-stone-900 px-5 py-4 text-white shadow-[var(--shadow-pop)] transition hover:brightness-105">
           <Sparkles size={20} className="shrink-0" />
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">{suggested.length} suggested {suggested.length === 1 ? "goal is" : "goals are"} ready to start</span>
@@ -99,14 +99,14 @@ export default function HomePage() {
                 {requests.slice(0, 4).map((r) => {
                   const k = KIND_BADGE[r.kind] || KIND_BADGE.action;
                   return (
-                    <Link key={r.id} href={`/approvals?id=${r.id}`} className="flex items-center gap-3 px-4 py-3 transition hover:bg-zinc-50">
+                    <Link key={r.id} href={`/approvals?id=${r.id}`} className="flex items-center gap-3 px-4 py-3 transition hover:bg-stone-50">
                       {r.agent_name ? <AgentAvatar name={r.agent_name} size={32} /> : <span className="h-8 w-8" />}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[14px] font-medium">{r.kind === "question" ? r.preview.question || r.title : r.title}</span>
                         <span className="block truncate text-[12px] text-muted">{r.agent_name} · {timeAgo(r.created_at)}</span>
                       </span>
                       <Badge tone={k.tone}>{k.label}</Badge>
-                      <ArrowRight size={15} className="shrink-0 text-zinc-300" />
+                      <ArrowRight size={15} className="shrink-0 text-stone-300" />
                     </Link>
                   );
                 })}
@@ -136,7 +136,7 @@ export default function HomePage() {
                     <div className="mt-3 space-y-2.5">
                       {dLive.slice(0, 3).map((g) => (
                         <div key={g.id}>
-                          <div className="mb-1 truncate text-[12.5px] font-medium text-zinc-700">{g.name}</div>
+                          <div className="mb-1 truncate text-[12.5px] font-medium text-stone-700">{g.name}</div>
                           {g.target?.target ? <TargetLine goal={g} compact /> : <GoalProgress c={g} compact />}
                         </div>
                       ))}
@@ -162,8 +162,8 @@ export default function HomePage() {
               {FEATURED.slice(0, 3).map((id) => {
                 const uc = findUseCase(id)!;
                 return (
-                  <button key={id} onClick={() => pick(id)} className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-zinc-50">
-                    <span className="mt-0.5 text-zinc-400">{CATEGORY_ICON[uc.categoryKey]}</span>
+                  <button key={id} onClick={() => pick(id)} className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-stone-50">
+                    <span className="mt-0.5 text-stone-400">{CATEGORY_ICON[uc.categoryKey]}</span>
                     <span className="text-[13px] leading-snug">{uc.goal}</span>
                   </button>
                 );
@@ -188,9 +188,9 @@ function SectionTitle({ title, href, link }: { title: string; href: string; link
 function Stat({ label, value, sub, tone, href }: { label: string; value: string; sub?: string; tone?: "amber"; href: string }) {
   return (
     <Link href={href} className={cx("rounded-2xl border bg-white p-4 shadow-[var(--shadow-card)] transition hover:shadow-[var(--shadow-pop)]",
-      tone === "amber" ? "border-amber-200 bg-gradient-to-b from-amber-50 to-white" : "border-line")}>
+      tone === "amber" ? "border-signal-200 bg-gradient-to-b from-signal-50 to-white" : "border-line")}>
       <div className="text-[12.5px] font-medium text-muted">{label}</div>
-      <div className={cx("tabular mt-1 text-[28px] font-semibold leading-none tracking-tight", tone === "amber" && "text-amber-700")}>{value}</div>
+      <div className={cx("tabular mt-1 text-[28px] font-semibold leading-none tracking-tight", tone === "amber" && "text-signal-700")}>{value}</div>
       {sub && <div className="mt-1.5 text-[12px] text-muted">{sub}</div>}
     </Link>
   );
@@ -200,7 +200,7 @@ function FirstRun({ onPick, org }: { onPick: (id: string) => void; org: OrgInfo 
   const count = (org?.departments || []).reduce((n, d) => n + d.agents.length, 0);
   return (
     <div className="space-y-8">
-      <div className="rounded-3xl bg-zinc-900 p-10 text-white shadow-[var(--shadow-pop)]">
+      <div className="rounded-3xl bg-stone-900 p-10 text-white shadow-[var(--shadow-pop)]">
         <EmployeeAvatar size={56} />
         <h1 className="mt-4 text-3xl font-bold tracking-tight">{org ? `${org.org.name} has ${count} AI employees ready to work` : "Meet your AI team"}</h1>
         <p className="mt-2 max-w-2xl text-white/85">

@@ -71,11 +71,11 @@ function NeedsYouPage() {
         title="Needs you"
         subtitle="Approvals, questions and suggestions waiting for a yes. Nothing happens until someone decides."
         actions={
-          <div className="inline-flex rounded-xl bg-zinc-100 p-1 text-[13px] font-semibold">
+          <div className="inline-flex rounded-xl bg-stone-100 p-1 text-[13px] font-semibold">
             {tabs.map(([t, label]) => (
               <button key={t} onClick={() => { setTab(t); setMobileDetail(false); }}
-                className={cx("rounded-lg px-3 py-1.5 transition", tab === t ? "bg-white text-ink shadow-sm" : "text-zinc-500 hover:text-ink")}>
-                {t === "all" ? "Everyone" : label}{t !== "done" && counts[t] ? <span className={cx("tabular ml-1.5 rounded-full px-1.5 text-[11px]", tab === t ? "bg-amber-100 text-amber-800" : "bg-zinc-200 text-zinc-600")}>{counts[t]}</span> : null}
+                className={cx("rounded-lg px-3 py-1.5 transition", tab === t ? "bg-white text-ink shadow-sm" : "text-stone-500 hover:text-ink")}>
+                {t === "all" ? "Everyone" : label}{t !== "done" && counts[t] ? <span className={cx("tabular ml-1.5 rounded-full px-1.5 text-[11px]", tab === t ? "bg-signal-100 text-signal-800" : "bg-stone-200 text-stone-600")}>{counts[t]}</span> : null}
               </button>
             ))}
           </div>
@@ -98,7 +98,7 @@ function NeedsYouPage() {
                   <li key={r.id}>
                     <button
                       onClick={() => { setSelected(r.id); setMobileDetail(true); }}
-                      className={cx("flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-50", r.id === selected && "bg-brand-50/70 hover:bg-brand-50")}
+                      className={cx("flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-stone-50", r.id === selected && "bg-brand-50/70 hover:bg-brand-50")}
                     >
                       {r.agent_name ? <AgentAvatar name={r.agent_name} size={30} /> : <span className="h-[30px] w-[30px]" />}
                       <span className="min-w-0 flex-1">

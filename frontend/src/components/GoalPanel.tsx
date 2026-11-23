@@ -33,7 +33,7 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
             <div className="truncate text-sm font-semibold">{goal.agent?.name}</div>
             <div className="text-xs text-muted">{goal.department?.name}</div>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-muted hover:bg-gray-100" aria-label="Close"><X size={18} /></button>
+          <button onClick={onClose} className="rounded p-1 text-muted hover:bg-stone-100" aria-label="Close"><X size={18} /></button>
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
@@ -58,7 +58,7 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
               <h3 className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Also tracking</h3>
               <ul className="space-y-1">
                 {goal.key_results.map((kr) => (
-                  <li key={kr} className="flex items-start gap-2 text-[13.5px]"><Target size={14} className="mt-0.5 shrink-0 text-zinc-600" /> {kr}</li>
+                  <li key={kr} className="flex items-start gap-2 text-[13.5px]"><Target size={14} className="mt-0.5 shrink-0 text-stone-600" /> {kr}</li>
                 ))}
               </ul>
             </section>
@@ -94,7 +94,7 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
           {goal.suggested_reason && (
             <section>
               <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Why this goal</h3>
-              <p className="flex gap-1.5 text-[13px] text-gray-700"><Sparkles size={13} className="mt-0.5 shrink-0 text-brand-600" /> {goal.suggested_reason}</p>
+              <p className="flex gap-1.5 text-[13px] text-stone-700"><Sparkles size={13} className="mt-0.5 shrink-0 text-brand-600" /> {goal.suggested_reason}</p>
             </section>
           )}
         </div>

@@ -45,7 +45,7 @@ export function OrgChart({ org, goals, onGoalClick, onChanged }: {
         </div>
       </div>
     ) : (
-      <button onClick={() => setAdding(true)} className="flex h-24 w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-zinc-300 text-sm font-semibold text-muted transition hover:border-zinc-400 hover:bg-white hover:text-ink">
+      <button onClick={() => setAdding(true)} className="flex h-24 w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-stone-300 text-sm font-semibold text-muted transition hover:border-stone-400 hover:bg-white hover:text-ink">
         <Plus size={15} /> Add department
       </button>
     )
@@ -119,7 +119,7 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
           const later = mine.filter((g) => g.status === "draft");
           const boss = a.reports_to || lead;
           return (
-            <div key={a.id} className="rounded-xl transition hover:bg-zinc-50">
+            <div key={a.id} className="rounded-xl transition hover:bg-stone-50">
               <Link href={`/team/agents/${a.id}`} className="block px-2 py-2" title={a.objective || undefined}>
                 <span className="flex items-center gap-2.5">
                   <AgentAvatar name={a.name} size={30} state={a.working ? "working" : a.needs_you ? "waiting" : "idle"} />
@@ -128,7 +128,7 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
                     <span className="block truncate text-[11.5px] text-muted">{a.title || "AI employee"} · asks {leadName(boss)}</span>
                   </span>
                 </span>
-                {a.objective && <span className="mt-1.5 line-clamp-2 block pl-[40px] text-[11.5px] leading-snug text-zinc-600">{a.objective}</span>}
+                {a.objective && <span className="mt-1.5 line-clamp-2 block pl-[40px] text-[11.5px] leading-snug text-stone-600">{a.objective}</span>}
                 {a.handoff_to_agent_id && (
                   <span className="mt-1 flex items-center gap-1 pl-[40px] text-[11px] font-semibold text-brand-700">
                     <ArrowRight size={11} /> PRDs to {agentName(a.handoff_to_agent_id)}{a.handoff_review ? `, ${leadName(boss) === "you" ? "you approve" : leadName(boss) + " approves"} first` : ""}
@@ -140,7 +140,7 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
                   {live.length > 0 && <GoalChips goals={live} onGoalClick={onGoalClick} />}
                   {later.length > 0 && (
                     <div>
-                      {live.length > 0 && <div className="px-1 pb-0.5 pt-1 text-[10.5px] font-semibold uppercase tracking-wide text-zinc-400">Not started</div>}
+                      {live.length > 0 && <div className="px-1 pb-0.5 pt-1 text-[10.5px] font-semibold uppercase tracking-wide text-stone-400">Not started</div>}
                       <GoalChips goals={later} onGoalClick={onGoalClick} muted />
                     </div>
                   )}
@@ -150,7 +150,7 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
           );
         })}
         {canStaff && (
-          <button onClick={() => setHiring(true)} className="flex w-full items-center justify-center gap-1 rounded-xl py-2 text-[12.5px] font-semibold text-muted transition hover:bg-zinc-50 hover:text-ink">
+          <button onClick={() => setHiring(true)} className="flex w-full items-center justify-center gap-1 rounded-xl py-2 text-[12.5px] font-semibold text-muted transition hover:bg-stone-50 hover:text-ink">
             <Plus size={13} /> Hire an AI employee
           </button>
         )}
@@ -192,17 +192,17 @@ function TeamCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInfo; onCh
   };
 
   return (
-    <div className="border-b border-line bg-zinc-50/70">
+    <div className="border-b border-line bg-stone-50/70">
       <div className="flex items-center justify-between px-3.5 pt-3">
         <span className="text-[14.5px] font-semibold">{d.name}</span>
-        {admin && !adding && <button onClick={() => setAdding(true)} title="Add people to this team" className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 hover:bg-white hover:text-ink"><UserPlus size={14} /></button>}
+        {admin && !adding && <button onClick={() => setAdding(true)} title="Add people to this team" className="grid h-7 w-7 place-items-center rounded-lg text-stone-500 hover:bg-white hover:text-ink"><UserPlus size={14} /></button>}
       </div>
       <div className="px-3.5 pb-2.5 pt-1.5">
         <div className="flex items-center gap-2">
           <span className="flex -space-x-2">
-            {people.slice(0, 4).map((p) => <span key={p.id} className="rounded-full ring-2 ring-zinc-50"><PersonAvatar name={p.name || p.email} size={24} /></span>)}
+            {people.slice(0, 4).map((p) => <span key={p.id} className="rounded-full ring-2 ring-stone-50"><PersonAvatar name={p.name || p.email} size={24} /></span>)}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[12.5px] text-zinc-600" title={people.map(nameOf).join(", ")}>
+          <span className="min-w-0 flex-1 truncate text-[12.5px] text-stone-600" title={people.map(nameOf).join(", ")}>
             {people.length === 1 && people[0].id === org.me.id ? "Just you so far" : people.map(nameOf).join(", ")}
           </span>
         </div>
@@ -250,8 +250,8 @@ function GoalChips({ goals, onGoalClick, muted }: { goals: Campaign[]; onGoalCli
     <ul className="space-y-1">
       {goals.map((g) => (
         <li key={g.id}>
-          <button onClick={() => onGoalClick?.(g)} className={cx("flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] ring-1 ring-inset transition hover:ring-brand-200", muted ? "bg-white text-zinc-500 ring-dashed ring-zinc-200" : "bg-white ring-line")}>
-            <span className={cx("mt-1 h-2 w-2 shrink-0 rounded-full", g.status === "active" ? (g.pending_requests ? "bg-amber-500" : "bg-emerald-500") : "bg-gray-300")} />
+          <button onClick={() => onGoalClick?.(g)} className={cx("flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] ring-1 ring-inset transition hover:ring-brand-200", muted ? "bg-white text-stone-500 ring-dashed ring-stone-200" : "bg-white ring-line")}>
+            <span className={cx("mt-1 h-2 w-2 shrink-0 rounded-full", g.status === "active" ? (g.pending_requests ? "bg-signal-500" : "bg-emerald-500") : "bg-stone-300")} />
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate font-medium">{g.name}</span>
@@ -294,7 +294,7 @@ export function HireDialog({ org, department, onClose, onHired }: { org: OrgInfo
       <div className="w-full max-w-md rounded-t-2xl bg-white shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="flex items-center justify-between border-b border-line px-5 py-3">
           <h2 className="text-lg font-bold">Hire an AI employee</h2>
-          <button onClick={onClose} className="rounded p-1 text-muted hover:bg-gray-100" aria-label="Close"><X size={18} /></button>
+          <button onClick={onClose} className="rounded p-1 text-muted hover:bg-stone-100" aria-label="Close"><X size={18} /></button>
         </div>
         <div className="space-y-3 px-5 py-4">
           <label className="block text-[13px] font-semibold">Function

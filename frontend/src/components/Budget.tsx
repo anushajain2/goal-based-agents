@@ -16,7 +16,7 @@ export function BudgetBreakdown({ basis, total, pace, compact }: {
     ? `~${usd(basis.per_session_usd)} each (your average over the last ${basis.history_sessions} sessions)`
     : `~${usd(basis.per_session_usd)} each (a typical session, mostly AI usage)`;
   return (
-    <div className="space-y-1 text-[12.5px] leading-relaxed text-gray-700">
+    <div className="space-y-1 text-[12.5px] leading-relaxed text-stone-700">
       <div>
         {basis.starter && "First week: "}<b>{basis.sessions} work sessions</b> ({every(basis.cycle_hours)} for {Math.round(basis.days)} days) × {per} = {usd(basis.ai_usd)}
       </div>
@@ -47,7 +47,7 @@ export function BudgetCalculator({ cycleHours, endDate, onUse }: { cycleHours: s
   }, [cycleHours, days]);
   if (!basis) return null;
   return (
-    <div className="rounded-lg border border-line bg-gray-50 p-3">
+    <div className="rounded-lg border border-line bg-stone-50 p-3">
       <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-[13px] font-semibold"><Calculator size={14} /> How much it will likely need</span>
         <Button size="sm" type="button" onClick={() => onUse(basis.suggested_usd)}>Use {usd(basis.suggested_usd)}</Button>

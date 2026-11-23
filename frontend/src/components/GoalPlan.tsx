@@ -15,8 +15,8 @@ export const MODE_WORDS: Record<Mode, { short: string; long: (team: string) => s
 
 const MODE_STYLE: Record<Mode, string> = {
   auto: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  ask: "bg-amber-50 text-amber-900 ring-amber-300",
-  never: "bg-gray-100 text-gray-500 ring-gray-200",
+  ask: "bg-signal-50 text-signal-900 ring-signal-300",
+  never: "bg-stone-100 text-stone-500 ring-stone-200",
 };
 
 const MODE_ICON: Record<Mode, React.ReactNode> = {
@@ -51,7 +51,7 @@ export function ModePicker({ p, onChange, disabled }: { p: Permission; onChange:
           onClick={() => m !== p.mode && onChange(m)}
           className={cx(
             "px-2 py-1 transition disabled:cursor-not-allowed",
-            p.mode === m ? (m === "auto" ? "bg-emerald-600 text-white" : m === "ask" ? "bg-amber-500 text-white" : "bg-gray-600 text-white") : "bg-white text-muted hover:bg-gray-50",
+            p.mode === m ? (m === "auto" ? "bg-emerald-600 text-white" : m === "ask" ? "bg-signal-500 text-white" : "bg-stone-600 text-white") : "bg-white text-muted hover:bg-stone-50",
           )}
         >
           {MODE_WORDS[m].short}
@@ -112,19 +112,19 @@ export function Assurance({ perms, agent, compact }: { perms: Permissions; agent
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-600 text-white"><Lock size={15} /></span>
         <div className="min-w-0 text-sm">
           <div className="font-bold text-emerald-900">Nothing goes out without a yes</div>
-          <p className="mt-0.5 text-gray-700">
+          <p className="mt-0.5 text-stone-700">
             Before {agent} sends, posts, spends or changes anything, it stops and asks {team}
             {perms.approvers.length ? ` (${perms.approvers.join(", ")})` : ""}. You see exactly what it wants to do, can edit it, and it only goes
             ahead once someone approves.
           </p>
           {!compact && (
-            <p className="mt-1.5 text-xs text-gray-600">
+            <p className="mt-1.5 text-xs text-stone-600">
               This is enforced by Autopilot itself, not left to the AI: final clicks like Send, Post and Pay are blocked unless an approval covers
               them, and every app action is checked against these settings before it runs.
             </p>
           )}
           {exceptions.length > 0 && (
-            <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900 ring-1 ring-amber-200">
+            <p className="mt-2 rounded-md bg-signal-50 px-2.5 py-1.5 text-xs text-signal-900 ring-1 ring-signal-200">
               <b>Except:</b> you let it {joinWords(exceptions.map((p) => verbFor(p.key) + (p.spend_limit_usd ? ` (up to ${usd(p.spend_limit_usd)} each)` : "")))} without asking.
             </p>
           )}
@@ -158,10 +158,10 @@ export function PlanSteps({ steps, perms, onChange, editable, busy }: {
         const p = byKey[st.action_type] || byKey.other_write;
         return (
           <li key={i} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-line bg-white px-3 py-2.5">
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-gray-100 text-xs font-bold text-gray-600">{i + 1}</span>
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-stone-100 text-xs font-bold text-stone-600">{i + 1}</span>
             <span className="min-w-0 flex-1 text-[13.5px]">
               {st.text}
-              {TOOL_LABELS[st.tool] ? <span className="ml-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">{TOOL_LABELS[st.tool]}</span> : null}
+              {TOOL_LABELS[st.tool] ? <span className="ml-1.5 rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600">{TOOL_LABELS[st.tool]}</span> : null}
             </span>
             {editable && onChange ? <ModePicker p={p} disabled={busy} onChange={(m) => onChange(p.key, m)} /> : <ModeBadge mode={p.mode} team={team} />}
           </li>
@@ -270,20 +270,20 @@ export function GoalPlan({ goal, defaultOpen = true }: { goal: Campaign; default
                 <b>Nothing goes out without a yes.</b> Before {agent} sends, posts, spends or changes anything, it asks {teamName(perms)} and shows
                 exactly what it wants to do. This is enforced by Autopilot, not left to the AI.
                 {perms.action_types.some((p) => p.default === "ask" && p.mode === "auto") && (
-                  <span className="mt-1 block text-amber-800">
+                  <span className="mt-1 block text-signal-800">
                     Except what you set to on its own: {perms.action_types.filter((p) => p.default === "ask" && p.mode === "auto").map((p) => p.label.toLowerCase()).join(", ")}.
                   </span>
                 )}
               </span>
             </p>
           )}
-          {note && <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">{note}</p>}
+          {note && <p className="rounded-md bg-signal-50 px-3 py-2 text-sm text-signal-900">{note}</p>}
           {error && <ErrorNote>{error}</ErrorNote>}
           {perms && showAll && (
             <div className="space-y-3">
               <h3 className="text-[12px] font-bold uppercase tracking-wide text-muted">Every kind of action it could take</h3>
               <PermissionsEditor perms={perms} onChange={change} busy={busy} />
-              <details className="rounded-md bg-gray-50 px-3 py-2 text-xs">
+              <details className="rounded-md bg-stone-50 px-3 py-2 text-xs">
                 <summary className="cursor-pointer font-semibold text-muted">Rules that always apply ({perms.built_in_rules.length})</summary>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">{perms.built_in_rules.map((r) => <li key={r}>{r}</li>)}</ul>
               </details>
@@ -298,18 +298,18 @@ export function GoalPlan({ goal, defaultOpen = true }: { goal: Campaign; default
 /** The plan as a simple timeline: each step either happens on its own or waits for a person's OK. */
 export function StepList({ steps, modeOf, team }: { steps: PlanStep[]; modeOf: (actionType: string) => Mode; team?: string }) {
   return (
-    <ol className="relative space-y-3 before:absolute before:bottom-3 before:left-[13px] before:top-3 before:border-l-2 before:border-gray-200">
+    <ol className="relative space-y-3 before:absolute before:bottom-3 before:left-[13px] before:top-3 before:border-l-2 before:border-stone-200">
       {steps.map((st, i) => {
         const mode = modeOf(st.action_type);
         return (
           <li key={i} className="relative flex items-start gap-3">
             <span className={cx("z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full ring-4 ring-white",
-              mode === "auto" ? "bg-emerald-100 text-emerald-700" : mode === "ask" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-400")}>
+              mode === "auto" ? "bg-emerald-100 text-emerald-700" : mode === "ask" ? "bg-signal-100 text-signal-700" : "bg-stone-100 text-stone-400")}>
               {MODE_ICON[mode]}
             </span>
             <div className="min-w-0 flex-1 pt-0.5">
-              <div className={cx("text-[13.5px] leading-snug", mode === "never" && "text-gray-400 line-through")}>{st.text}</div>
-              <div className={cx("text-[11.5px] font-semibold", mode === "auto" ? "text-emerald-700" : mode === "ask" ? "text-amber-700" : "text-gray-400")}>
+              <div className={cx("text-[13.5px] leading-snug", mode === "never" && "text-stone-400 line-through")}>{st.text}</div>
+              <div className={cx("text-[11.5px] font-semibold", mode === "auto" ? "text-emerald-700" : mode === "ask" ? "text-signal-700" : "text-stone-400")}>
                 {mode === "auto" ? "Automatic" : mode === "ask" ? `Waits for ${team ? team.replace(/^the /, "") : "your"} OK` : "Turned off"}
                 {TOOL_LABELS[st.tool] ? <span className="font-normal text-muted"> · {TOOL_LABELS[st.tool]}</span> : null}
               </div>

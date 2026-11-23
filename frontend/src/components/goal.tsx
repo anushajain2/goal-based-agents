@@ -26,7 +26,7 @@ export function GoalStatus({ c }: { c: Campaign }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[13px]">
       {s.live ? <span className="h-2 w-2 animate-pulse rounded-full bg-brand-500" /> : <Dot tone={s.tone} />}
-      <span className={cx(s.tone === "amber" && "font-semibold text-amber-700", s.live && "font-semibold text-brand-700")}>{s.label}</span>
+      <span className={cx(s.tone === "amber" && "font-semibold text-signal-700", s.live && "font-semibold text-brand-700")}>{s.label}</span>
     </span>
   );
 }
@@ -41,8 +41,8 @@ export function progressOf(c: Campaign): { done: number | null; target: number |
 
 export function ProgressBar({ pct, className, tone = "brand" }: { pct: number | null; className?: string; tone?: "brand" | "gray" }) {
   return (
-    <div className={cx("h-1.5 overflow-hidden rounded-full bg-gray-100", className)}>
-      <div className={cx("h-full rounded-full transition-all", tone === "brand" ? "bg-brand-500" : "bg-gray-400")} style={{ width: `${pct ?? 0}%` }} />
+    <div className={cx("h-1.5 overflow-hidden rounded-full bg-stone-100", className)}>
+      <div className={cx("h-full rounded-full transition-all", tone === "brand" ? "bg-brand-500" : "bg-stone-400")} style={{ width: `${pct ?? 0}%` }} />
     </div>
   );
 }

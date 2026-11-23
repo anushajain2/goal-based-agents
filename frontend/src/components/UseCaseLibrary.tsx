@@ -56,7 +56,7 @@ export const CATEGORY_ICON: Record<string, ReactNode> = {
 };
 
 export function FitBadge({ fit }: { fit: UseCase["fit"] }) {
-  const tone = fit === "H" ? "bg-emerald-50 text-emerald-700" : fit === "M" ? "bg-zinc-50 text-zinc-700" : "bg-gray-100 text-gray-600";
+  const tone = fit === "H" ? "bg-emerald-50 text-emerald-700" : fit === "M" ? "bg-stone-50 text-stone-700" : "bg-stone-100 text-stone-600";
   return <span className={cx("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold", tone)}>{FIT_LABEL[fit]}</span>;
 }
 
@@ -68,14 +68,14 @@ export function UseCaseCard({ uc, onPick, cta = "Start this goal" }: { uc: UseCa
     >
       <div className="flex items-start justify-between gap-2">
         <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
-          <span className="text-gray-400">{CATEGORY_ICON[uc.categoryKey]}</span>
+          <span className="text-stone-400">{CATEGORY_ICON[uc.categoryKey]}</span>
           {uc.sub}
         </span>
         <FitBadge fit={uc.fit} />
       </div>
       <p className="mt-2 flex-1 text-[14px] font-semibold leading-snug">{uc.goal}</p>
       <p className="mt-2 text-xs text-muted">
-        <span className="font-semibold text-gray-600">Counts when:</span> {uc.doneWhen}
+        <span className="font-semibold text-stone-600">Counts when:</span> {uc.doneWhen}
       </p>
       <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 opacity-80 group-hover:opacity-100">
         {cta} <ArrowRight size={13} />
@@ -134,7 +134,7 @@ export function UseCaseLibrary({ onPick, onCustom }: { onPick: (uc: UseCase) => 
                 <section key={c.key}>
                   <div className="mb-2 flex items-end justify-between gap-3">
                     <div>
-                      <h3 className="flex items-center gap-2 text-[15px] font-bold"><span className="text-gray-400">{CATEGORY_ICON[c.key]}</span>{c.name}</h3>
+                      <h3 className="flex items-center gap-2 text-[15px] font-bold"><span className="text-stone-400">{CATEGORY_ICON[c.key]}</span>{c.name}</h3>
                       <p className="text-xs text-muted">{c.blurb}</p>
                     </div>
                     {items.length > 3 && (
@@ -175,12 +175,12 @@ function CatButton({ on, onClick, icon, label, count }: { on: boolean; onClick: 
       onClick={onClick}
       className={cx(
         "flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-left text-[13px] font-semibold transition",
-        on ? "bg-white text-brand-700 shadow-sm ring-1 ring-line" : "text-gray-600 hover:bg-white/70 hover:text-ink",
+        on ? "bg-white text-brand-700 shadow-sm ring-1 ring-line" : "text-stone-600 hover:bg-white/70 hover:text-ink",
       )}
     >
-      <span className={on ? "text-brand-600" : "text-gray-400"}>{icon}</span>
+      <span className={on ? "text-brand-600" : "text-stone-400"}>{icon}</span>
       <span className="flex-1">{label}</span>
-      <span className="text-[11px] font-medium text-gray-400">{count}</span>
+      <span className="text-[11px] font-medium text-stone-400">{count}</span>
     </button>
   );
 }

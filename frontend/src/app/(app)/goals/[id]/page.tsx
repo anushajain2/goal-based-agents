@@ -95,7 +95,7 @@ function GoalPage() {
               )}
             </div>
           )}
-          {c.goal_description !== c.name && <p className="mt-1.5 max-w-2xl text-[14.5px] text-zinc-600">{c.goal_description}</p>}
+          {c.goal_description !== c.name && <p className="mt-1.5 max-w-2xl text-[14.5px] text-stone-600">{c.goal_description}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
             <GoalStatus c={c} />
             {c.done_when && (
@@ -125,8 +125,8 @@ function GoalPage() {
 
       {(c.key_results?.length || 0) > 0 && (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] shadow-[var(--shadow-card)]">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-zinc-700">Key results</span>
-          {c.key_results.map((kr) => <span key={kr} className="inline-flex items-center gap-1.5"><Target size={13} className="text-zinc-600" /> {kr}</span>)}
+          <span className="text-[11px] font-bold uppercase tracking-wide text-stone-700">Key results</span>
+          {c.key_results.map((kr) => <span key={kr} className="inline-flex items-center gap-1.5"><Target size={13} className="text-stone-600" /> {kr}</span>)}
         </div>
       )}
       {(c.target?.history?.length || 0) > 0 && (
@@ -225,7 +225,7 @@ function GoalPage() {
             <div className="min-w-0">
               {requests && requests.length > 0 && (
                 <div className="mb-4 space-y-3 lg:hidden">
-                  <h3 className="text-[13px] font-bold uppercase tracking-wide text-amber-700">Needs you</h3>
+                  <h3 className="text-[13px] font-bold uppercase tracking-wide text-signal-700">Needs you</h3>
                   {requests.map((r) => <ApprovalCard key={r.id} req={r} onDone={() => { reloadRequests(); reload(); }} />)}
                 </div>
               )}
@@ -240,7 +240,7 @@ function GoalPage() {
                 <h3 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-muted">Needs you</h3>
                 {requests && requests.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-xs text-muted">
-                    <Inbox size={18} className="mx-auto mb-1 text-gray-300" />Nothing waiting. It asks the {c.department?.name || "team"} team here before anything that isn&apos;t pre-approved.
+                    <Inbox size={18} className="mx-auto mb-1 text-stone-300" />Nothing waiting. It asks the {c.department?.name || "team"} team here before anything that isn&apos;t pre-approved.
                   </div>
                 ) : (
                   <div className="space-y-3">{(requests || []).map((r) => <ApprovalCard key={r.id} req={r} onDone={() => { reloadRequests(); reload(); }} />)}</div>
@@ -248,7 +248,7 @@ function GoalPage() {
               </div>
               <div>
                 <h3 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-muted">Current strategy</h3>
-                <div className="whitespace-pre-wrap rounded-lg bg-gray-50 px-3 py-2.5 text-[13px] leading-relaxed">
+                <div className="whitespace-pre-wrap rounded-lg bg-stone-50 px-3 py-2.5 text-[13px] leading-relaxed">
                   {c.strategy || <span className="text-muted">Written at the start of the first work session.</span>}
                 </div>
               </div>
@@ -315,7 +315,7 @@ function ResultsTab({ c, sessions }: { c: Campaign; sessions: Session[] }) {
                 {sessions.map((s) => (
                   <tr key={s.id} className="border-t border-line align-top">
                     <td className="py-1.5 pr-2 font-semibold">#{s.number}</td>
-                    <td className="py-1.5 pr-2 text-gray-700">{s.summary || s.error || s.status}</td>
+                    <td className="py-1.5 pr-2 text-stone-700">{s.summary || s.error || s.status}</td>
                     <td className="tabular py-1.5 text-right">{s.counts.action || 0}</td>
                     <td className="tabular py-1.5 text-right font-semibold">{usd(s.cost_usd)}</td>
                   </tr>
@@ -352,7 +352,7 @@ function GuardrailsTab({ campaignId, canEdit }: { campaignId: string; canEdit: b
         Settings for a whole department or the organization are in Settings → Permissions.
       </p>
       {error && <ErrorNote>{error}</ErrorNote>}
-      {note && <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">{note}</p>}
+      {note && <p className="rounded-md bg-signal-50 px-3 py-2 text-sm text-signal-900">{note}</p>}
       {perms && <PermissionsEditor perms={{ ...perms, can_edit: perms.can_edit && canEdit }} onChange={change} busy={busy} />}
       {scoped.length > 0 && (
         <div>

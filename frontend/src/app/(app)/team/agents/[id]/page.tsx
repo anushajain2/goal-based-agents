@@ -70,7 +70,7 @@ export default function AgentPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-bold">{agent.name}</h1>
                 {org?.me.is_admin && (
-                  <button onClick={() => { setForm({ name: agent.name, title: agent.title, department_id: agent.department.id }); setEditing(true); }} className="rounded p-1 text-muted hover:bg-gray-100" title="Edit"><Pencil size={14} /></button>
+                  <button onClick={() => { setForm({ name: agent.name, title: agent.title, department_id: agent.department.id }); setEditing(true); }} className="rounded p-1 text-muted hover:bg-stone-100" title="Edit"><Pencil size={14} /></button>
                 )}
               </div>
               <p className="text-sm text-muted">AI employee · {agent.department.name}{agent.title ? ` · ${agent.title}` : ""}</p>
@@ -79,7 +79,7 @@ export default function AgentPage() {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <span className="flex items-center gap-1 text-muted"><Hand size={14} /> Reports to</span>
             {agent.approvers.map((p) => (
-              <span key={p.id} className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 py-0.5 pl-0.5 pr-2.5 text-xs"><PersonAvatar name={p.name || p.email} size={20} title={p.email} /> {p.id === org?.me.id ? "You" : p.name || p.email}</span>
+              <span key={p.id} className="inline-flex items-center gap-1.5 rounded-full bg-stone-50 py-0.5 pl-0.5 pr-2.5 text-xs"><PersonAvatar name={p.name || p.email} size={20} title={p.email} /> {p.id === org?.me.id ? "You" : p.name || p.email}</span>
             ))}
             {agent.can_edit && org && (
               <select
@@ -122,7 +122,7 @@ export default function AgentPage() {
           <ul className="divide-y divide-line">
             {(goals || []).map((g) => (
               <li key={g.id}>
-                <Link href={`/goals/${g.id}`} className="grid grid-cols-1 items-center gap-3 px-4 py-3 hover:bg-gray-50 sm:grid-cols-[1fr_180px_140px_auto]">
+                <Link href={`/goals/${g.id}`} className="grid grid-cols-1 items-center gap-3 px-4 py-3 hover:bg-stone-50 sm:grid-cols-[1fr_180px_140px_auto]">
                   <span className="min-w-0">
                     <span className="block truncate font-semibold">{g.name}</span>
                     {g.client_name && <span className="text-xs text-muted">for {g.client_name}</span>}
@@ -164,7 +164,7 @@ function Okrs({ agent, goals, onSaved }: { agent: AgentInfo; goals: Campaign[]; 
   return (
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="text-[11px] font-bold uppercase tracking-wide text-zinc-700">Objective</div>
+        <div className="text-[11px] font-bold uppercase tracking-wide text-stone-700">Objective</div>
         {agent.can_edit && !editing && <button onClick={() => { setText(agent.objective); setEditing(true); }} className="text-xs font-semibold text-brand-600 hover:underline">{agent.objective ? "Edit" : "Add an objective"}</button>}
       </div>
       {editing ? (
@@ -185,7 +185,7 @@ function Okrs({ agent, goals, onSaved }: { agent: AgentInfo; goals: Campaign[]; 
             <ul className="mt-1 space-y-1">
               {(g.key_results?.length ? g.key_results : [g.primary_metric]).map((kr, i) => (
                 <li key={i} className="flex items-center gap-2 text-[13px]">
-                  <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", i === 0 ? "bg-emerald-500" : "bg-gray-300")} />
+                  <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", i === 0 ? "bg-emerald-500" : "bg-stone-300")} />
                   <span className="min-w-0 flex-1">{kr}</span>
                   {i === 0 && <span className="w-40 shrink-0">{g.target?.target ? <TargetLine goal={g} compact /> : <GoalProgress c={g} compact />}</span>}
                 </li>
@@ -218,11 +218,11 @@ function HandOffs({ agent, org, onSaved }: { agent: AgentInfo; org: OrgInfo; onS
     <Card className="p-5">
       <div className="text-[11px] font-bold uppercase tracking-wide text-muted">Where its work goes</div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-        <span className="rounded-full bg-zinc-50 px-3 py-1 font-semibold text-zinc-800">{agent.name}</span>
+        <span className="rounded-full bg-stone-50 px-3 py-1 font-semibold text-stone-800">{agent.name}</span>
         <ArrowRight size={15} className="text-muted" />
         {agent.handoff_review || !agent.handoff_to_agent_id ? (
           <>
-            <span className="rounded-full bg-amber-50 px-3 py-1 font-semibold text-amber-800">{who === "you" ? "You review" : `${who} reviews`}</span>
+            <span className="rounded-full bg-signal-50 px-3 py-1 font-semibold text-signal-800">{who === "you" ? "You review" : `${who} reviews`}</span>
             {agent.handoff_to_agent_id && <ArrowRight size={15} className="text-muted" />}
           </>
         ) : null}
@@ -253,9 +253,9 @@ function HandOffs({ agent, org, onSaved }: { agent: AgentInfo; org: OrgInfo; onS
 }
 
 const DOC_STATUS: Record<Deliverable["status"], { label: string; tone: string }> = {
-  submitted: { label: "Waiting for review", tone: "bg-amber-50 text-amber-800" },
+  submitted: { label: "Waiting for review", tone: "bg-signal-50 text-signal-800" },
   approved: { label: "Approved", tone: "bg-emerald-50 text-emerald-800" },
-  changes_requested: { label: "Changes asked", tone: "bg-gray-100 text-gray-600" },
+  changes_requested: { label: "Changes asked", tone: "bg-stone-100 text-stone-600" },
   handed_off: { label: "Being built", tone: "bg-brand-50 text-brand-700" },
 };
 
@@ -270,7 +270,7 @@ function Documents({ agentId }: { agentId: string }) {
       <ul className="divide-y divide-line">
         {data.map((d) => (
           <li key={d.id}>
-            <button onClick={() => setOpen(open === d.id ? null : d.id)} className="flex w-full flex-wrap items-center gap-2 px-4 py-3 text-left hover:bg-gray-50">
+            <button onClick={() => setOpen(open === d.id ? null : d.id)} className="flex w-full flex-wrap items-center gap-2 px-4 py-3 text-left hover:bg-stone-50">
               <FileText size={15} className="text-muted" />
               <span className="text-[11px] font-bold uppercase text-muted">{d.kind === "prd" ? "PRD" : d.kind}</span>
               <span className="min-w-0 flex-1 truncate text-sm font-semibold">{d.title}</span>
@@ -278,9 +278,9 @@ function Documents({ agentId }: { agentId: string }) {
               {d.handed_to_campaign_id && <Link href={`/goals/${d.handed_to_campaign_id}`} onClick={(e) => e.stopPropagation()} className="text-xs font-semibold text-brand-600 hover:underline">See the build</Link>}
             </button>
             {open === d.id && (
-              <div className="border-t border-line bg-gray-50 px-4 py-3">
+              <div className="border-t border-line bg-stone-50 px-4 py-3">
                 {d.summary && <p className="mb-2 text-sm font-medium">{d.summary}</p>}
-                <pre className="max-h-96 overflow-auto whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-gray-800">{d.content}</pre>
+                <pre className="max-h-96 overflow-auto whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-stone-800">{d.content}</pre>
               </div>
             )}
           </li>

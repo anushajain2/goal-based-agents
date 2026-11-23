@@ -25,9 +25,9 @@ export function LeadCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInf
     <>
       <button onClick={() => setOpen(true)}
         className={cx("block w-full rounded-xl px-3 py-2.5 text-left ring-1 ring-inset transition",
-          lead.enabled ? "bg-gradient-to-br from-zinc-50 to-emerald-50/40 ring-zinc-100 hover:ring-zinc-300" : "bg-white ring-zinc-200 ring-dashed hover:ring-zinc-300")}>
+          lead.enabled ? "bg-gradient-to-br from-stone-50 to-emerald-50/40 ring-stone-100 hover:ring-stone-300" : "bg-white ring-stone-200 ring-dashed hover:ring-stone-300")}>
         <span className="flex items-center gap-2.5">
-          <span className={cx("grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full", lead.enabled ? "bg-zinc-900 text-white shadow-sm" : "bg-zinc-100 text-zinc-400")}>
+          <span className={cx("grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full", lead.enabled ? "bg-stone-900 text-white shadow-sm" : "bg-stone-100 text-stone-400")}>
             <Compass size={16} />
           </span>
           <span className="min-w-0 flex-1">
@@ -38,7 +38,7 @@ export function LeadCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInf
         {lead.enabled && (
           <span className="mt-1.5 flex items-center gap-1.5 text-[11.5px]">
             {busy ? (
-              <><Loader2 size={11} className="animate-spin text-zinc-700" /> <span className="text-zinc-800">Reviewing the team…</span></>
+              <><Loader2 size={11} className="animate-spin text-stone-700" /> <span className="text-stone-800">Reviewing the team…</span></>
             ) : last && last.status === "done" ? (
               <>
                 {last.health && <Badge tone={HEALTH[last.health].tone} className="!px-1.5 !py-0 !text-[10.5px]">{HEALTH[last.health].label}</Badge>}
@@ -93,16 +93,16 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
       <div className="h-full w-full max-w-md overflow-y-auto bg-white shadow-xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="flex items-center gap-3 border-b border-line px-5 py-3">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-zinc-600 text-white"><Compass size={18} /></span>
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-stone-600 text-white"><Compass size={18} /></span>
           <div className="min-w-0 flex-1">
             <div className="font-bold">{lead.name}</div>
             <div className="text-xs text-muted">AI team lead for {d.name}</div>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-muted hover:bg-gray-100" aria-label="Close"><X size={18} /></button>
+          <button onClick={onClose} className="rounded p-1 text-muted hover:bg-stone-100" aria-label="Close"><X size={18} /></button>
         </div>
 
         <div className="space-y-5 px-5 py-4">
-          <p className="text-[13.5px] leading-relaxed text-gray-700">
+          <p className="text-[13.5px] leading-relaxed text-stone-700">
             Keeps reviewing the {d.name} team, {every(lead.review_days)} and whenever you ask: how {org.org.name} is doing, the market,
             your numbers, and how each AI employee performs. Then it suggests what to change: updated targets, new goals,
             a new AI employee to take live, or pausing what isn&apos;t working. <b>Nothing changes until you approve it</b> in Needs you.
@@ -124,9 +124,9 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
               </div>
               <p className="text-[13.5px] leading-relaxed">{latest.summary}</p>
               {(latest.research?.looked_at?.length || 0) > 0 && (
-                <details className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-[12.5px]">
+                <details className="mt-2 rounded-lg bg-stone-50 px-3 py-2 text-[12.5px]">
                   <summary className="cursor-pointer font-semibold text-muted">What it looked at ({latest.research!.looked_at!.length})</summary>
-                  <ul className="mt-1.5 space-y-0.5 text-gray-700">{latest.research!.looked_at!.map((x, i) => <li key={i}>· {x}</li>)}</ul>
+                  <ul className="mt-1.5 space-y-0.5 text-stone-700">{latest.research!.looked_at!.map((x, i) => <li key={i}>· {x}</li>)}</ul>
                   {(latest.research?.sources?.length || 0) > 0 && (
                     <ul className="mt-1.5 space-y-0.5">
                       {latest.research!.sources!.map((src) => (
@@ -155,7 +155,7 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
           )}
           {latest && latest.status === "failed" && <ErrorNote>{latest.error || "The last review didn't finish."}</ErrorNote>}
 
-          <section className="space-y-3 rounded-xl bg-gray-50 p-3">
+          <section className="space-y-3 rounded-xl bg-stone-50 p-3">
             <div className="flex items-center justify-between gap-3 text-[13px]">
               <span className="font-semibold">AI team lead on</span>
               <Toggle on={lead.enabled} disabled={!canManage} onChange={(v) => patch({ enabled: v })} label="AI team lead on" />
@@ -217,7 +217,7 @@ function LooksAt() {
       <ul className="flex flex-wrap gap-1.5">
         {items.map(([icon, label, on]) => (
           <li key={label} className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold",
-            on ? "bg-zinc-50 text-zinc-800" : "bg-gray-50 text-gray-400")} title={on ? undefined : "Connect it in Settings → Code & data"}>
+            on ? "bg-stone-50 text-stone-800" : "bg-stone-50 text-stone-400")} title={on ? undefined : "Connect it in Settings → Code & data"}>
             {icon} {label}{on ? "" : " (not connected)"}
           </li>
         ))}

@@ -86,7 +86,7 @@ export function CodeAndData() {
           return (
             <li key={r.kind} className="space-y-2 px-4 py-3">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="grid h-8 w-8 place-items-center rounded-lg bg-gray-100 text-gray-600">{r.icon}</span>
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-stone-100 text-stone-600">{r.icon}</span>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold">{r.label}{i ? <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><Check size={12} /> {i.name}</span> : null}</div>
                   <div className="text-xs text-muted">{r.what}</div>

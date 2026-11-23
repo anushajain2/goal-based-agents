@@ -72,7 +72,7 @@ export default function SetupPage() {
           </p>
         </div>
         {status === "done" && (
-          <Link href="/team?welcome=1" className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-line bg-white px-4 text-sm font-semibold hover:bg-gray-50">
+          <Link href="/team?welcome=1" className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-line bg-white px-4 text-sm font-semibold hover:bg-stone-50">
             Go to my team <ArrowRight size={15} />
           </Link>
         )}
@@ -84,7 +84,7 @@ export default function SetupPage() {
         <Card className="p-4 text-sm">
           <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">What you told us</div>
           {info.org.website && <p className="text-brand-700">{info.org.website}</p>}
-          {info.org.description && <p className="mt-1 text-gray-700">{info.org.description}</p>}
+          {info.org.description && <p className="mt-1 text-stone-700">{info.org.description}</p>}
         </Card>
       )}
 
@@ -171,9 +171,9 @@ function StepIcon({ status }: { status: SetupStep["status"] }) {
   const base = "grid h-6 w-6 shrink-0 place-items-center rounded-full";
   if (status === "done") return <span className={cx(base, "bg-emerald-600 text-white")}><Check size={14} /></span>;
   if (status === "running") return <span className={cx(base, "bg-brand-50 text-brand-600")}><Loader2 size={15} className="animate-spin" /></span>;
-  if (status === "failed") return <span className={cx(base, "bg-amber-100 text-amber-700")}><CircleAlert size={14} /></span>;
-  if (status === "skipped") return <span className={cx(base, "bg-gray-100 text-gray-400")}><Minus size={14} /></span>;
-  return <span className={cx(base, "border-2 border-gray-200")} />;
+  if (status === "failed") return <span className={cx(base, "bg-signal-100 text-signal-700")}><CircleAlert size={14} /></span>;
+  if (status === "skipped") return <span className={cx(base, "bg-stone-100 text-stone-400")}><Minus size={14} /></span>;
+  return <span className={cx(base, "border-2 border-stone-200")} />;
 }
 
 /** The one big decision: start the whole AI team, with a small, capped first-week budget. */
@@ -186,7 +186,7 @@ function TeamLaunch({ info, goals, org, onStart }: { info: SetupInfo; goals: Cam
   if (!goals.length) return null;
   if (!drafts.length) {
     return (
-      <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-zinc-600 p-6 text-white">
+      <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-stone-600 p-6 text-white">
         <Rocket size={28} />
         <div className="min-w-0 flex-1">
           <div className="text-xl font-bold">Your AI team is at work</div>
@@ -197,7 +197,7 @@ function TeamLaunch({ info, goals, org, onStart }: { info: SetupInfo; goals: Cam
     );
   }
   return (
-    <div className="rounded-2xl bg-zinc-900 p-6 text-white">
+    <div className="rounded-2xl bg-stone-900 p-6 text-white">
       <div className="flex flex-wrap items-start gap-6">
         <div className="min-w-0 flex-1">
           <div className="text-2xl font-bold tracking-tight">Your AI team is ready</div>
@@ -256,7 +256,7 @@ function SuggestedTeam({ info, onAdding }: { info: SetupInfo; onAdding: () => vo
     <div className="space-y-6">
       {err && <ErrorNote>{err}</ErrorNote>}
       {oldBudgets.length > 0 && info.can_run && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-signal-200 bg-signal-50 px-4 py-3 text-sm">
           <span className="min-w-0 flex-1">
             Start small: give these goals a one-week budget first ({usd(oldBudgets.reduce((t, g) => t + g.budget.total, 0))} now), and add more once you see results.
           </span>
@@ -276,7 +276,7 @@ function SuggestedTeam({ info, onAdding }: { info: SetupInfo; onAdding: () => vo
         </p>
         <div className="mb-3"><TeamSize profile={info.org.profile} canAdd={info.can_run && info.can_research} onAdding={onAdding} /></div>
         {org && (
-          <div className="rounded-3xl border border-line bg-zinc-50/60 bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] p-6 [background-size:18px_18px]">
+          <div className="rounded-3xl border border-line bg-stone-50/60 bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] p-6 [background-size:18px_18px]">
             <OrgChart org={org} goals={mine} onGoalClick={setPanel} onChanged={refresh} />
           </div>
         )}
@@ -294,7 +294,7 @@ function RetryForm({ info, onStarted, label }: { info: SetupInfo; onStarted: () 
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   if (!info.can_research) {
-    return <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">Add <code>ANTHROPIC_API_KEY</code> to the <code>.env</code> file and restart Autopilot to research your company.</p>;
+    return <p className="mt-3 rounded-md bg-signal-50 px-3 py-2 text-sm text-signal-900">Add <code>ANTHROPIC_API_KEY</code> to the <code>.env</code> file and restart Autopilot to research your company.</p>;
   }
   return (
     <form className="mt-4 space-y-3" onSubmit={async (e) => {

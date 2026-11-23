@@ -61,10 +61,10 @@ function ConnectionsInner() {
       )}
 
       {s && s.missing_live > 0 && (
-        <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white px-4 py-3 text-[13.5px]">
-          <CircleAlert size={18} className="shrink-0 text-amber-600" />
+        <div className="flex items-center gap-3 rounded-2xl border border-signal-200 bg-gradient-to-r from-signal-50 to-white px-4 py-3 text-[13.5px]">
+          <CircleAlert size={18} className="shrink-0 text-signal-600" />
           <span><b className="font-semibold">{s.missing_live} {s.missing_live === 1 ? "tool your live goals use isn't" : "tools your live goals use aren't"} connected yet.</b>{" "}
-            <span className="text-zinc-600">They&apos;ll ask in Needs you when they get there, or connect now.</span></span>
+            <span className="text-stone-600">They&apos;ll ask in Needs you when they get there, or connect now.</span></span>
         </div>
       )}
 
@@ -147,7 +147,7 @@ function ToolRow({ t, githubSignIn, admin, onChanged }: { t: ToolStatus; githubS
   return (
     <div className="px-5 py-4">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <span className={cx("grid h-10 w-10 shrink-0 place-items-center rounded-xl", done ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-600")}>{icon}</span>
+        <span className={cx("grid h-10 w-10 shrink-0 place-items-center rounded-xl", done ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-600")}>{icon}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[14.5px] font-semibold">{t.label}</span>
@@ -159,7 +159,7 @@ function ToolRow({ t, githubSignIn, admin, onChanged }: { t: ToolStatus; githubS
           </div>
           <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
             {t.on_its_own.length > 0 && <span className="inline-flex items-center gap-1 text-emerald-700"><Zap size={12} /> On its own: {t.on_its_own.join(", ")}</span>}
-            {t.needs_ok.length > 0 && <span className="inline-flex items-center gap-1 text-amber-700"><Hand size={12} /> Needs your OK: {t.needs_ok.join(", ")}</span>}
+            {t.needs_ok.length > 0 && <span className="inline-flex items-center gap-1 text-signal-700"><Hand size={12} /> Needs your OK: {t.needs_ok.join(", ")}</span>}
           </div>
         </div>
         {!done && (
@@ -255,7 +255,7 @@ function AppsCard({ overview, admin, onChanged }: { overview?: ConnectionsOvervi
       </div>
 
       {showKey && admin && comp?.source !== "org" && (
-        <form className="mt-4 space-y-2 rounded-xl bg-zinc-50 p-4" onSubmit={(e) => { e.preventDefault(); run(async () => { await api("/api/integrations/composio", { method: "POST", json: { api_key: key.trim() } }); setKey(""); setShowKey(false); }); }}>
+        <form className="mt-4 space-y-2 rounded-xl bg-stone-50 p-4" onSubmit={(e) => { e.preventDefault(); run(async () => { await api("/api/integrations/composio", { method: "POST", json: { api_key: key.trim() } }); setKey(""); setShowKey(false); }); }}>
           <div className="flex gap-2">
             <Input type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder="Composio API key" />
             <Button variant="primary" disabled={busy || key.trim().length < 10}>{busy ? "Checking…" : "Save"}</Button>
@@ -274,7 +274,7 @@ function AppsCard({ overview, admin, onChanged }: { overview?: ConnectionsOvervi
             {POPULAR.map((p) => (
               <button key={p} disabled={busy} onClick={() => !connected.has(p) && connect(p)}
                 className={cx("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium ring-1 ring-inset transition",
-                  connected.has(p) ? "bg-emerald-50 text-emerald-700 ring-emerald-100" : "bg-white text-zinc-700 ring-line hover:ring-brand-200 hover:text-brand-700")}>
+                  connected.has(p) ? "bg-emerald-50 text-emerald-700 ring-emerald-100" : "bg-white text-stone-700 ring-line hover:ring-brand-200 hover:text-brand-700")}>
                 {connected.has(p) ? <Check size={12} /> : <Plug size={12} />} {p}
               </button>
             ))}
@@ -302,7 +302,7 @@ function CodeAndDataCards({ githubSignIn, admin, onChanged }: { githubSignIn: bo
     return (
       <Card className="p-5">
         <div className="flex items-start gap-4">
-          <span className={cx("grid h-10 w-10 shrink-0 place-items-center rounded-xl", i ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-600")}>{icon}</span>
+          <span className={cx("grid h-10 w-10 shrink-0 place-items-center rounded-xl", i ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-600")}>{icon}</span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[14.5px] font-semibold">{title}</span>

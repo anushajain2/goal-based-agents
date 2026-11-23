@@ -29,7 +29,7 @@ export default function SettingsPage() {
       <Link href="/connections" className="flex items-center gap-3 rounded-2xl border border-line bg-white px-5 py-4 shadow-[var(--shadow-card)] transition hover:shadow-[var(--shadow-pop)]">
         <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-600"><Plug size={17} /></span>
         <span className="min-w-0 flex-1"><b className="block text-[14px] font-semibold">Connections</b><span className="text-[13px] text-muted">Apps, sites, GitHub, databases and your own tools now have their own page.</span></span>
-        <ArrowRight size={16} className="text-zinc-400" />
+        <ArrowRight size={16} className="text-stone-400" />
       </Link>
       <Permissions />
       <GlobalGuardrails />
@@ -50,7 +50,7 @@ function Staffing() {
       <CardHeader title="How Autopilot is staffed" subtitle="Each job uses the cheapest Claude model that does it well. Change them in the .env file." />
       <div className="grid gap-3 p-4 sm:grid-cols-3">
         {ROLE_INFO.map((r) => (
-          <div key={r.role} className="rounded-lg bg-gray-50 p-3">
+          <div key={r.role} className="rounded-lg bg-stone-50 p-3">
             <div className="text-[13px] font-semibold">{r.title}</div>
             <div className="mt-1 font-mono text-xs text-brand-700">{data?.models?.[r.role] ?? "…"}</div>
             <p className="mt-1.5 text-xs text-muted">{r.text}</p>
@@ -133,7 +133,7 @@ function People() {
                     return (
                       <button key={d.id} type="button" title={on ? `Remove from ${d.name}` : `Add to ${d.name}`}
                         onClick={() => act(() => api(`/api/members/${m.id}`, { method: "PATCH", json: { department_ids: on ? m.department_ids.filter((x) => x !== d.id) : [...m.department_ids, d.id] } }))}
-                        className={on ? "rounded-full border border-brand-500 bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700" : "rounded-full border border-line px-2 py-0.5 text-xs text-muted hover:border-gray-400"}>
+                        className={on ? "rounded-full border border-brand-500 bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700" : "rounded-full border border-line px-2 py-0.5 text-xs text-muted hover:border-stone-400"}>
                         {d.name}
                       </button>
                     );
@@ -162,7 +162,7 @@ function People() {
               <div className="mb-1.5 text-[13px] font-semibold">Invited, not signed in yet</div>
               <ul className="space-y-1.5">
                 {org.invitations.map((i) => (
-                  <li key={i.id} className="flex flex-wrap items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5 text-sm">
+                  <li key={i.id} className="flex flex-wrap items-center gap-2 rounded-md bg-stone-50 px-3 py-1.5 text-sm">
                     <Mail size={14} className="text-muted" />
                     <span className="min-w-0 flex-1 truncate">{i.email}</span>
                     <span className="text-xs text-muted">{ROLE_LABEL[i.role as keyof typeof ROLE_LABEL] || i.role} · {i.department_ids.map(deptName).join(", ") || "No department"}</span>
@@ -197,7 +197,7 @@ function People() {
                 const on = depts.includes(d.id);
                 return (
                   <button key={d.id} type="button" onClick={() => setDepts(on ? depts.filter((x) => x !== d.id) : [...depts, d.id])}
-                    className={on ? "rounded-full border border-brand-500 bg-brand-50 px-2 py-0.5 font-semibold text-brand-700" : "rounded-full border border-line px-2 py-0.5 text-muted hover:border-gray-400"}>
+                    className={on ? "rounded-full border border-brand-500 bg-brand-50 px-2 py-0.5 font-semibold text-brand-700" : "rounded-full border border-line px-2 py-0.5 text-muted hover:border-stone-400"}>
                     {d.name}
                   </button>
                 );

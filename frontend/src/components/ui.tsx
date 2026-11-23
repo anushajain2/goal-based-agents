@@ -16,8 +16,8 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "sm" | "md" }) {
   const styles: Record<Variant, string> = {
     primary: "bg-brand-500 text-white hover:bg-brand-600 border-transparent shadow-[0_1px_2px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.12)]",
-    secondary: "bg-white text-ink hover:bg-zinc-50 border-line shadow-[0_1px_2px_rgb(16_24_40/0.05)]",
-    ghost: "bg-transparent text-zinc-700 hover:bg-zinc-100 hover:text-ink border-transparent",
+    secondary: "bg-white text-ink hover:bg-stone-50 border-line shadow-[0_1px_2px_rgb(16_24_40/0.05)]",
+    ghost: "bg-transparent text-stone-700 hover:bg-stone-100 hover:text-ink border-transparent",
     danger: "bg-white text-red-700 hover:bg-red-50 border-red-200",
     success: "bg-emerald-600 text-white hover:bg-emerald-700 border-transparent",
   };
@@ -51,12 +51,12 @@ export function CardHeader({ title, subtitle, action }: { title: ReactNode; subt
 }
 
 const badgeTones = {
-  gray: "bg-zinc-100 text-zinc-700 ring-zinc-200/60",
+  gray: "bg-stone-100 text-stone-700 ring-stone-200/60",
   blue: "bg-brand-50 text-brand-700 ring-brand-100",
   green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-  amber: "bg-amber-50 text-amber-800 ring-amber-100",
+  amber: "bg-signal-50 text-signal-800 ring-signal-100",
   red: "bg-red-50 text-red-700 ring-red-100",
-  violet: "bg-zinc-50 text-zinc-700 ring-zinc-100",
+  violet: "bg-stone-50 text-stone-700 ring-stone-100",
 };
 export type Tone = keyof typeof badgeTones;
 
@@ -69,7 +69,7 @@ export function Badge({ tone = "gray", children, className }: { tone?: Tone; chi
 }
 
 export function Dot({ tone }: { tone: Tone }) {
-  const c = { gray: "bg-gray-400", blue: "bg-brand-500", green: "bg-emerald-500", amber: "bg-amber-500", red: "bg-red-500", violet: "bg-zinc-500" }[tone];
+  const c = { gray: "bg-stone-400", blue: "bg-brand-500", green: "bg-emerald-500", amber: "bg-signal-500", red: "bg-red-500", violet: "bg-stone-500" }[tone];
   return <span className={cx("inline-block h-2 w-2 rounded-full", c)} />;
 }
 
@@ -84,7 +84,7 @@ export function Toggle({ on, onChange, disabled, label }: { on: boolean; onChang
       onClick={() => onChange(!on)}
       className={cx(
         "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition disabled:opacity-40",
-        on ? "bg-brand-500" : "bg-gray-300",
+        on ? "bg-brand-500" : "bg-stone-300",
       )}
     >
       <span className={cx("inline-block h-4 w-4 rounded-full bg-white shadow transition", on ? "translate-x-4.5" : "translate-x-0.5")} />
@@ -95,7 +95,7 @@ export function Toggle({ on, onChange, disabled, label }: { on: boolean; onChang
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[13px] font-semibold text-zinc-800">{label}</span>
+      <span className="mb-1.5 block text-[13px] font-semibold text-stone-800">{label}</span>
       {children}
       {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}
     </label>
@@ -103,7 +103,7 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
 }
 
 const inputCls =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm shadow-[0_1px_2px_rgb(16_24_40/0.04)] outline-none transition placeholder:text-zinc-400 hover:border-zinc-300 focus:border-brand-500 focus:ring-4 focus:ring-brand-100";
+  "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm shadow-[0_1px_2px_rgb(16_24_40/0.04)] outline-none transition placeholder:text-stone-400 hover:border-stone-300 focus:border-brand-500 focus:ring-4 focus:ring-brand-100";
 
 export function Input(props: ComponentProps<"input">) {
   return <input {...props} className={cx(inputCls, props.className)} />;
@@ -137,7 +137,7 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { key:
 export function Empty({ icon, title, children }: { icon?: ReactNode; title: string; children?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-      {icon && <div className="mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-zinc-100 text-zinc-400 [&>svg]:h-7 [&>svg]:w-7">{icon}</div>}
+      {icon && <div className="mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-stone-100 text-stone-400 [&>svg]:h-7 [&>svg]:w-7">{icon}</div>}
       <p className="font-semibold">{title}</p>
       {children && <div className="mt-1 max-w-md text-sm text-muted">{children}</div>}
     </div>
@@ -171,8 +171,8 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
   return (
     <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
-        {eyebrow && <div className="mb-1 text-[12.5px] font-semibold text-muted">{eyebrow}</div>}
-        <h1 className="text-[26px] font-semibold leading-tight tracking-tight">{title}</h1>
+        {eyebrow && <div className="mb-1.5 font-mono text-[11.5px] uppercase tracking-[0.08em] text-muted">{eyebrow}</div>}
+        <h1 className="display text-[38px] leading-[1.05]">{title}</h1>
         {subtitle && <p className="mt-1 max-w-2xl text-[14px] text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -182,5 +182,5 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
 
 /** A small section label. */
 export function Label({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("text-[11.5px] font-semibold uppercase tracking-[0.06em] text-zinc-500", className)}>{children}</div>;
+  return <div className={cx("font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-stone-500", className)}>{children}</div>;
 }

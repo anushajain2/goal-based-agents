@@ -23,7 +23,7 @@ export function TargetLine({ goal, compact }: { goal: Pick<Campaign, "target" | 
         </span>
         {!compact && t.days_left != null && <span className="shrink-0 text-[11px] text-muted">{t.days_left < 1 ? "ends today" : `${Math.ceil(t.days_left)}d left`}</span>}
       </span>
-      <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-gray-100">
+      <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-stone-100">
         <span className={cx("block h-full rounded-full", hit ? "bg-emerald-500" : "bg-brand-500")} style={{ width: `${pct}%` }} />
       </span>
     </span>
@@ -39,7 +39,7 @@ export function TargetHistory({ target }: { target: TargetView | null }) {
     <ul className="flex flex-wrap gap-1.5">
       {h.map((x, i) => (
         <li key={i} className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-          x.status === "hit" ? "bg-emerald-50 text-emerald-700" : x.status === "missed" ? "bg-amber-50 text-amber-800" : "bg-gray-100 text-gray-600")}>
+          x.status === "hit" ? "bg-emerald-50 text-emerald-700" : x.status === "missed" ? "bg-signal-50 text-signal-800" : "bg-stone-100 text-stone-600")}>
           {x.status === "hit" ? <Check size={11} /> : x.status === "missed" ? <X size={11} /> : null}
           {word[x.period]} · {num(x.result)}/{num(x.target)}{x.status === "replaced" ? " (changed)" : ""}
         </li>

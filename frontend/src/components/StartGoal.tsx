@@ -94,7 +94,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
             </div>
             <h2 className="mt-1.5 truncate text-lg font-bold">{goals.length === 1 ? goals[0].name : `Start ${goals.length} goals`}</h2>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-muted hover:bg-gray-100" aria-label="Close"><X size={18} /></button>
+          <button onClick={onClose} className="rounded p-1 text-muted hover:bg-stone-100" aria-label="Close"><X size={18} /></button>
         </div>
 
         <div className="flex-1 space-y-3 overflow-y-auto p-5">
@@ -103,9 +103,9 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
 
           {!loading && step === 1 && (
             <>
-              <p className="flex items-start gap-2 text-sm text-gray-700">
+              <p className="flex items-start gap-2 text-sm text-stone-700">
                 <Lock size={15} className="mt-0.5 shrink-0 text-emerald-600" />
-                Connecting a tool lets them use it. Anything marked <b className="text-amber-700">&nbsp;needs an OK&nbsp;</b> still waits for a person.
+                Connecting a tool lets them use it. Anything marked <b className="text-signal-700">&nbsp;needs an OK&nbsp;</b> still waits for a person.
               </p>
               {needs.length === 0 && <div className="rounded-xl border border-line bg-white px-4 py-3 text-sm">They only need the web for now. Nothing to connect.</div>}
               {needs.map((n) => <ToolCard key={n.key} n={n} composio={composio} onChanged={load} />)}
@@ -151,7 +151,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
 function StepDot({ n, active, done, label }: { n: number; active: boolean; done: boolean; label: string }) {
   return (
     <span className={cx("inline-flex items-center gap-1.5", active ? "text-ink" : "text-muted")}>
-      <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[11px]", done ? "bg-emerald-600 text-white" : active ? "bg-brand-500 text-white" : "bg-gray-200")}>
+      <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[11px]", done ? "bg-emerald-600 text-white" : active ? "bg-brand-500 text-white" : "bg-stone-200")}>
         {done ? <Check size={11} /> : n}
       </span>
       {label}
@@ -192,7 +192,7 @@ function ToolCard({ n, composio, onChanged }: { n: Need; composio: boolean; onCh
   return (
     <div className="rounded-xl border border-line bg-white px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
-        <span className={cx("grid h-8 w-8 shrink-0 place-items-center rounded-lg", done ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500")}>{done ? <Check size={16} /> : icon}</span>
+        <span className={cx("grid h-8 w-8 shrink-0 place-items-center rounded-lg", done ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500")}>{done ? <Check size={16} /> : icon}</span>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold">{n.label}</div>
           <div className="truncate text-xs text-muted">{agents.join(", ") || "One of the channels you picked"}</div>
@@ -211,7 +211,7 @@ function ToolCard({ n, composio, onChanged }: { n: Need; composio: boolean; onCh
       {(auto.length > 0 || asks.length > 0) && (
         <div className="mt-2 grid gap-1 pl-11 text-[12.5px]">
           {auto.length > 0 && <UseLine icon={<Zap size={12} />} tone="text-emerald-700" label="On its own" items={auto} />}
-          {asks.length > 0 && <UseLine icon={<Hand size={12} />} tone="text-amber-700" label="Needs an OK" items={asks} />}
+          {asks.length > 0 && <UseLine icon={<Hand size={12} />} tone="text-signal-700" label="Needs an OK" items={asks} />}
         </div>
       )}
       {!done && form && n.kind === "github" && <div className="mt-3 pl-11"><GitHubForm onDone={() => { setForm(false); onChanged(); }} /></div>}
@@ -236,7 +236,7 @@ function UseLine({ icon, tone, label, items }: { icon: React.ReactNode; tone: st
   return (
     <div className="flex gap-1.5">
       <span className={cx("inline-flex shrink-0 items-center gap-1 font-semibold", tone)}>{icon} {label}:</span>
-      <span className="min-w-0 text-gray-700">
+      <span className="min-w-0 text-stone-700">
         {shown.map((u) => u.text).join(" · ")}{items.length > 2 ? ` · +${items.length - 2} more` : ""}
       </span>
     </div>
@@ -286,7 +286,7 @@ function Routing({ agentId, org, onChanged }: { agentId: string; org: OrgInfo; o
       </div>
       {showHandoff && (
         <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-line pt-2.5 pl-11 text-xs">
-          <span className="font-semibold text-gray-700">PRDs go to</span>
+          <span className="font-semibold text-stone-700">PRDs go to</span>
           <select disabled={!canEdit} className="rounded-md border border-line bg-white px-2 py-1 font-semibold" value={a.handoff_to_agent_id || ""}
             onChange={(e) => patch({ handoff_to_agent_id: e.target.value || null })}>
             <option value="">{name(manager)} only (no hand-off)</option>
@@ -319,7 +319,7 @@ function GoalReview({ goal, single }: { goal: Campaign; single: boolean }) {
   const asks = book ? book.steps.filter((st) => modeOf(st.action_type) === "ask").length : 0;
   if (!single && !open) {
     return (
-      <button onClick={() => setOpen(true)} className="flex w-full items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 text-left hover:border-gray-400">
+      <button onClick={() => setOpen(true)} className="flex w-full items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 text-left hover:border-stone-400">
         {goal.agent && <AgentAvatar name={goal.agent.name} size={28} />}
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold">{goal.name}</span>
@@ -356,12 +356,12 @@ function GoalReview({ goal, single }: { goal: Campaign; single: boolean }) {
             : <StepList steps={book.steps} modeOf={(k) => perms.action_types.find((p) => p.key === k)?.mode ?? "ask"} team={teamName(perms)} />}
         </div>
       )}
-      {note && <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">{note}</p>}
+      {note && <p className="rounded-md bg-signal-50 px-3 py-2 text-xs text-signal-900">{note}</p>}
       {error && <ErrorNote>{error}</ErrorNote>}
       <div className="rounded-lg border border-line bg-white px-3 py-2.5">
         <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Budget: {usd(goal.budget.total)}{goal.budget_basis?.starter ? " for the first week" : ""}, a hard limit</div>
         {goal.budget_basis?.starter
-          ? <p className="text-[12.5px] text-gray-700">About {goal.budget_basis.sessions} work sessions. When it&apos;s used up, work pauses and you decide whether to add more (the whole goal would take about {usd(goal.budget_basis.full_usd || 0)}).</p>
+          ? <p className="text-[12.5px] text-stone-700">About {goal.budget_basis.sessions} work sessions. When it&apos;s used up, work pauses and you decide whether to add more (the whole goal would take about {usd(goal.budget_basis.full_usd || 0)}).</p>
           : goal.budget_basis ? <BudgetBreakdown basis={goal.budget_basis} total={goal.budget.total} compact /> : <p className="text-xs text-muted">When it runs out, work pauses.</p>}
       </div>
     </div>

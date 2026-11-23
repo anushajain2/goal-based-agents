@@ -60,9 +60,9 @@ export function PolicyMatrix({
                           ? m === "never"
                             ? "bg-red-600 text-white"
                             : m === "ask"
-                              ? "bg-amber-500 text-white"
+                              ? "bg-signal-500 text-white"
                               : "bg-emerald-600 text-white"
-                          : "bg-white text-muted hover:bg-gray-50",
+                          : "bg-white text-muted hover:bg-stone-50",
                       )}
                     >
                       {m === "never" ? "Never" : m === "ask" ? "Ask me" : "Don't ask"}
@@ -109,7 +109,7 @@ export function ListEditor({
       <ul className="mb-2 space-y-1.5">
         {items.length === 0 && <li className="text-xs text-muted">{empty}</li>}
         {items.map((i) => (
-          <li key={i.id} className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5 text-sm">
+          <li key={i.id} className="flex items-center gap-2 rounded-md bg-stone-50 px-3 py-1.5 text-sm">
             <span className="flex-1">{i.value}</span>
             {i.locked ? (
               <span className="text-xs text-muted">{lockedLabel}</span>

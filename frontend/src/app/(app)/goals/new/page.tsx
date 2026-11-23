@@ -193,7 +193,7 @@ function NewGoal() {
       <h1 className="mb-1 text-2xl font-bold">Set up the goal</h1>
       {uc && (
         <p className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted">
-          <span className="text-gray-400">{CATEGORY_ICON[uc.categoryKey]}</span> {uc.category} · {uc.sub} <FitBadge fit={uc.fit} />
+          <span className="text-stone-400">{CATEGORY_ICON[uc.categoryKey]}</span> {uc.category} · {uc.sub} <FitBadge fit={uc.fit} />
         </p>
       )}
 
@@ -207,7 +207,7 @@ function NewGoal() {
                   onClick={() => (i < step || !valid(step) ? setStep(i) : null)}
                   className={cx("flex w-full items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-semibold", i === step ? "bg-white text-brand-700 shadow-sm ring-1 ring-line" : "text-muted hover:text-ink")}
                 >
-                  <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[11px]", i < step ? "bg-emerald-600 text-white" : i === step ? "bg-brand-500 text-white" : "bg-gray-200")}>
+                  <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[11px]", i < step ? "bg-emerald-600 text-white" : i === step ? "bg-brand-500 text-white" : "bg-stone-200")}>
                     {i < step ? <Check size={12} /> : i}
                   </span>
                   {s}
@@ -224,7 +224,7 @@ function NewGoal() {
                 <div className="grid gap-2 sm:grid-cols-2">
                   {assignable.map((a) => (
                     <button key={a.id} type="button" onClick={() => setAgentId(a.id)}
-                      className={cx("flex items-center gap-3 rounded-lg border px-3 py-2 text-left", a.id === agentId ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500" : "border-line hover:border-gray-400")}>
+                      className={cx("flex items-center gap-3 rounded-lg border px-3 py-2 text-left", a.id === agentId ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500" : "border-line hover:border-stone-400")}>
                       <AgentAvatar name={a.name} size={30} />
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{a.name}</span>
@@ -232,7 +232,7 @@ function NewGoal() {
                       </span>
                     </button>
                   ))}
-                  {org && !assignable.length && <p className="text-sm text-amber-700">You&apos;re not in a department yet. Ask an admin to add you to one on the Team page.</p>}
+                  {org && !assignable.length && <p className="text-sm text-signal-700">You&apos;re not in a department yet. Ask an admin to add you to one on the Team page.</p>}
                 </div>
               </Field>
               <Field label="The goal" hint="Say it the way you'd brief a new hire: who, what, how many.">
@@ -317,7 +317,7 @@ function NewGoal() {
                     const on = channels.includes(ch);
                     return (
                       <button key={ch} type="button" onClick={() => setChannels(on ? channels.filter((c) => c !== ch) : [...channels, ch])}
-                        className={cx("rounded-full border px-3 py-1 text-sm", on ? "border-brand-500 bg-brand-50 font-semibold text-brand-700" : "border-line hover:border-gray-400")}>
+                        className={cx("rounded-full border px-3 py-1 text-sm", on ? "border-brand-500 bg-brand-50 font-semibold text-brand-700" : "border-line hover:border-stone-400")}>
                         {ch}
                       </button>
                     );
@@ -355,7 +355,7 @@ function NewGoal() {
                 <p className="mt-1.5 text-xs text-muted">Every outgoing action is checked against these by a separate AI reviewer first. Strong, but not a guarantee. For a guarantee, set a whole category to &quot;Never&quot; above.</p>
               </div>
               {builtIn && (
-                <details className="rounded-md bg-gray-50 px-3 py-2 text-sm">
+                <details className="rounded-md bg-stone-50 px-3 py-2 text-sm">
                   <summary className="cursor-pointer font-semibold">Rules that always apply ({builtIn.rules.length})</summary>
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">{builtIn.rules.map((r) => <li key={r}>{r}</li>)}</ul>
                 </details>

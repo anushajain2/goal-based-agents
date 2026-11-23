@@ -41,7 +41,7 @@ export function TeamSize({ profile, canAdd, onAdding }: { profile: CompanyProfil
             {later.map((x) => {
               const key = x.kind || x.name;
               return (
-                <li key={key} className="flex items-center gap-2 rounded-lg border border-line bg-gray-50 py-1 pl-3 pr-1 text-[13px]">
+                <li key={key} className="flex items-center gap-2 rounded-lg border border-line bg-stone-50 py-1 pl-3 pr-1 text-[13px]">
                   <span><b>{x.name}</b>{x.when && <span className="text-muted"> · {x.when}</span>}</span>
                   {canAdd && (
                     <button disabled={!!busy} onClick={() => add(key)}

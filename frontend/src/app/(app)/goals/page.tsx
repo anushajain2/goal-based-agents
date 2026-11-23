@@ -68,11 +68,11 @@ export default function GoalsPage() {
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 px-5 py-3">
-          <div className="inline-flex rounded-xl bg-zinc-100 p-1 text-[13px] font-semibold">
+          <div className="inline-flex rounded-xl bg-stone-100 p-1 text-[13px] font-semibold">
             {(["live", "suggested", "drafts"] as Tab[]).filter((t) => t !== "drafts" || counts.drafts).map((t) => (
-              <button key={t} onClick={() => setTab(t)} className={cx("rounded-lg px-3 py-1.5 transition", shown === t ? "bg-white text-ink shadow-sm" : "text-zinc-500 hover:text-ink")}>
+              <button key={t} onClick={() => setTab(t)} className={cx("rounded-lg px-3 py-1.5 transition", shown === t ? "bg-white text-ink shadow-sm" : "text-stone-500 hover:text-ink")}>
                 {{ live: "Live", suggested: "Suggested", drafts: "Not started" }[t]}
-                <span className="tabular ml-1.5 text-zinc-400">{counts[t]}</span>
+                <span className="tabular ml-1.5 text-stone-400">{counts[t]}</span>
               </button>
             ))}
           </div>
@@ -106,7 +106,7 @@ export default function GoalsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-left text-[13px]">
-              <thead className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-zinc-400">
+              <thead className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-stone-400">
                 <tr>
                   <th className="w-16 px-5 py-3 font-semibold">On</th>
                   <th className="px-2 py-3 font-semibold">Goal</th>
@@ -118,15 +118,15 @@ export default function GoalsPage() {
               {groups.map((grp) => (
               <tbody key={grp.id}>
                 <tr className="border-t border-line">
-                  <td colSpan={5} className="bg-zinc-50/80 px-5 py-2 text-[12.5px] font-semibold text-zinc-700">
-                    {grp.name} <span className="font-medium text-zinc-400">· {grp.goals.length}</span>
+                  <td colSpan={5} className="bg-stone-50/80 px-5 py-2 text-[12.5px] font-semibold text-stone-700">
+                    {grp.name} <span className="font-medium text-stone-400">· {grp.goals.length}</span>
                   </td>
                 </tr>
                 {grp.goals.map((c) => {
                   const on = c.status === "active";
                   const pct = c.budget.total ? (c.budget.spent / c.budget.total) * 100 : 0;
                   return (
-                    <tr key={c.id} className="border-t border-line/70 align-top transition hover:bg-zinc-50/70">
+                    <tr key={c.id} className="border-t border-line/70 align-top transition hover:bg-stone-50/70">
                       <td className="px-5 py-3.5">
                         <Toggle on={on} disabled={c.can_manage === false || ["completed", "out_of_budget"].includes(c.status) || busy === c.id} onChange={(v) => toggle(c, v)} label={`Turn ${c.name} ${on ? "off" : "on"}`} />
                       </td>
@@ -152,7 +152,7 @@ export default function GoalsPage() {
                       <td className="max-w-[280px] px-5 py-3.5">
                         {c.last_activity ? (
                           <>
-                            <div className="line-clamp-2 text-[12.5px] text-zinc-700">{c.last_activity.title}</div>
+                            <div className="line-clamp-2 text-[12.5px] text-stone-700">{c.last_activity.title}</div>
                             <div className="mt-0.5 text-[11.5px] text-muted">{timeAgo(c.last_activity.at)}</div>
                           </>
                         ) : <span className="text-muted">Not started</span>}

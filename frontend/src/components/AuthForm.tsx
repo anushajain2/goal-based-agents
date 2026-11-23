@@ -114,7 +114,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                 <>
                   <a
                     href={`/api/auth/google/start?next=${encodeURIComponent(next)}`}
-                    className="mt-6 flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-line bg-white text-sm font-semibold shadow-sm transition hover:bg-gray-50"
+                    className="mt-6 flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-line bg-white text-sm font-semibold shadow-sm transition hover:bg-stone-50"
                   >
                     <GoogleLogo /> Continue with Google
                   </a>
@@ -153,7 +153,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                   We sent a 6-digit code to <b className="text-ink">{email}</b>. It expires in 10 minutes.
                 </p>
               ) : (
-                <div className="mt-3 flex gap-2.5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="mt-3 flex gap-2.5 rounded-lg border border-signal-200 bg-signal-50 p-3 text-sm text-signal-900">
                   <Terminal size={16} className="mt-0.5 shrink-0" />
                   <span>
                     Email sending isn&apos;t set up yet, so your code is shown in the <b>terminal where Autopilot is running</b>. It expires in 10
@@ -209,7 +209,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </div>
       </div>
 
-      <div className="relative hidden overflow-hidden bg-zinc-900 lg:block">
+      <div className="relative hidden overflow-hidden bg-stone-900 lg:block">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_45%)]" />
         <div className="relative flex h-full flex-col justify-center px-14 text-white">
           <p className="text-sm font-semibold uppercase tracking-widest text-white/70">Your AI employee</p>

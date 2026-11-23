@@ -47,27 +47,27 @@ function metaFor(a: ActivityItem): Meta {
     case "decision":
       return a.status === "approved"
         ? { icon: <ThumbsUp size={s} />, tone: "bg-emerald-50 text-emerald-600", label: "You approved" }
-        : { icon: <ThumbsDown size={s} />, tone: "bg-gray-100 text-gray-500", label: "You declined" };
+        : { icon: <ThumbsDown size={s} />, tone: "bg-stone-100 text-stone-500", label: "You declined" };
     case "request":
-      return { icon: <Hand size={s} />, tone: "bg-amber-50 text-amber-600", label: "Asked you" };
+      return { icon: <Hand size={s} />, tone: "bg-signal-50 text-signal-600", label: "Asked you" };
     case "plan":
-      return { icon: <ListChecks size={s} />, tone: "bg-zinc-50 text-zinc-600", label: "Plan" };
+      return { icon: <ListChecks size={s} />, tone: "bg-stone-50 text-stone-600", label: "Plan" };
     case "strategy":
-      return { icon: <Compass size={s} />, tone: "bg-zinc-50 text-zinc-600", label: "Strategy" };
+      return { icon: <Compass size={s} />, tone: "bg-stone-50 text-stone-600", label: "Strategy" };
     case "metric":
-      return { icon: <TrendingUp size={s} />, tone: "bg-zinc-50 text-zinc-600", label: "Measured" };
+      return { icon: <TrendingUp size={s} />, tone: "bg-stone-50 text-stone-600", label: "Measured" };
     case "note":
-      return { icon: <Lightbulb size={s} />, tone: "bg-amber-50 text-amber-600", label: "For you" };
+      return { icon: <Lightbulb size={s} />, tone: "bg-signal-50 text-signal-600", label: "For you" };
     case "budget":
       return { icon: <Wallet size={s} />, tone: "bg-red-50 text-red-600", label: "Budget" };
     case "error":
       return { icon: <AlertTriangle size={s} />, tone: "bg-red-50 text-red-600", label: "Problem" };
     case "cycle":
       return a.title.startsWith("Session")
-        ? { icon: <Flag size={s} />, tone: "bg-gray-100 text-gray-600", label: "Session done" }
-        : { icon: <PlayCircle size={s} />, tone: "bg-gray-100 text-gray-600", label: "Session started", minor: true };
+        ? { icon: <Flag size={s} />, tone: "bg-stone-100 text-stone-600", label: "Session done" }
+        : { icon: <PlayCircle size={s} />, tone: "bg-stone-100 text-stone-600", label: "Session started", minor: true };
     case "update":
-      return { icon: <MessageCircle size={13} />, tone: "text-gray-400", label: "Thinking", minor: true };
+      return { icon: <MessageCircle size={13} />, tone: "text-stone-400", label: "Thinking", minor: true };
     case "step": {
       const t = a.title;
       const icon = t.startsWith("Searched") || t.startsWith("Looked up") ? <Search size={13} />
@@ -76,10 +76,10 @@ function metaFor(a: ActivityItem): Meta {
         : t.startsWith("Typed") ? <Keyboard size={13} />
         : t.startsWith("Took a screenshot") ? <Camera size={13} />
         : <span className="block h-1.5 w-1.5 rounded-full bg-current" />;
-      return { icon, tone: a.status === "failed" ? "text-red-500" : "text-gray-400", label: "Step", minor: true };
+      return { icon, tone: a.status === "failed" ? "text-red-500" : "text-stone-400", label: "Step", minor: true };
     }
     default:
-      return { icon: <Settings2 size={13} />, tone: "text-gray-400", label: "", minor: true };
+      return { icon: <Settings2 size={13} />, tone: "text-stone-400", label: "", minor: true };
   }
 }
 
@@ -96,7 +96,7 @@ function Details({ a }: { a: ActivityItem }) {
     typeof v === "string" && v ? (
       <div key={label}>
         <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</div>
-        <blockquote className="whitespace-pre-wrap rounded-md border-l-2 border-brand-500 bg-gray-50 px-3 py-2 text-[13px]">{v}</blockquote>
+        <blockquote className="whitespace-pre-wrap rounded-md border-l-2 border-brand-500 bg-stone-50 px-3 py-2 text-[13px]">{v}</blockquote>
       </div>
     ) : null;
   blocks.push(quote("Why", d.reason), quote("Content", d.content), quote("Strategy", d.strategy), quote("Your note", d.note), quote("Message", d.message), quote("Error", d.error));
@@ -106,7 +106,7 @@ function Details({ a }: { a: ActivityItem }) {
     blocks.push(
       <div key="args">
         <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">What it sent{d.action ? ` (${d.action})` : ""}</div>
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-md bg-gray-50 px-3 py-2 text-[12.5px]">
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-md bg-stone-50 px-3 py-2 text-[12.5px]">
           {Object.entries(d.arguments as Record<string, unknown>).map(([k, v]) => (
             <Fragment key={k}><dt className="font-medium text-muted">{k}</dt><dd className="whitespace-pre-wrap break-words">{typeof v === "string" ? v : JSON.stringify(v)}</dd></Fragment>
           ))}
@@ -138,12 +138,12 @@ export function LogEntry({ a, showGoal }: { a: ActivityItem; showGoal?: boolean 
           className="flex w-full items-start gap-3 py-1 pl-[7px] pr-2 text-left disabled:cursor-default"
         >
           <span className={cx("mt-[3px] grid w-[18px] shrink-0 place-items-center", m.tone)}>{m.icon}</span>
-          <span className={cx("min-w-0 flex-1 text-[12.5px] leading-5 text-gray-600", a.kind === "update" && "italic text-gray-500")}>
+          <span className={cx("min-w-0 flex-1 text-[12.5px] leading-5 text-stone-600", a.kind === "update" && "italic text-stone-500")}>
             {a.title}
-            {showGoal && a.campaign_name && <span className="ml-1.5 not-italic text-gray-400">· {a.campaign_name}</span>}
+            {showGoal && a.campaign_name && <span className="ml-1.5 not-italic text-stone-400">· {a.campaign_name}</span>}
           </span>
-          {a.cost_usd !== null && a.cost_usd > 0 && <span className="tabular shrink-0 text-[11px] text-gray-400">{usd(a.cost_usd)}</span>}
-          <span className="w-14 shrink-0 text-right text-[11px] text-gray-400" title={new Date(a.created_at).toLocaleString()}>
+          {a.cost_usd !== null && a.cost_usd > 0 && <span className="tabular shrink-0 text-[11px] text-stone-400">{usd(a.cost_usd)}</span>}
+          <span className="w-14 shrink-0 text-right text-[11px] text-stone-400" title={new Date(a.created_at).toLocaleString()}>
             {new Date(a.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
           </span>
         </button>
@@ -154,7 +154,7 @@ export function LogEntry({ a, showGoal }: { a: ActivityItem; showGoal?: boolean 
 
   return (
     <li>
-      <button onClick={() => expandable && setOpen(!open)} className={cx("flex w-full items-start gap-3 rounded-lg px-1 py-2 text-left", expandable && "hover:bg-gray-50")}>
+      <button onClick={() => expandable && setOpen(!open)} className={cx("flex w-full items-start gap-3 rounded-lg px-1 py-2 text-left", expandable && "hover:bg-stone-50")}>
         <span className={cx("grid h-8 w-8 shrink-0 place-items-center rounded-full", m.tone)}>{m.icon}</span>
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-x-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
@@ -175,7 +175,7 @@ export function LogEntry({ a, showGoal }: { a: ActivityItem; showGoal?: boolean 
           </span>
         </span>
         {a.cost_usd !== null && a.cost_usd > 0 && <span className="tabular mt-1 shrink-0 text-xs text-muted">{usd(a.cost_usd)}</span>}
-        {expandable && <ChevronDown size={15} className={cx("mt-1.5 shrink-0 text-gray-400 transition", open && "rotate-180")} />}
+        {expandable && <ChevronDown size={15} className={cx("mt-1.5 shrink-0 text-stone-400 transition", open && "rotate-180")} />}
       </button>
       {open && <div className="mb-3 ml-12 mr-2"><Details a={a} /></div>}
     </li>
@@ -260,7 +260,7 @@ function SessionBlock({ session, items, view, showGoal }: { session: Session; it
 
   return (
     <section className={cx("overflow-hidden rounded-xl border bg-white", st.live ? "border-brand-500/50 shadow-[0_0_0_3px_rgba(37,99,235,0.08)]" : "border-line")}>
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-gray-50/70 px-4 py-2.5">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-stone-50/70 px-4 py-2.5">
         <span className="text-[13px] font-semibold">Work session {session.number}</span>
         <Badge tone={st.tone}>
           {st.live && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500" />}
@@ -283,11 +283,11 @@ function SessionBlock({ session, items, view, showGoal }: { session: Session; it
 
       <div className="px-3 py-2">
         {plan && view === "highlights" && !showSteps && (
-          <div className="mx-1 my-2 rounded-lg bg-zinc-50/60 px-3 py-2.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">Plan for this session</div>
+          <div className="mx-1 my-2 rounded-lg bg-stone-50/60 px-3 py-2.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-stone-700">Plan for this session</div>
             <p className="mt-1 text-[13px]">{plan.title}</p>
             {Array.isArray(plan.details?.plan) && (
-              <ol className="mt-1.5 list-decimal space-y-0.5 pl-5 text-[13px] text-gray-700">
+              <ol className="mt-1.5 list-decimal space-y-0.5 pl-5 text-[13px] text-stone-700">
                 {(plan.details.plan as string[]).map((p, i) => <li key={i}>{p}</li>)}
               </ol>
             )}
@@ -305,7 +305,7 @@ function SessionBlock({ session, items, view, showGoal }: { session: Session; it
       </div>
 
       {session.summary && (
-        <footer className="border-t border-line bg-gray-50/70 px-4 py-2.5 text-[13px]">
+        <footer className="border-t border-line bg-stone-50/70 px-4 py-2.5 text-[13px]">
           <span className="font-semibold">Outcome: </span>
           {session.summary}
         </footer>

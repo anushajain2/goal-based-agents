@@ -106,7 +106,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
       </h4>
       {req.rationale && (
         <p className={cx("text-sm text-muted", !detail && "mt-1")}>
-          {req.kind === "question" ? <><b className="text-gray-700">Why it asks:</b> {req.rationale}</> : req.kind === "proposal" ? <><b className="text-gray-700">Why:</b> {req.rationale}</> : req.rationale}
+          {req.kind === "question" ? <><b className="text-stone-700">Why it asks:</b> {req.rationale}</> : req.kind === "proposal" ? <><b className="text-stone-700">Why:</b> {req.rationale}</> : req.rationale}
         </p>
       )}
 
@@ -130,12 +130,12 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
             </div>
           )}
           {req.preview.change.type === "new_agent" && req.preview.change.agent && (
-            <div className="flex items-start gap-2.5 rounded-md bg-zinc-50/60 p-2.5">
+            <div className="flex items-start gap-2.5 rounded-md bg-stone-50/60 p-2.5">
               <AgentAvatar name={req.preview.change.agent.name} size={30} />
               <div className="min-w-0">
                 <div className="font-semibold">{req.preview.change.agent.name} <span className="font-normal text-muted">· new AI employee{req.preview.change.agent.title ? ` · ${req.preview.change.agent.title}` : ""}</span></div>
-                {req.preview.change.agent.objective && <div className="text-[12.5px] text-gray-700"><b className="text-zinc-700">Objective:</b> {req.preview.change.agent.objective}</div>}
-                <div className="text-[12.5px] text-gray-700"><b>First goal:</b> {req.campaign_name}</div>
+                {req.preview.change.agent.objective && <div className="text-[12.5px] text-stone-700"><b className="text-stone-700">Objective:</b> {req.preview.change.agent.objective}</div>}
+                <div className="text-[12.5px] text-stone-700"><b>First goal:</b> {req.campaign_name}</div>
               </div>
             </div>
           )}
@@ -149,7 +149,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
       )}
 
       {req.kind === "review" && req.preview.handoff_to && !decided && (
-        <p className={cx("inline-flex items-center gap-1.5 rounded-md bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-800", !detail && "mt-2")}>
+        <p className={cx("inline-flex items-center gap-1.5 rounded-md bg-stone-50 px-2 py-1 text-xs font-medium text-stone-800", !detail && "mt-2")}>
           Approving sends it to {req.preview.handoff_to}, who starts building it.
         </p>
       )}
@@ -170,7 +170,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
             </div>
           ))}
           {Object.keys(fields).filter((key) => !editable.includes(key)).length > 0 && (
-            <details className="rounded-md bg-gray-50 px-3 py-2 text-xs" open={detail}>
+            <details className="rounded-md bg-stone-50 px-3 py-2 text-xs" open={detail}>
               <summary className="cursor-pointer font-semibold text-muted">Details{req.preview.action_name ? ` · ${req.preview.action_name}` : ""}</summary>
               <pre className="mt-2 whitespace-pre-wrap break-all font-mono">
                 {JSON.stringify(Object.fromEntries(Object.entries(fields).filter(([key]) => !editable.includes(key))), null, 2)}
@@ -191,7 +191,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
           {(req.preview.options || []).length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {req.preview.options!.map((o) => (
-                <button key={o} type="button" onClick={() => setNote(toggleOption(note, o))} className={cx("rounded-full border px-3 py-1 text-sm", picked(note, o) ? "border-brand-500 bg-brand-50 font-semibold text-brand-700" : "border-line hover:border-gray-400")}>{o}</button>
+                <button key={o} type="button" onClick={() => setNote(toggleOption(note, o))} className={cx("rounded-full border px-3 py-1 text-sm", picked(note, o) ? "border-brand-500 bg-brand-50 font-semibold text-brand-700" : "border-line hover:border-stone-400")}>{o}</button>
               ))}
             </div>
           )}
@@ -200,7 +200,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
       )}
 
       {req.kind === "login" && req.preview.url && (
-        <div className={cx("rounded-md bg-zinc-50/60 p-3 text-sm", !detail && "mt-3")}>
+        <div className={cx("rounded-md bg-stone-50/60 p-3 text-sm", !detail && "mt-3")}>
           <p>
             Sign in to <b>{req.preview.site}</b> in the <b>Agent Chrome</b> window, then click &quot;I&apos;ve signed in&quot;. You stay signed in, so you only do
             this once per site. The AI employee never sees your password.
@@ -226,10 +226,10 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
       {error && <div className={cx(!detail && "mt-3")}><ErrorNote>{error}</ErrorNote></div>}
 
       {decided ? (
-        <div className={cx("rounded-md bg-gray-50 px-3 py-2 text-sm", !detail && "mt-3")}>
+        <div className={cx("rounded-md bg-stone-50 px-3 py-2 text-sm", !detail && "mt-3")}>
           <b>{req.status === "approved" ? (req.kind === "question" ? "Answered" : "Approved") : req.kind === "question" ? "Skipped" : req.kind === "review" ? "Changes requested" : req.kind === "proposal" ? "Kept as is" : "Declined"}</b>
           {req.decided_by_name ? ` by ${req.decided_by_name}` : ""}
-          {req.decision_note && <p className="mt-1 text-gray-700">&ldquo;{req.decision_note}&rdquo;</p>}
+          {req.decision_note && <p className="mt-1 text-stone-700">&ldquo;{req.decision_note}&rdquo;</p>}
         </div>
       ) : (
         <>
@@ -239,7 +239,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
           </p>
 
           {!canDecide ? (
-            <div className={cx("rounded-md bg-gray-50 px-3 py-2 text-sm text-muted", !detail && "mt-3")}>
+            <div className={cx("rounded-md bg-stone-50 px-3 py-2 text-sm text-muted", !detail && "mt-3")}>
               Waiting for {to}. You can see it, but only they (or an admin) can decide.
             </div>
           ) : req.kind === "question" ? (
@@ -284,7 +284,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
           )}
 
           {remember && canDecide && req.kind === "action" && !rejecting && (
-            <div className="mt-3 grid gap-2 rounded-md border border-line bg-gray-50 p-3 text-sm sm:grid-cols-3">
+            <div className="mt-3 grid gap-2 rounded-md border border-line bg-stone-50 p-3 text-sm sm:grid-cols-3">
               <div>
                 <div className="mb-1 text-xs font-semibold text-muted">Applies to</div>
                 <Select value={rememberScope} onChange={(e) => setRememberScope(e.target.value as "goal" | "department" | "org")}>

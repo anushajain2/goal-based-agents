@@ -70,7 +70,7 @@ export default function WelcomePage() {
           <span className="text-[17px] font-bold tracking-tight">Autopilot</span>
         </div>
         <h1 className="text-3xl font-bold tracking-tight">Tell us about your company</h1>
-        <p className="mt-2 text-gray-600">
+        <p className="mt-2 text-stone-600">
           Autopilot reads your website, researches your company on the web, then sets up AI employees for the functions that matter
           most right now, each with a few goals that fit where you are. You review everything before any work starts.
         </p>
@@ -110,9 +110,9 @@ export default function WelcomePage() {
                     type="button"
                     key={p.kind}
                     onClick={() => toggle(p.kind)}
-                    className={cx("flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition", on ? "border-brand-500 bg-brand-50" : "border-line hover:border-gray-400")}
+                    className={cx("flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition", on ? "border-brand-500 bg-brand-50" : "border-line hover:border-stone-400")}
                   >
-                    <span className={cx("grid h-5 w-5 place-items-center rounded border", on ? "border-brand-500 bg-brand-500 text-white" : "border-gray-300")}>{on && <Check size={13} />}</span>
+                    <span className={cx("grid h-5 w-5 place-items-center rounded border", on ? "border-brand-500 bg-brand-500 text-white" : "border-stone-300")}>{on && <Check size={13} />}</span>
                     <span className="flex-1 font-semibold">{p.name}</span>
                     {on && <span className="flex items-center gap-1 text-xs text-brand-700"><Bot size={13} /> {p.name} Agent</span>}
                   </button>

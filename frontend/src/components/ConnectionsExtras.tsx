@@ -41,7 +41,7 @@ export function McpServers() {
         />
         <div className="space-y-3 p-4">
           {adding && (
-            <form className="space-y-2 rounded-lg border border-line bg-gray-50 p-3" onSubmit={(e) => {
+            <form className="space-y-2 rounded-lg border border-line bg-stone-50 p-3" onSubmit={(e) => {
               e.preventDefault();
               run(async () => {
                 await api("/api/mcp-servers", { method: "POST", json: { ...form, auth_header: form.auth_header || null } });
@@ -133,7 +133,7 @@ export function AgentChrome() {
         </div>
 
         {status?.manual_signin_mode && (
-          <div className="rounded-md bg-zinc-50 p-3">
+          <div className="rounded-md bg-stone-50 p-3">
             <p>Agent Chrome is open without remote control so you can sign in normally. When you&apos;re done, click Done. The agent picks up the saved sign-in.</p>
             <Button className="mt-2" variant="primary" size="sm" onClick={() => call("/api/browser/manual-signin/done")}>
               Done signing in

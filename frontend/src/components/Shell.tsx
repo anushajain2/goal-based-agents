@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Hand, Home, ListTree, LogOut, Plug, Settings, Sparkles, Target, Users } from "lucide-react";
+import { Hand, Home, ListTree, LogOut, Plug, Settings, Sparkles, Target, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
@@ -21,15 +21,26 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings, match: (p: string) => p.startsWith("/settings") },
 ];
 
+/** The Autopilot mark: an ink tile with a heading arrow in the signal colour. */
+export function BrandMark({ size = 32 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden className="shrink-0">
+      <rect width="32" height="32" rx="9" fill="#141413" />
+      <circle cx="16" cy="16" r="9.5" fill="none" stroke="#ffffff" strokeOpacity="0.22" strokeWidth="1.5" />
+      <path d="M9.5 22.5 L23 9 L19.2 22.1 L15.6 16.4 Z" fill="#ff5a1f" />
+    </svg>
+  );
+}
+
 export function EmployeeAvatar({ state, size = 36 }: { state?: "working" | "waiting" | "idle"; size?: number }) {
   return (
-    <span className="relative inline-grid shrink-0 place-items-center rounded-full bg-zinc-900 text-white" style={{ width: size, height: size }}>
-      <Bot size={size * 0.52} />
+    <span className="relative inline-grid shrink-0 place-items-center" style={{ width: size, height: size }}>
+      <BrandMark size={size} />
       {state && (
         <span
           className={cx(
             "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white",
-            state === "working" ? "animate-pulse bg-emerald-500" : state === "waiting" ? "bg-amber-500" : "bg-gray-300",
+            state === "working" ? "animate-pulse bg-signal-500" : state === "waiting" ? "bg-signal-500" : "bg-stone-300",
           )}
         />
       )}
@@ -60,11 +71,11 @@ export function Shell({ children }: { children: ReactNode }) {
     return (
       <Link key={href} href={href}
         className={cx("group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13.5px] transition",
-          on ? "bg-zinc-100 font-semibold text-ink" : "font-medium text-zinc-600 hover:bg-zinc-50 hover:text-ink")}>
-        <Icon size={17} className={on ? "text-brand-600" : "text-zinc-400 group-hover:text-zinc-600"} />
+          on ? "bg-stone-100 font-semibold text-ink" : "font-medium text-stone-600 hover:bg-stone-50 hover:text-ink")}>
+        <Icon size={17} className={on ? "text-brand-600" : "text-stone-400 group-hover:text-stone-600"} />
         <span className="flex-1">{label}</span>
         {href === "/approvals" && pending > 0 && (
-          <span className="tabular grid h-5 min-w-5 place-items-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white">{pending}</span>
+          <span className="tabular grid h-5 min-w-5 place-items-center rounded-full bg-signal-500 px-1.5 text-[11px] font-bold text-white">{pending}</span>
         )}
       </Link>
     );
@@ -73,12 +84,12 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen md:bg-[linear-gradient(to_right,#fff_247px,#e7e7ea_247px,#e7e7ea_248px,transparent_248px)]">
       <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-line bg-white md:flex">
-        <Link href="/home" className="m-3 flex items-center gap-3 rounded-xl p-2 transition hover:bg-zinc-50">
-          <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-zinc-900 text-[15px] font-bold text-white shadow-sm">
+        <Link href="/home" className="m-3 flex items-center gap-3 rounded-xl p-2 transition hover:bg-stone-50">
+          <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-stone-900 text-[15px] font-bold text-white shadow-sm">
             {orgName.slice(0, 1).toUpperCase()}
             {state && (
               <span className={cx("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white",
-                state === "working" ? "animate-pulse bg-emerald-500" : state === "waiting" ? "bg-amber-500" : "bg-zinc-300")} />
+                state === "working" ? "animate-pulse bg-signal-500" : state === "waiting" ? "bg-signal-500" : "bg-stone-300")} />
             )}
           </span>
           <span className="min-w-0 leading-tight">
@@ -91,12 +102,12 @@ export function Shell({ children }: { children: ReactNode }) {
         </Link>
 
         <nav className="flex flex-col gap-0.5 px-3">{NAV.slice(0, 5).map(navItem)}</nav>
-        <div className="mx-5 mb-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.06em] text-zinc-400">More</div>
+        <div className="mx-5 mb-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.06em] text-stone-400">More</div>
         <nav className="flex flex-col gap-0.5 px-3">{NAV.slice(5).map(navItem)}</nav>
 
         <div className="mt-auto space-y-3 p-3">
           {status && !status.anthropic_configured && (
-            <Link href="/connections" className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-900 ring-1 ring-inset ring-amber-100">
+            <Link href="/connections" className="flex items-center gap-2 rounded-lg bg-signal-50 px-3 py-2 text-[12px] font-medium text-signal-900 ring-1 ring-inset ring-signal-100">
               <Dot tone="amber" /> Add your Claude API key
             </Link>
           )}
@@ -105,21 +116,21 @@ export function Shell({ children }: { children: ReactNode }) {
               <span className="text-[12px] font-medium text-muted">Spent this month</span>
               <span className="tabular text-[14px] font-semibold">{usd(spent)}</span>
             </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100">
-              <div className="h-full rounded-full bg-zinc-900" style={{ width: `${budget ? Math.min(100, (spent / budget) * 100) : 0}%` }} />
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-stone-100">
+              <div className="h-full rounded-full bg-stone-900" style={{ width: `${budget ? Math.min(100, (spent / budget) * 100) : 0}%` }} />
             </div>
             <div className="tabular mt-1.5 text-[11.5px] text-muted">{budget ? `of ${usd(budget)} in goal budgets` : "No budgets yet"}</div>
           </div>
           {me && (
             <div className="flex items-center gap-2.5 px-1">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-zinc-100 text-xs font-bold uppercase text-zinc-600">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-stone-100 text-xs font-bold uppercase text-stone-600">
                 {(me.name || me.email).slice(0, 1)}
               </span>
               <span className="min-w-0 flex-1 leading-tight">
                 <span className="block truncate text-[13px] font-semibold">{me.name || me.email}</span>
                 <span className="block truncate text-[11.5px] capitalize text-muted">{me.role}</span>
               </span>
-              <button onClick={logout} title="Log out" aria-label="Log out" className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-ink">
+              <button onClick={logout} title="Log out" aria-label="Log out" className="rounded-md p-1.5 text-stone-400 hover:bg-stone-100 hover:text-ink">
                 <LogOut size={16} />
               </button>
             </div>
@@ -130,14 +141,14 @@ export function Shell({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 border-b border-line bg-white/90 backdrop-blur md:hidden">
           <div className="flex items-center gap-2.5 px-4 py-2.5">
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-zinc-900 text-[13px] font-bold text-white">{orgName.slice(0, 1).toUpperCase()}</span>
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-stone-900 text-[13px] font-bold text-white">{orgName.slice(0, 1).toUpperCase()}</span>
             <span className="truncate font-semibold">{orgName}</span>
             <span className="tabular ml-auto text-xs text-muted">{usd(spent)} this month</span>
             <button onClick={logout} aria-label="Log out" className="rounded-md p-1 text-muted hover:text-ink"><LogOut size={16} /></button>
           </div>
           <nav className="flex gap-1 overflow-x-auto px-3 pb-2">
             {NAV.map((n) => (
-              <Link key={n.href} href={n.href} className={cx("shrink-0 rounded-full px-3 py-1 text-[13px] font-semibold", n.match(path) ? "bg-ink text-white" : "text-zinc-600")}>
+              <Link key={n.href} href={n.href} className={cx("shrink-0 rounded-full px-3 py-1 text-[13px] font-semibold", n.match(path) ? "bg-ink text-white" : "text-stone-600")}>
                 {n.label}
                 {n.href === "/approvals" && pending > 0 ? ` · ${pending}` : ""}
               </Link>

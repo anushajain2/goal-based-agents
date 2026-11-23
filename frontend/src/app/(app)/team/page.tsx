@@ -58,13 +58,13 @@ function TeamPage() {
           <PartyPopper className="text-emerald-600" />
           <div className="min-w-0 flex-1">
             <div className="font-bold">{org.org.name} is set up, with {agents} AI employees.</div>
-            <div className="text-sm text-gray-700">
+            <div className="text-sm text-stone-700">
               {org.org.profile
                 ? "Next: review and start the suggested goals, and invite your team so approvals reach the right people."
                 : "Next: invite your team so approvals reach the right people, then give your AI employees their first goals."}
             </div>
           </div>
-          <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold hover:bg-gray-50"><UserPlus size={15} /> Invite people</Link>
+          <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold hover:bg-stone-50"><UserPlus size={15} /> Invite people</Link>
           {org.org.profile ? (
             <Link href="/setup" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white hover:bg-brand-600"><Sparkles size={15} /> Review suggested goals</Link>
           ) : (
@@ -78,7 +78,7 @@ function TeamPage() {
         subtitle="Your people, AI employees, and an AI team lead per team that keeps suggesting what to do next."
         actions={admin && (
           <>
-            <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3.5 text-sm font-semibold shadow-[0_1px_2px_rgb(16_24_40/0.05)] hover:bg-zinc-50"><UserPlus size={15} /> Invite</Link>
+            <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3.5 text-sm font-semibold shadow-[0_1px_2px_rgb(16_24_40/0.05)] hover:bg-stone-50"><UserPlus size={15} /> Invite</Link>
             <Button onClick={() => setAdding(true)}><Plus size={15} /> Team</Button>
             <Button variant="primary" onClick={() => setHiring(true)}><Bot size={15} /> Hire AI employee</Button>
           </>
@@ -88,7 +88,7 @@ function TeamPage() {
       {err && <ErrorNote>{err}</ErrorNote>}
 
       {params.get("basic") && (
-        <Card className="border-amber-200 bg-amber-50/60 p-4 text-sm text-amber-900">
+        <Card className="border-signal-200 bg-signal-50/60 p-4 text-sm text-signal-900">
           We started you with the usual team for {org.org.profile?.pack_label ? `a company like yours (${org.org.profile.pack_label})` : "a company like yours"}. To have Autopilot research {org.org.name} and personalise it, add
           <code className="mx-1">ANTHROPIC_API_KEY</code> to the <code>.env</code> file, restart, then use <Link href="/setup" className="font-semibold underline">Research my company</Link>.
         </Card>
@@ -106,16 +106,16 @@ function TeamPage() {
 
       <TeamSize profile={org.org.profile} canAdd={org.me.is_admin} onAdding={() => router.push("/setup")} />
 
-      <div className="inline-flex rounded-xl bg-zinc-100 p-1 text-[13px] font-semibold">
+      <div className="inline-flex rounded-xl bg-stone-100 p-1 text-[13px] font-semibold">
         {(["chart", "list"] as const).map((v) => (
-          <button key={v} onClick={() => setView(v)} className={cx("rounded-lg px-3 py-1.5 transition", view === v ? "bg-white text-ink shadow-sm" : "text-zinc-500 hover:text-ink")}>
+          <button key={v} onClick={() => setView(v)} className={cx("rounded-lg px-3 py-1.5 transition", view === v ? "bg-white text-ink shadow-sm" : "text-stone-500 hover:text-ink")}>
             {v === "chart" ? "Org chart" : "Details"}
           </button>
         ))}
       </div>
 
       {view === "chart" ? (
-        <div className="rounded-3xl border border-line bg-zinc-50/60 bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] p-6 [background-size:18px_18px]">
+        <div className="rounded-3xl border border-line bg-stone-50/60 bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] p-6 [background-size:18px_18px]">
           <OrgChart org={org} goals={goals || []} onGoalClick={setPanel} onChanged={() => { reload(); reloadGoals(); }} />
         </div>
       ) : (
@@ -177,7 +177,7 @@ function DepartmentCard({ d, org, onChange }: { d: DepartmentInfo; org: OrgInfo;
         <span className="tabular ml-auto text-xs text-muted">{usd(spent)} spent</span>
         {admin && !renaming && (
           <span className="flex gap-1">
-            <button title="Rename" onClick={() => setRenaming(true)} className="rounded p-1 text-muted hover:bg-gray-100"><Pencil size={13} /></button>
+            <button title="Rename" onClick={() => setRenaming(true)} className="rounded p-1 text-muted hover:bg-stone-100"><Pencil size={13} /></button>
             <button title="Delete department" onClick={() => confirm(`Delete ${d.name}? Its AI employees must have no goals.`) && onChange(() => api(`/api/departments/${d.id}`, { method: "DELETE" }))} className="rounded p-1 text-muted hover:bg-red-50 hover:text-red-600"><Trash2 size={13} /></button>
           </span>
         )}
@@ -187,12 +187,12 @@ function DepartmentCard({ d, org, onChange }: { d: DepartmentInfo; org: OrgInfo;
         <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted">AI employees</div>
         {d.agents.length === 0 && <p className="px-1 text-sm text-muted">No AI employees yet.</p>}
         {d.agents.map((a) => (
-          <Link key={a.id} href={`/team/agents/${a.id}`} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50">
+          <Link key={a.id} href={`/team/agents/${a.id}`} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-stone-50">
             <AgentAvatar name={a.name} state={a.working ? "working" : a.needs_you ? "waiting" : "idle"} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[14px] font-semibold">{a.name}</span>
               <span className="block truncate text-xs text-muted">
-                {a.working ? <span className="font-semibold text-emerald-700">Working now</span> : a.needs_you ? <span className="font-semibold text-amber-700">Needs a yes</span> : a.active_goals ? "Between work sessions" : "No active goals"}
+                {a.working ? <span className="font-semibold text-emerald-700">Working now</span> : a.needs_you ? <span className="font-semibold text-signal-700">Needs a yes</span> : a.active_goals ? "Between work sessions" : "No active goals"}
                 {" · "}{a.goals} {a.goals === 1 ? "goal" : "goals"}{a.title ? ` · ${a.title}` : ""}
               </span>
             </span>
@@ -209,7 +209,7 @@ function DepartmentCard({ d, org, onChange }: { d: DepartmentInfo; org: OrgInfo;
         ) : (
           <div className="flex flex-wrap gap-2 px-1 pt-1">
             {(admin || mine) && d.agents.length > 0 && (
-              <Link href={`/goals/new?agent=${d.agents[0].id}`} className="inline-flex h-7 items-center gap-1 rounded-md border border-line px-2.5 text-xs font-semibold hover:bg-gray-50"><Target size={12} /> Give a goal</Link>
+              <Link href={`/goals/new?agent=${d.agents[0].id}`} className="inline-flex h-7 items-center gap-1 rounded-md border border-line px-2.5 text-xs font-semibold hover:bg-stone-50"><Target size={12} /> Give a goal</Link>
             )}
             {admin && <Button size="sm" variant="ghost" onClick={() => setHiring(true)}><Plus size={12} /> Hire another AI employee</Button>}
           </div>
@@ -237,13 +237,13 @@ function DepartmentCard({ d, org, onChange }: { d: DepartmentInfo; org: OrgInfo;
         ) : d.people.length ? (
           <div className="flex flex-wrap items-center gap-2">
             {d.people.map((p) => (
-              <span key={p.id} className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 py-0.5 pl-0.5 pr-2.5 text-xs">
+              <span key={p.id} className="inline-flex items-center gap-1.5 rounded-full bg-stone-50 py-0.5 pl-0.5 pr-2.5 text-xs">
                 <PersonAvatar name={p.name || p.email} size={22} title={p.email} /> {p.name || p.email}
               </span>
             ))}
           </div>
         ) : (
-          <p className={cx("text-xs", "text-amber-700")}>Nobody yet, so this team&apos;s approvals go to admins.</p>
+          <p className={cx("text-xs", "text-signal-700")}>Nobody yet, so this team&apos;s approvals go to admins.</p>
         )}
       </div>
     </Card>
