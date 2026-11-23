@@ -105,7 +105,7 @@ function ReadyMeter({ connected, needed }: { connected: number; needed: number }
     <div className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-2 shadow-[var(--shadow-card)]">
       <svg width="40" height="40" viewBox="0 0 40 40" className="-rotate-90">
         <circle cx="20" cy="20" r={r} fill="none" stroke="#f4f4f5" strokeWidth="4" />
-        <circle cx="20" cy="20" r={r} fill="none" stroke={pct >= 1 ? "#10b981" : "#4f46e5"} strokeWidth="4" strokeLinecap="round"
+        <circle cx="20" cy="20" r={r} fill="none" stroke={pct >= 1 ? "#10b981" : "#18181b"} strokeWidth="4" strokeLinecap="round"
           strokeDasharray={c} strokeDashoffset={c * (1 - pct)} />
       </svg>
       <div className="leading-tight">

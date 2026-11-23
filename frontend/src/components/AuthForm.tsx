@@ -209,7 +209,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </div>
       </div>
 
-      <div className="relative hidden overflow-hidden bg-gradient-to-br from-brand-600 via-brand-500 to-violet-600 lg:block">
+      <div className="relative hidden overflow-hidden bg-zinc-900 lg:block">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_45%)]" />
         <div className="relative flex h-full flex-col justify-center px-14 text-white">
           <p className="text-sm font-semibold uppercase tracking-widest text-white/70">Your AI employee</p>

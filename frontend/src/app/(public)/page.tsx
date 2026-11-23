@@ -38,14 +38,14 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[680px] bg-[radial-gradient(55%_60%_at_50%_0%,rgba(79,70,229,0.18),transparent),radial-gradient(40%_40%_at_90%_20%,rgba(139,92,246,0.14),transparent)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[680px] bg-[radial-gradient(55%_60%_at_50%_0%,rgba(0,0,0,0.05),transparent),radial-gradient(40%_40%_at_90%_20%,rgba(0,0,0,0.03),transparent)]" />
         <div className="relative mx-auto max-w-6xl px-5 pb-16 pt-16 text-center sm:pt-24">
           <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1 text-xs font-semibold text-zinc-600 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Goal-based AI agents
           </span>
           <h1 className="mx-auto mt-6 max-w-4xl text-balance text-[44px] font-semibold leading-[1.02] tracking-tight sm:text-[68px]">
             Stop prompting.{" "}
-            <span className="bg-gradient-to-r from-brand-500 to-violet-600 bg-clip-text text-transparent">Start hitting goals.</span>
+            <span className="text-zinc-400">Start hitting goals.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-balance text-[18px] leading-relaxed text-zinc-600">
             Enter your website. We analyze your company, set up AI agents for every team with the right goals, and they work on them every day.
@@ -78,7 +78,7 @@ export default function Landing() {
                 ))}
               </ul>
             </div>
-            <div className="rounded-3xl bg-gradient-to-br from-brand-500 to-violet-600 p-7 text-white shadow-[0_30px_70px_-25px_rgba(79,70,229,0.6)]">
+            <div className="rounded-3xl bg-zinc-900 p-7 text-white shadow-[0_30px_70px_-25px_rgba(0,0,0,0.35)]">
               <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-white/70">Autopilot</div>
               <ul className="mt-5 space-y-3.5">
                 {["We work out what your company needs", "You set goals, not prompts", "Agents do the work, every day", "You approve what goes out", "They get better every week"].map((t) => (
@@ -166,7 +166,7 @@ function WebsiteStart({ signedIn }: { signedIn: boolean }) {
         <input value={site} onChange={(e) => setSite(e.target.value)} placeholder="yourcompany.com" aria-label="Your website"
           className="h-11 w-full bg-transparent text-[16px] outline-none placeholder:text-zinc-400" />
       </label>
-      <button className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-500 px-6 text-[15px] font-semibold text-white shadow-lg shadow-brand-500/25 transition hover:bg-brand-600">
+      <button className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-500 px-6 text-[15px] font-semibold text-white shadow-lg shadow-black/15 transition hover:bg-brand-600">
         Build my AI team <ArrowRight size={17} />
       </button>
     </form>

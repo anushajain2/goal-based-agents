@@ -15,7 +15,7 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "sm" | "md" }) {
   const styles: Record<Variant, string> = {
-    primary: "bg-brand-500 text-white hover:bg-brand-600 border-transparent shadow-[0_1px_2px_rgb(79_70_229/0.25),inset_0_1px_0_rgb(255_255_255/0.12)]",
+    primary: "bg-brand-500 text-white hover:bg-brand-600 border-transparent shadow-[0_1px_2px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.12)]",
     secondary: "bg-white text-ink hover:bg-zinc-50 border-line shadow-[0_1px_2px_rgb(16_24_40/0.05)]",
     ghost: "bg-transparent text-zinc-700 hover:bg-zinc-100 hover:text-ink border-transparent",
     danger: "bg-white text-red-700 hover:bg-red-50 border-red-200",
@@ -56,7 +56,7 @@ const badgeTones = {
   green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
   amber: "bg-amber-50 text-amber-800 ring-amber-100",
   red: "bg-red-50 text-red-700 ring-red-100",
-  violet: "bg-violet-50 text-violet-700 ring-violet-100",
+  violet: "bg-zinc-50 text-zinc-700 ring-zinc-100",
 };
 export type Tone = keyof typeof badgeTones;
 
@@ -69,7 +69,7 @@ export function Badge({ tone = "gray", children, className }: { tone?: Tone; chi
 }
 
 export function Dot({ tone }: { tone: Tone }) {
-  const c = { gray: "bg-gray-400", blue: "bg-brand-500", green: "bg-emerald-500", amber: "bg-amber-500", red: "bg-red-500", violet: "bg-violet-500" }[tone];
+  const c = { gray: "bg-gray-400", blue: "bg-brand-500", green: "bg-emerald-500", amber: "bg-amber-500", red: "bg-red-500", violet: "bg-zinc-500" }[tone];
   return <span className={cx("inline-block h-2 w-2 rounded-full", c)} />;
 }
 

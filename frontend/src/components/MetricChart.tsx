@@ -49,14 +49,14 @@ export function MetricChart({ points, label }: { points: Point[]; label: string 
         <text x={W - P.r} y={H - 6} fontSize="11" fill="#65676b" textAnchor="end">
           {fmtDate(x1)}
         </text>
-        <path d={path} fill="none" stroke="#2563eb" strokeWidth="2.25" strokeLinejoin="round" />
+        <path d={path} fill="none" stroke="#18181b" strokeWidth="2.25" strokeLinejoin="round" />
         {points.map((p, i) => (
           <circle
             key={i}
             cx={sx(xs[i])}
             cy={sy(p.value)}
             r={hover === i ? 5 : 3.5}
-            fill="#2563eb"
+            fill="#18181b"
             stroke="white"
             strokeWidth="1.5"
             onMouseEnter={() => setHover(i)}

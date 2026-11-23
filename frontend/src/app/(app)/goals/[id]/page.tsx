@@ -125,8 +125,8 @@ function GoalPage() {
 
       {(c.key_results?.length || 0) > 0 && (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] shadow-[var(--shadow-card)]">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-violet-700">Key results</span>
-          {c.key_results.map((kr) => <span key={kr} className="inline-flex items-center gap-1.5"><Target size={13} className="text-violet-600" /> {kr}</span>)}
+          <span className="text-[11px] font-bold uppercase tracking-wide text-zinc-700">Key results</span>
+          {c.key_results.map((kr) => <span key={kr} className="inline-flex items-center gap-1.5"><Target size={13} className="text-zinc-600" /> {kr}</span>)}
         </div>
       )}
       {(c.target?.history?.length || 0) > 0 && (

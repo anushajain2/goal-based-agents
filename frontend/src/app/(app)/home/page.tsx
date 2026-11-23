@@ -80,7 +80,7 @@ export default function HomePage() {
       {researchBanner}
       <ConnectChecklist only="missing_live" />
       {suggested.length > 0 && (
-        <Link href="/setup" className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-brand-500 to-violet-600 px-5 py-4 text-white shadow-[var(--shadow-pop)] transition hover:brightness-105">
+        <Link href="/setup" className="flex items-center gap-4 rounded-2xl bg-zinc-900 px-5 py-4 text-white shadow-[var(--shadow-pop)] transition hover:brightness-105">
           <Sparkles size={20} className="shrink-0" />
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">{suggested.length} suggested {suggested.length === 1 ? "goal is" : "goals are"} ready to start</span>
@@ -200,7 +200,7 @@ function FirstRun({ onPick, org }: { onPick: (id: string) => void; org: OrgInfo 
   const count = (org?.departments || []).reduce((n, d) => n + d.agents.length, 0);
   return (
     <div className="space-y-8">
-      <div className="rounded-3xl bg-gradient-to-br from-brand-500 via-indigo-600 to-violet-600 p-10 text-white shadow-[var(--shadow-pop)]">
+      <div className="rounded-3xl bg-zinc-900 p-10 text-white shadow-[var(--shadow-pop)]">
         <EmployeeAvatar size={56} />
         <h1 className="mt-4 text-3xl font-bold tracking-tight">{org ? `${org.org.name} has ${count} AI employees ready to work` : "Meet your AI team"}</h1>
         <p className="mt-2 max-w-2xl text-white/85">

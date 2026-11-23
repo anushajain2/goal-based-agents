@@ -56,7 +56,7 @@ export const CATEGORY_ICON: Record<string, ReactNode> = {
 };
 
 export function FitBadge({ fit }: { fit: UseCase["fit"] }) {
-  const tone = fit === "H" ? "bg-emerald-50 text-emerald-700" : fit === "M" ? "bg-sky-50 text-sky-700" : "bg-gray-100 text-gray-600";
+  const tone = fit === "H" ? "bg-emerald-50 text-emerald-700" : fit === "M" ? "bg-zinc-50 text-zinc-700" : "bg-gray-100 text-gray-600";
   return <span className={cx("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold", tone)}>{FIT_LABEL[fit]}</span>;
 }
 

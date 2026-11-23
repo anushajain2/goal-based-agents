@@ -186,7 +186,7 @@ function TeamLaunch({ info, goals, org, onStart }: { info: SetupInfo; goals: Cam
   if (!goals.length) return null;
   if (!drafts.length) {
     return (
-      <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 p-6 text-white">
+      <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-zinc-600 p-6 text-white">
         <Rocket size={28} />
         <div className="min-w-0 flex-1">
           <div className="text-xl font-bold">Your AI team is at work</div>
@@ -197,7 +197,7 @@ function TeamLaunch({ info, goals, org, onStart }: { info: SetupInfo; goals: Cam
     );
   }
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 p-6 text-white">
+    <div className="rounded-2xl bg-zinc-900 p-6 text-white">
       <div className="flex flex-wrap items-start gap-6">
         <div className="min-w-0 flex-1">
           <div className="text-2xl font-bold tracking-tight">Your AI team is ready</div>

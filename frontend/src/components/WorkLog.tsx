@@ -51,11 +51,11 @@ function metaFor(a: ActivityItem): Meta {
     case "request":
       return { icon: <Hand size={s} />, tone: "bg-amber-50 text-amber-600", label: "Asked you" };
     case "plan":
-      return { icon: <ListChecks size={s} />, tone: "bg-violet-50 text-violet-600", label: "Plan" };
+      return { icon: <ListChecks size={s} />, tone: "bg-zinc-50 text-zinc-600", label: "Plan" };
     case "strategy":
-      return { icon: <Compass size={s} />, tone: "bg-violet-50 text-violet-600", label: "Strategy" };
+      return { icon: <Compass size={s} />, tone: "bg-zinc-50 text-zinc-600", label: "Strategy" };
     case "metric":
-      return { icon: <TrendingUp size={s} />, tone: "bg-sky-50 text-sky-600", label: "Measured" };
+      return { icon: <TrendingUp size={s} />, tone: "bg-zinc-50 text-zinc-600", label: "Measured" };
     case "note":
       return { icon: <Lightbulb size={s} />, tone: "bg-amber-50 text-amber-600", label: "For you" };
     case "budget":
@@ -283,8 +283,8 @@ function SessionBlock({ session, items, view, showGoal }: { session: Session; it
 
       <div className="px-3 py-2">
         {plan && view === "highlights" && !showSteps && (
-          <div className="mx-1 my-2 rounded-lg bg-violet-50/60 px-3 py-2.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">Plan for this session</div>
+          <div className="mx-1 my-2 rounded-lg bg-zinc-50/60 px-3 py-2.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">Plan for this session</div>
             <p className="mt-1 text-[13px]">{plan.title}</p>
             {Array.isArray(plan.details?.plan) && (
               <ol className="mt-1.5 list-decimal space-y-0.5 pl-5 text-[13px] text-gray-700">

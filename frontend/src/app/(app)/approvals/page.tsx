@@ -3,7 +3,7 @@
 import { ArrowLeft, Inbox } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState, useRef } from "react";
 
 import { ApprovalCard, KIND_BADGE } from "@/components/ApprovalCard";
 import { AgentAvatar } from "@/components/team";
@@ -37,18 +37,26 @@ function NeedsYouPage() {
 
   // A link to one request (?id=) that isn't for you: show it under the tab that has it.
   const linked = params.get("id");
+  const placed = useRef(false);  // only on arrival: deciding it later must not jump to another tab
+  const shown = useRef(false);
   useEffect(() => {
-    if (!linked || !mine || !all || mine.some((r) => r.id === linked)) return;
-    if (all.some((r) => r.id === linked)) setTab("all");
-    else if (done.some((r) => r.id === linked)) setTab("done");
+    if (placed.current || !linked || !mine || !all) return;
+    if (!mine.some((r) => r.id === linked)) {
+      if (all.some((r) => r.id === linked)) setTab("all");
+      else if (done.some((r) => r.id === linked)) setTab("done");
+      else if (!approved || !rejected) return;  // the done lists are still loading
+    }
+    placed.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linked, !!mine, !!all, done.length]);
 
   // Keep something selected: the first item, or the next one after deciding.
   useEffect(() => {
-    // Hold on to a linked request while the lists load and the right tab opens.
-    if (linked && selected === linked && !(list || []).some((r) => r.id === linked)
-      && (!mine || !all || [...mine, ...all, ...done].some((r) => r.id === linked))) return;
+    // Hold on to a linked request while the lists load and the right tab opens (once).
+    if (linked && !shown.current) {
+      if ((list || []).some((r) => r.id === linked)) shown.current = true;
+      else if (selected === linked && (!mine || !all || [...mine, ...all, ...done].some((r) => r.id === linked))) return;
+    }
     if (list && list.length && !list.some((r) => r.id === selected)) setSelected(list[0].id);
     if (list && !list.length) setSelected(null);
   }, [list, selected]);

@@ -23,7 +23,7 @@ const NAV = [
 
 export function EmployeeAvatar({ state, size = 36 }: { state?: "working" | "waiting" | "idle"; size?: number }) {
   return (
-    <span className="relative inline-grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-white" style={{ width: size, height: size }}>
+    <span className="relative inline-grid shrink-0 place-items-center rounded-full bg-zinc-900 text-white" style={{ width: size, height: size }}>
       <Bot size={size * 0.52} />
       {state && (
         <span
@@ -74,7 +74,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen md:bg-[linear-gradient(to_right,#fff_247px,#e7e7ea_247px,#e7e7ea_248px,transparent_248px)]">
       <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-line bg-white md:flex">
         <Link href="/home" className="m-3 flex items-center gap-3 rounded-xl p-2 transition hover:bg-zinc-50">
-          <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-gradient-to-br from-brand-500 to-violet-500 text-[15px] font-bold text-white shadow-sm">
+          <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-zinc-900 text-[15px] font-bold text-white shadow-sm">
             {orgName.slice(0, 1).toUpperCase()}
             {state && (
               <span className={cx("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white",
@@ -106,7 +106,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <span className="tabular text-[14px] font-semibold">{usd(spent)}</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100">
-              <div className="h-full rounded-full bg-gradient-to-r from-brand-500 to-violet-500" style={{ width: `${budget ? Math.min(100, (spent / budget) * 100) : 0}%` }} />
+              <div className="h-full rounded-full bg-zinc-900" style={{ width: `${budget ? Math.min(100, (spent / budget) * 100) : 0}%` }} />
             </div>
             <div className="tabular mt-1.5 text-[11.5px] text-muted">{budget ? `of ${usd(budget)} in goal budgets` : "No budgets yet"}</div>
           </div>
@@ -130,7 +130,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 border-b border-line bg-white/90 backdrop-blur md:hidden">
           <div className="flex items-center gap-2.5 px-4 py-2.5">
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-brand-500 to-violet-500 text-[13px] font-bold text-white">{orgName.slice(0, 1).toUpperCase()}</span>
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-zinc-900 text-[13px] font-bold text-white">{orgName.slice(0, 1).toUpperCase()}</span>
             <span className="truncate font-semibold">{orgName}</span>
             <span className="tabular ml-auto text-xs text-muted">{usd(spent)} this month</span>
             <button onClick={logout} aria-label="Log out" className="rounded-md p-1 text-muted hover:text-ink"><LogOut size={16} /></button>

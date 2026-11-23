@@ -164,7 +164,7 @@ function Okrs({ agent, goals, onSaved }: { agent: AgentInfo; goals: Campaign[]; 
   return (
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="text-[11px] font-bold uppercase tracking-wide text-violet-700">Objective</div>
+        <div className="text-[11px] font-bold uppercase tracking-wide text-zinc-700">Objective</div>
         {agent.can_edit && !editing && <button onClick={() => { setText(agent.objective); setEditing(true); }} className="text-xs font-semibold text-brand-600 hover:underline">{agent.objective ? "Edit" : "Add an objective"}</button>}
       </div>
       {editing ? (
@@ -218,7 +218,7 @@ function HandOffs({ agent, org, onSaved }: { agent: AgentInfo; org: OrgInfo; onS
     <Card className="p-5">
       <div className="text-[11px] font-bold uppercase tracking-wide text-muted">Where its work goes</div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-        <span className="rounded-full bg-violet-50 px-3 py-1 font-semibold text-violet-800">{agent.name}</span>
+        <span className="rounded-full bg-zinc-50 px-3 py-1 font-semibold text-zinc-800">{agent.name}</span>
         <ArrowRight size={15} className="text-muted" />
         {agent.handoff_review || !agent.handoff_to_agent_id ? (
           <>

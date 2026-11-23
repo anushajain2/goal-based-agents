@@ -130,11 +130,11 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
             </div>
           )}
           {req.preview.change.type === "new_agent" && req.preview.change.agent && (
-            <div className="flex items-start gap-2.5 rounded-md bg-violet-50/60 p-2.5">
+            <div className="flex items-start gap-2.5 rounded-md bg-zinc-50/60 p-2.5">
               <AgentAvatar name={req.preview.change.agent.name} size={30} />
               <div className="min-w-0">
                 <div className="font-semibold">{req.preview.change.agent.name} <span className="font-normal text-muted">· new AI employee{req.preview.change.agent.title ? ` · ${req.preview.change.agent.title}` : ""}</span></div>
-                {req.preview.change.agent.objective && <div className="text-[12.5px] text-gray-700"><b className="text-violet-700">Objective:</b> {req.preview.change.agent.objective}</div>}
+                {req.preview.change.agent.objective && <div className="text-[12.5px] text-gray-700"><b className="text-zinc-700">Objective:</b> {req.preview.change.agent.objective}</div>}
                 <div className="text-[12.5px] text-gray-700"><b>First goal:</b> {req.campaign_name}</div>
               </div>
             </div>
@@ -149,7 +149,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
       )}
 
       {req.kind === "review" && req.preview.handoff_to && !decided && (
-        <p className={cx("inline-flex items-center gap-1.5 rounded-md bg-violet-50 px-2 py-1 text-xs font-medium text-violet-800", !detail && "mt-2")}>
+        <p className={cx("inline-flex items-center gap-1.5 rounded-md bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-800", !detail && "mt-2")}>
           Approving sends it to {req.preview.handoff_to}, who starts building it.
         </p>
       )}
@@ -200,7 +200,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
       )}
 
       {req.kind === "login" && req.preview.url && (
-        <div className={cx("rounded-md bg-violet-50/60 p-3 text-sm", !detail && "mt-3")}>
+        <div className={cx("rounded-md bg-zinc-50/60 p-3 text-sm", !detail && "mt-3")}>
           <p>
             Sign in to <b>{req.preview.site}</b> in the <b>Agent Chrome</b> window, then click &quot;I&apos;ve signed in&quot;. You stay signed in, so you only do
             this once per site. The AI employee never sees your password.

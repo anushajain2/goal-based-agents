@@ -25,9 +25,9 @@ export function LeadCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInf
     <>
       <button onClick={() => setOpen(true)}
         className={cx("block w-full rounded-xl px-3 py-2.5 text-left ring-1 ring-inset transition",
-          lead.enabled ? "bg-gradient-to-br from-teal-50 to-emerald-50/40 ring-teal-100 hover:ring-teal-300" : "bg-white ring-zinc-200 ring-dashed hover:ring-zinc-300")}>
+          lead.enabled ? "bg-gradient-to-br from-zinc-50 to-emerald-50/40 ring-zinc-100 hover:ring-zinc-300" : "bg-white ring-zinc-200 ring-dashed hover:ring-zinc-300")}>
         <span className="flex items-center gap-2.5">
-          <span className={cx("grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full", lead.enabled ? "bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm" : "bg-zinc-100 text-zinc-400")}>
+          <span className={cx("grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full", lead.enabled ? "bg-zinc-900 text-white shadow-sm" : "bg-zinc-100 text-zinc-400")}>
             <Compass size={16} />
           </span>
           <span className="min-w-0 flex-1">
@@ -38,7 +38,7 @@ export function LeadCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInf
         {lead.enabled && (
           <span className="mt-1.5 flex items-center gap-1.5 text-[11.5px]">
             {busy ? (
-              <><Loader2 size={11} className="animate-spin text-teal-700" /> <span className="text-teal-800">Reviewing the team…</span></>
+              <><Loader2 size={11} className="animate-spin text-zinc-700" /> <span className="text-zinc-800">Reviewing the team…</span></>
             ) : last && last.status === "done" ? (
               <>
                 {last.health && <Badge tone={HEALTH[last.health].tone} className="!px-1.5 !py-0 !text-[10.5px]">{HEALTH[last.health].label}</Badge>}
@@ -93,7 +93,7 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
       <div className="h-full w-full max-w-md overflow-y-auto bg-white shadow-xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="flex items-center gap-3 border-b border-line px-5 py-3">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-teal-600 text-white"><Compass size={18} /></span>
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-zinc-600 text-white"><Compass size={18} /></span>
           <div className="min-w-0 flex-1">
             <div className="font-bold">{lead.name}</div>
             <div className="text-xs text-muted">AI team lead for {d.name}</div>
@@ -217,7 +217,7 @@ function LooksAt() {
       <ul className="flex flex-wrap gap-1.5">
         {items.map(([icon, label, on]) => (
           <li key={label} className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold",
-            on ? "bg-teal-50 text-teal-800" : "bg-gray-50 text-gray-400")} title={on ? undefined : "Connect it in Settings → Code & data"}>
+            on ? "bg-zinc-50 text-zinc-800" : "bg-gray-50 text-gray-400")} title={on ? undefined : "Connect it in Settings → Code & data"}>
             {icon} {label}{on ? "" : " (not connected)"}
           </li>
         ))}

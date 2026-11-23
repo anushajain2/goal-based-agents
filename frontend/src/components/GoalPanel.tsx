@@ -58,7 +58,7 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
               <h3 className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Also tracking</h3>
               <ul className="space-y-1">
                 {goal.key_results.map((kr) => (
-                  <li key={kr} className="flex items-start gap-2 text-[13.5px]"><Target size={14} className="mt-0.5 shrink-0 text-violet-600" /> {kr}</li>
+                  <li key={kr} className="flex items-start gap-2 text-[13.5px]"><Target size={14} className="mt-0.5 shrink-0 text-zinc-600" /> {kr}</li>
                 ))}
               </ul>
             </section>
