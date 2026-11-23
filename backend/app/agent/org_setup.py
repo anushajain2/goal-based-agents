@@ -25,7 +25,7 @@ from app.db import session_scope
 from app.models import Agent, Campaign, Department, Membership, Organization, OrgSetup, Role, utcnow
 from app.org import CATEGORY_KEYS, DEPARTMENT_PRESETS, PRESET_NAMES, add_department
 from app.agent.playbook import STEP_GUIDANCE, default_key_results, step_schema, tidy_steps
-from app.services import activity, estimate
+from app.services import activity, estimate, targets
 from app.services.website import read_site
 
 log = logging.getLogger(__name__)
@@ -158,10 +158,15 @@ sharper goals beat many. No two goals should overlap.
 - later lists up to {max_later} functions you left out that will matter as the company grows, \
 each with when, in a few words ("once you have recurring revenue", "when enterprise customers \
 ask for SOC 2"). Leave out functions that will never matter here.
+- Goals are ongoing, like the goals of a person on that team: the name says what they keep \
+working on, never a number or a deadline ("Book demos with logistics ops leaders", not "Book \
+15 demos"). What to reach and by when is the target: target_value for target_period, usually a \
+week to start (goals start with a one-week budget), or a month when a week is too short to see \
+results. The AI employee will propose bigger or different targets as it learns.
 - Make every goal specific to this company: name their real customer, product, market and \
-channels. Each must be something an AI employee can mostly achieve itself in about 30 days, \
-with a done_when that can be checked ("Meeting held on calendar with a Head of Ops at a 50-500 \
-person logistics company"), a short primary_metric ("meetings held") and a realistic target.
+channels. done_when says what counts as one result, and must be checkable ("Meeting held on \
+calendar with a Head of Ops at a 50-500 person logistics company"); primary_metric is short \
+("meetings held"), and the target is realistic for the period.
 - first_week says what the company will concretely have after the first week of work, in one \
 sentence a busy founder would be glad to read, e.g. "A list of 40 procurement leads at EPC \
 contractors with verified emails, and a personal first email drafted for each, waiting for your \
@@ -170,9 +175,9 @@ this before committing more.
 - objective (per function) is the AI employee's objective, like an employee's OKR objective: one \
 short sentence on what it is there to achieve for this company, e.g. "Fill the pipeline with EPC \
 procurement leads ready to pilot Oton".
-- key_results (per goal) are 2 or 3 short, measurable outcomes that show the goal is on track, \
-e.g. "8 discovery calls held", "150 qualified procurement contacts", "Reply rate above 8%". The first \
-should be the goal's target.
+- key_results (per goal) are 2 or 3 short, measurable outcomes for the first period that show \
+the goal is on track, e.g. "8 discovery calls held", "150 qualified procurement contacts", "Reply \
+rate above 8%". The first should be the target.
 - start_here is true for the 2 or 3 goals in total (across all functions) that would show value \
 fastest and matter most right now, false for the rest.
 - cycle_hours is how often it works on the goal: usually 12 or 24; 6 only when it must answer \
@@ -227,6 +232,7 @@ def plan_schema() -> dict:
             "done_when": {"type": "string"},
             "primary_metric": {"type": "string"},
             "target_value": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+            "target_period": {"type": "string", "enum": ["week", "month", "quarter"]},
             "category": {"type": "string", "enum": list(CATEGORY_KEYS)},
             "use_case": {"type": "string"},
             "cycle_hours": {"type": "number"},
@@ -239,7 +245,7 @@ def plan_schema() -> dict:
             "start_here": {"type": "boolean"},
             "key_results": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["first_week", "start_here", "key_results", "name", "goal_description", "done_when", "primary_metric", "target_value", "category",
+        "required": ["target_period", "first_week", "start_here", "key_results", "name", "goal_description", "done_when", "primary_metric", "target_value", "category",
                      "use_case", "cycle_hours", "duration_days", "paid_spend_usd", "steps", "channels", "why"],
         "additionalProperties": False,
     }
@@ -426,6 +432,7 @@ def tidy_plan(plan: dict, include: list[str] | None = None) -> dict:
                 "done_when": (g.get("done_when") or "").strip(),
                 "primary_metric": (g.get("primary_metric") or "results").strip()[:120],
                 "target_value": target,
+                "target_period": g.get("target_period") if g.get("target_period") in ("week", "month", "quarter") else "week",
                 "category": g.get("category") if g.get("category") in CATEGORY_KEYS else "",
                 "use_case": (g.get("use_case") or "").strip()[:120],
                 "cycle_hours": float(min(CYCLE_CHOICES, key=lambda c: abs(c - cycle))),
@@ -531,6 +538,7 @@ async def create_team(setup_id: str, org_id: str, requested_by: str | None, plan
                     budget_basis={**g["budget_basis"], "chosen_usd": g["budget_usd"]},
                     playbook={"steps": g["steps"], "source": "setup"} if g["steps"] else None,
                 )
+                targets.plan_first(c, g["target_value"], g.get("target_period", "week"), set_by="setup")
                 s.add(c)
                 await s.flush()
                 await activity.log(s, c.id, "system", f"Suggested by setup research for {agent.name}",

@@ -42,6 +42,7 @@ function NewGoal() {
   const [name, setName] = useState("");
   const [metric, setMetric] = useState("");
   const [target, setTarget] = useState("");
+  const [period, setPeriod] = useState<"week" | "month" | "quarter">("month");
   const [doneWhen, setDoneWhen] = useState("");
   const [client, setClient] = useState("");
   const [budget, setBudget] = useState("25");
@@ -137,6 +138,7 @@ function NewGoal() {
       goal_description: description.trim(),
       primary_metric: metric.trim(),
       target_value: target ? Number(target) : null,
+      target_period: period,
       done_when: doneWhen.trim(),
       category: uc?.category || "",
       use_case: uc?.sub || "",
@@ -236,7 +238,7 @@ function NewGoal() {
               <Field label="The goal" hint="Say it the way you'd brief a new hire: who, what, how many.">
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Book 15 interviews with heads of operations at logistics companies in the UK" />
               </Field>
-              <Field label="Counts as done when" hint="Autopilot only counts a result when this is true. Be specific: this is how you'll judge its work.">
+              <Field label="What counts as one" hint="Autopilot only counts a result when this is true. Be specific: this is how you'll judge its work.">
                 <div className="relative">
                   <Flag size={14} className="absolute left-3 top-3 text-muted" />
                   <Input className="pl-8" value={doneWhen} onChange={(e) => setDoneWhen(e.target.value)} placeholder="e.g. Interview held on calendar with a matching person" />
@@ -246,8 +248,13 @@ function NewGoal() {
                 <Field label="What gets counted" hint="The number shown as progress.">
                   <Input value={metric} onChange={(e) => setMetric(e.target.value)} placeholder="e.g. interviews held" />
                 </Field>
-                <Field label="Target">
-                  <Input type="number" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. 15" />
+                <Field label="Target" hint="Goals are ongoing; this is what to reach each period. The AI employee suggests changes as it learns.">
+                  <div className="flex gap-2">
+                    <Input type="number" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. 15" />
+                    <Select value={period} onChange={(e) => setPeriod(e.target.value as "week" | "month" | "quarter")}>
+                      <option value="week">a week</option><option value="month">a month</option><option value="quarter">a quarter</option>
+                    </Select>
+                  </div>
                 </Field>
                 <Field label="Short name (optional)">
                   <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. UK ops interviews" />
@@ -363,8 +370,8 @@ function NewGoal() {
                 <Item k="Who works on it" v={assignee ? `${assignee.name} · ${assignee.department.name}` : "—"} />
                 <Item k="Approvals go to" v={assignee ? (assignee.department.people.map((p) => p.name || p.email).join(", ") || "Admins (nobody in the team yet)") : "—"} />
                 <Item k="Goal" v={description || "—"} />
-                <Item k="Counts as done when" v={doneWhen || "—"} />
-                <Item k="Progress measured as" v={`${metric}${target ? ` (target ${target})` : ""}`} />
+                <Item k="What counts as one" v={doneWhen || "—"} />
+                <Item k="Progress measured as" v={`${metric}${target ? ` (target ${target} a ${period})` : ""}`} />
                 <Item k="For" v={client || "Your company"} />
                 <Item k="Budget" v={`$${budget}${dailyCap ? ` · $${dailyCap}/day cap` : ""}${endDate ? ` · deadline ${endDate}` : ""}`} />
                 <Item k="Works on it" v={`About every ${cycleHours}h`} />

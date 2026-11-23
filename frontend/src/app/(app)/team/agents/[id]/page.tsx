@@ -1,5 +1,6 @@
 "use client";
 
+import { TargetLine } from "@/components/Target";
 import { ArrowLeft, ArrowRight, FileText, Hand, Pencil, Target } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -87,7 +88,7 @@ export default function AgentPage() {
                 value={agent.reports_to_user_id || ""}
                 onChange={async (e) => { await api(`/api/agents/${id}`, { method: "PATCH", json: { reports_to_user_id: e.target.value || null } }); reload(); }}
               >
-                <option value="">Change: head of {agent.department.name} (default)</option>
+                <option value="">Same as the {agent.department.name} team (default)</option>
                 {org.members.map((m) => <option key={m.id} value={m.id}>{m.id === org.me.id ? "Me" : m.name || m.email}</option>)}
               </select>
             )}
@@ -186,7 +187,7 @@ function Okrs({ agent, goals, onSaved }: { agent: AgentInfo; goals: Campaign[]; 
                 <li key={i} className="flex items-center gap-2 text-[13px]">
                   <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", i === 0 ? "bg-emerald-500" : "bg-gray-300")} />
                   <span className="min-w-0 flex-1">{kr}</span>
-                  {i === 0 && <span className="w-40 shrink-0"><GoalProgress c={g} compact /></span>}
+                  {i === 0 && <span className="w-40 shrink-0">{g.target?.target ? <TargetLine goal={g} compact /> : <GoalProgress c={g} compact />}</span>}
                 </li>
               ))}
             </ul>

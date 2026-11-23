@@ -1,5 +1,6 @@
 "use client";
 
+import { TargetLine } from "./Target";
 import { Campaign, num } from "@/lib/api";
 import { cx, Dot, Tone } from "./ui";
 
@@ -47,6 +48,9 @@ export function ProgressBar({ pct, className, tone = "brand" }: { pct: number | 
 }
 
 export function GoalProgress({ c, compact }: { c: Campaign; compact?: boolean }) {
+  if (c.target?.status === "active" && c.target.target) {
+    return <div className={compact ? "" : "min-w-36"}><TargetLine goal={c} compact={compact} /></div>;
+  }
   const p = progressOf(c);
   return (
     <div className={compact ? "" : "min-w-36"}>

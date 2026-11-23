@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy import true as sa_true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -62,6 +63,7 @@ class RequestKind(str, enum.Enum):
     connect = "connect"  # "Please connect your HubSpot account" (Composio OAuth link)
     question = "question"  # "Which customers should I ask for a case study?" - needs an answer
     review = "review"  # "Here's a PRD - approve it (and hand it to Engineering)?" - work to review
+    proposal = "proposal"  # "I hit 15 this week - raise next week's target to 30?" - a change to a goal
 
 
 class RequestStatus(str, enum.Enum):
@@ -216,10 +218,38 @@ class Department(Base):
     # Library category this department covers (sales, marketing, research...), used to suggest
     # which AI employee should take a new goal. Empty for custom departments.
     kind: Mapped[str] = mapped_column(String(40), default="")
-    # The person who leads this department (shown at the top of it on the org chart). Approvals
-    # go to everyone in the department; with nobody in it, to the organization's admins.
+    # Who on the team this team's AI employees report to by default (each AI employee can be given
+    # someone else). Empty = the organization's owner. (Column name kept from when it meant "head".)
     head_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # The AI team lead: reviews the team's goals every few days and proposes changes (new goals,
+    # new targets, pausing what isn't working). Its Claude usage is capped per month.
+    lead_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=sa_true())
+    lead_review_days: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
+    lead_monthly_cap_usd: Mapped[Decimal] = mapped_column(Money, default=Decimal("5"), server_default="5")
+    lead_last_review_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class LeadReview(Base):
+    """One review of a team's goals by its AI team lead (done by the worker)."""
+
+    __tablename__ = "lead_reviews"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    department_id: Mapped[str] = mapped_column(ForeignKey("departments.id", ondelete="CASCADE"), index=True)
+    requested_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="queued", index=True)  # queued|running|done|failed
+    health: Mapped[str] = mapped_column(String(20), default="")  # on_track | mixed | off_track
+    summary: Mapped[str] = mapped_column(Text, default="")
+    # [{type, goal_id, title, reasoning, request_id, ...}] - each became a proposal in Needs you
+    proposals: Mapped[list] = mapped_column(JSONType, default=list)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cost_usd: Mapped[Decimal] = mapped_column(Money, default=Decimal("0"))
+    locked_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow)
 
 
 class DepartmentMember(Base):
@@ -337,6 +367,10 @@ class Campaign(Base):
     suggested_reason: Mapped[str] = mapped_column(Text, default="")  # why setup suggested this goal
     first_deliverable: Mapped[str] = mapped_column(Text, default="")  # what people get in the first week
     key_results: Mapped[list] = mapped_column(JSONType, default=list)  # 2-3 short measurable outcomes
+    # The goal is ongoing (like a person's job); targets are time-boxed key results on its primary
+    # metric: [{id, period: week|month|quarter, target, start, end, baseline, status, result, why,
+    # set_by}], status planned|active|hit|missed|replaced. target_value mirrors the active one.
+    targets: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
     # How the budget was worked out (services/estimate.py): sessions x cost per session + paid spend.
     budget_basis: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # The plan shown to people before they start: steps, each with the kind of action it

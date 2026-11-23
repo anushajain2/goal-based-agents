@@ -5,12 +5,15 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { api, Campaign, DepartmentInfo, OrgInfo, Person, usd } from "@/lib/api";
+import { TargetLine } from "./Target";
+import { LeadCard } from "./TeamLead";
 import { AgentAvatar, PersonAvatar } from "./team";
 import { Button, cx, Input, Select } from "./ui";
 
 /**
- * Who reports to whom: you at the top, a head for each department (a person), and the AI
- * employees in each department under its head. Approvals go to the people in the department.
+ * Who works with whom: you at the top; for each function, its team of people, its AI team lead,
+ * and its AI employees. Each AI employee asks one person (chosen for it, else the person its
+ * team's AI employees ask, else the owner).
  */
 export function OrgChart({ org, goals, onGoalClick, onChanged }: {
   org: OrgInfo; goals?: Campaign[]; onGoalClick?: (g: Campaign) => void; onChanged?: () => void;
@@ -107,19 +110,16 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
 
   return (
     <div>
-      <div className="rounded-xl border border-line bg-white shadow-sm">
-        <div className="border-b border-line px-3 py-2 text-[12px] font-bold uppercase tracking-wide text-gray-600">{d.name}</div>
-        <HeadSlot d={d} org={org} onChanged={onChanged} />
-        <div className="flex items-center gap-1 border-t border-line px-3 py-1.5 text-[11.5px] text-muted">
-          <Hand size={11} /> Requests go to {leadName(lead)}{d.head ? "" : " until there's a head"}
-        </div>
-      </div>
+      <TeamCard d={d} org={org} onChanged={onChanged} />
+      <div className="org-stem" />
+      <LeadCard d={d} org={org} onChanged={onChanged} />
       <div className="org-stem" />
       <div className="space-y-2">
         {d.agents.map((a) => {
           const mine = (goals || []).filter((g) => g.agent?.id === a.id);
           const live = mine.filter((g) => g.status !== "draft");
           const later = mine.filter((g) => g.status === "draft");
+          const boss = a.reports_to || lead;
           return (
             <div key={a.id} className="rounded-xl border border-violet-200 bg-violet-50/40">
               <Link href={`/team/agents/${a.id}`} className="block px-3 py-2.5 hover:bg-violet-50">
@@ -131,10 +131,10 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
                   </span>
                 </span>
                 {a.objective && <span className="mt-1.5 line-clamp-2 block text-[11.5px] leading-snug text-gray-700"><b className="text-violet-700">Objective:</b> {a.objective}</span>}
-                {a.reports_to && <span className="mt-1 block text-[11px] font-semibold text-violet-700">Reports to {leadName(a.reports_to)}</span>}
+                <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-violet-700"><Hand size={11} /> Asks {leadName(boss)}</span>
                 {a.handoff_to_agent_id && (
                   <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-brand-700">
-                    <ArrowRight size={11} /> PRDs go to {agentName(a.handoff_to_agent_id)}{a.handoff_review ? `, ${leadName(a.reports_to || lead) === "you" ? "you approve" : leadName(a.reports_to || lead) + " approves"} first` : ""}
+                    <ArrowRight size={11} /> PRDs go to {agentName(a.handoff_to_agent_id)}{a.handoff_review ? `, ${leadName(boss) === "you" ? "you approve" : leadName(boss) + " approves"} first` : ""}
                   </span>
                 )}
               </Link>
@@ -164,19 +164,25 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
   );
 }
 
-function HeadSlot({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInfo; onChanged?: () => void }) {
+/** The people on a team, and which of them its AI employees ask (one person, so nothing is random). */
+function TeamCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInfo; onChanged?: () => void }) {
   const admin = org.me.is_admin;
-  const [editing, setEditing] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [pick, setPick] = useState("");
   const [email, setEmail] = useState("");
   const [err, setErr] = useState<string | null>(null);
-  const invited = org.invitations.find((i) => i.head_department_ids?.includes(d.id));
+  const owner = org.members.find((m) => m.role === "owner");
+  const asks = d.head || owner;
+  const invited = org.invitations.filter((i) => i.department_ids.includes(d.id));
+  const others = org.members.filter((m) => !d.people.some((p) => p.id === m.id));
+  const nameOf = (p: Person) => (p.id === org.me.id ? "You" : p.name || p.email);
+  const people = d.people.length ? d.people : owner ? [owner] : [];
 
   async function run(fn: () => Promise<unknown>) {
     setErr(null);
     try {
       await fn();
-      setEditing(false);
+      setAdding(false);
       setPick("");
       setEmail("");
       onChanged?.();
@@ -184,68 +190,79 @@ function HeadSlot({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInfo; onCh
       setErr((e as Error).message);
     }
   }
-
-  if (editing) {
-    return (
-      <div className="space-y-2 px-3 py-2.5">
-        <div className="text-[11.5px] font-semibold text-muted">Head of {d.name}</div>
-        <div className="flex gap-1.5">
-          <Select className="h-8 py-1 text-xs" value={pick} onChange={(e) => setPick(e.target.value)}>
-            <option value="">Someone on the team…</option>
-            {org.members.map((m) => <option key={m.id} value={m.id}>{m.id === org.me.id ? "Me" : m.name || m.email}</option>)}
-          </Select>
-          <Button size="sm" variant="primary" disabled={!pick} onClick={() => run(() => api(`/api/departments/${d.id}`, { method: "PATCH", json: { head_user_id: pick } }))}>Set</Button>
-        </div>
-        <div className="flex gap-1.5">
-          <Input className="h-8 py-1 text-xs" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Or invite by email" />
-          <Button size="sm" disabled={!email.includes("@")} onClick={() => run(() => api("/api/invitations", { method: "POST", json: { email, role: "member", head_of: [d.id] } }))}>
-            <Mail size={12} /> Invite
-          </Button>
-        </div>
-        {err && <p className="text-xs text-red-600">{err}</p>}
-        <div className="flex gap-2">
-          {d.head && <button onClick={() => run(() => api(`/api/departments/${d.id}`, { method: "PATCH", json: { head_user_id: null } }))} className="text-xs font-semibold text-muted hover:text-red-600">Remove head</button>}
-          <button onClick={() => setEditing(false)} className="text-xs font-semibold text-muted hover:text-ink">Cancel</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (d.head) {
-    return (
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <PersonAvatar name={d.head.name || d.head.email} size={32} />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[13.5px] font-semibold">{d.head.id === org.me.id ? "You" : d.head.name || d.head.email}</div>
-          <div className="text-[11.5px] text-muted">Head of {d.name}</div>
-        </div>
-        {admin && <button onClick={() => setEditing(true)} className="text-xs font-semibold text-brand-600 hover:underline">Change</button>}
-      </div>
-    );
-  }
+  const addExisting = (id: string) => {
+    const m = org.members.find((x) => x.id === id);
+    return api(`/api/members/${id}`, { method: "PATCH", json: { department_ids: [...(m?.department_ids || []), d.id] } });
+  };
 
   return (
-    <div className="flex items-center gap-2.5 px-3 py-2.5">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-dashed border-gray-300 text-gray-400"><UserPlus size={14} /></span>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-semibold text-gray-500" title={invited?.email}>{invited ? invited.email : "No head yet"}</div>
-        <div className="text-[11.5px] text-muted">{invited ? "Invited to lead" : "Head of"} {d.name}</div>
+    <div className="rounded-xl border border-line bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-line px-3 py-2">
+        <span className="text-[12px] font-bold uppercase tracking-wide text-gray-600">{d.name} team</span>
+        {admin && !adding && <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><UserPlus size={12} /> Add people</button>}
       </div>
-      {admin && <button onClick={() => setEditing(true)} className="text-xs font-semibold text-brand-600 hover:underline">{invited ? "Change" : "Add"}</button>}
+      <div className="px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <span className="flex -space-x-2">
+            {people.slice(0, 4).map((p) => <span key={p.id} className="rounded-full ring-2 ring-white"><PersonAvatar name={p.name || p.email} size={28} /></span>)}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold" title={people.map(nameOf).join(", ")}>
+            {people.length === 1 && people[0].id === org.me.id ? "Just you so far" : people.map(nameOf).join(", ")}
+          </span>
+        </div>
+        {invited.length > 0 && <div className="mt-1 truncate text-[11px] text-muted">Invited: {invited.map((i) => i.email).join(", ")}</div>}
+        {adding && (
+          <div className="mt-2 space-y-1.5">
+            {others.length > 0 && (
+              <div className="flex gap-1.5">
+                <Select className="h-8 py-1 text-xs" value={pick} onChange={(e) => setPick(e.target.value)}>
+                  <option value="">Someone in {org.org.name}…</option>
+                  {others.map((m) => <option key={m.id} value={m.id}>{m.name || m.email}</option>)}
+                </Select>
+                <Button size="sm" variant="primary" disabled={!pick} onClick={() => run(() => addExisting(pick))}>Add</Button>
+              </div>
+            )}
+            <div className="flex gap-1.5">
+              <Input className="h-8 py-1 text-xs" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Invite by email" />
+              <Button size="sm" disabled={!email.includes("@")} onClick={() => run(() => api("/api/invitations", { method: "POST", json: { email, role: "member", department_ids: [d.id] } }))}>
+                <Mail size={12} /> Invite
+              </Button>
+            </div>
+            <button onClick={() => setAdding(false)} className="text-xs font-semibold text-muted hover:text-ink">Cancel</button>
+          </div>
+        )}
+        {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+      </div>
+      <div className="flex items-center gap-1.5 border-t border-line px-3 py-1.5 text-[11.5px] text-muted">
+        <Hand size={11} className="shrink-0" />
+        <span className="shrink-0">AI employees ask</span>
+        {admin && people.length > 1 ? (
+          <select className="min-w-0 flex-1 truncate rounded border-0 bg-transparent p-0 text-[11.5px] font-semibold text-ink focus:ring-0" value={asks?.id || ""}
+            onChange={(e) => run(() => api(`/api/departments/${d.id}`, { method: "PATCH", json: { head_user_id: e.target.value || null } }))}>
+            {people.map((p) => <option key={p.id} value={p.id}>{nameOf(p)}</option>)}
+          </select>
+        ) : (
+          <b className="truncate text-ink">{asks ? nameOf(asks) : "the owner"}</b>
+        )}
+      </div>
     </div>
   );
 }
-
 
 function GoalChips({ goals, onGoalClick, muted }: { goals: Campaign[]; onGoalClick?: (g: Campaign) => void; muted?: boolean }) {
   return (
     <ul className="space-y-1">
       {goals.map((g) => (
         <li key={g.id}>
-          <button onClick={() => onGoalClick?.(g)} className={cx("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ring-1 hover:ring-brand-500", muted ? "bg-white/60 text-gray-600 ring-gray-300" : "bg-white ring-line")}>
-            <span className={cx("h-2 w-2 shrink-0 rounded-full", g.status === "active" ? (g.pending_requests ? "bg-amber-500" : "bg-emerald-500") : "bg-gray-300")} />
-            <span className="min-w-0 flex-1 truncate font-medium">{g.name}</span>
-            <span className="shrink-0 text-[11px] text-muted">{g.status === "draft" ? usd(g.budget.total) : g.status === "active" ? (g.pending_requests ? "Needs you" : "Live") : "Paused"}</span>
+          <button onClick={() => onGoalClick?.(g)} className={cx("flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ring-1 hover:ring-brand-500", muted ? "bg-white/60 text-gray-600 ring-gray-300" : "bg-white ring-line")}>
+            <span className={cx("mt-1 h-2 w-2 shrink-0 rounded-full", g.status === "active" ? (g.pending_requests ? "bg-amber-500" : "bg-emerald-500") : "bg-gray-300")} />
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate font-medium">{g.name}</span>
+                <span className="shrink-0 text-[11px] text-muted">{g.status === "draft" ? usd(g.budget.total) : g.status === "active" ? (g.pending_requests ? "Needs you" : "Live") : "Paused"}</span>
+              </span>
+              {g.target?.target && <span className="mt-0.5 block"><TargetLine goal={g} compact /></span>}
+            </span>
           </button>
         </li>
       ))}
@@ -298,12 +315,12 @@ export function HireDialog({ org, department, onClose, onHired }: { org: OrgInfo
           <label className="block text-[13px] font-semibold">Objective <span className="font-normal text-muted">(what it&apos;s here to achieve)</span>
             <Input className="mt-1" value={form.objective} onChange={(e) => setForm({ ...form, objective: e.target.value })} placeholder="e.g. Turn conference contacts into design partners" />
           </label>
-          <label className="block text-[13px] font-semibold">Reports to
+          <label className="block text-[13px] font-semibold">Asks
             <Select className="mt-1" value={form.reports_to_user_id} onChange={(e) => setForm({ ...form, reports_to_user_id: e.target.value })}>
-              <option value="">{dept?.head ? `Head of ${dept.name}` : "The owner"} ({defaultLead ? (defaultLead.id === org.me.id ? "you" : defaultLead.name || defaultLead.email) : "owner"})</option>
+              <option value="">Same as the team ({defaultLead ? (defaultLead.id === org.me.id ? "you" : defaultLead.name || defaultLead.email) : "owner"})</option>
               {org.members.map((m) => <option key={m.id} value={m.id}>{m.id === org.me.id ? "Me" : m.name || m.email}</option>)}
             </Select>
-            <span className="mt-1 block text-xs font-normal text-muted">Its approvals and questions go to this person.</span>
+            <span className="mt-1 block text-xs font-normal text-muted">Its approvals and questions go to this one person.</span>
           </label>
           {err && <p className="text-sm text-red-600">{err}</p>}
         </div>

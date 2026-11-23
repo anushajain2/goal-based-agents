@@ -35,6 +35,7 @@ async def hand_off(s: AsyncSession, d: Deliverable, from_agent: Agent, to_agent:
         name=f"Build: {d.title}"[:200], goal_type="product",
         goal_description=f"Implement the {KIND_WORDS.get(d.kind, d.kind)} below as a pull request, then ask an engineer to merge it.",
         primary_metric="pull requests merged", target_value=1, done_when="An engineer merged the pull request",
+        targets=[{"id": "build", "period": "month", "target": 1.0, "status": "planned", "why": "", "set_by": "handoff"}],
         category="Product & launch", use_case="Build from PRD",
         context=f"{KIND_WORDS.get(d.kind, d.kind)} from {from_agent.name} (approved by {who}):\n\n{d.content}",
         budget_total=HANDOFF_BUDGET_USD, cycle_hours=3, origin="handoff",

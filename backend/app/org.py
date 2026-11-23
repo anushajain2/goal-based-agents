@@ -181,9 +181,11 @@ async def _accept_invitation(s: AsyncSession, user: User) -> Membership | None:
     for dept_id in valid:
         s.add(DepartmentMember(department_id=dept_id, user_id=user.id))
     await s.flush()
-    for dept_id in set(inv.head_department_ids or []) & valid:
+    # Their teams' AI employees report to them if the invite said so, or if nobody else on the
+    # team has that job yet (the first person on a team gets its requests; changeable any time).
+    for dept_id in valid:
         dept = await s.get(Department, dept_id)
-        if not dept.head_user_id:  # someone may have been made head while the invite was pending
+        if not dept.head_user_id or dept_id in (inv.head_department_ids or []):
             await set_head(s, dept, user.id)
     inv.accepted_at = utcnow()
     await s.flush()
@@ -257,9 +259,10 @@ async def get_goal(s: AsyncSession, member: Member, campaign_id: str, *, manage:
 
 # --- who approves what: the org chart ------------------------------------------------------------
 #
-# An AI employee's requests go to the person it reports to: someone chosen for it, else the head
-# of its department, else the organization's owners (the person who set it up). Admins can also
-# decide anything; everyone else in the organization can see requests but not decide them.
+# An AI employee's requests go to one person, never to a whole team at random: someone chosen
+# for it, else the person its team's AI employees report to (head_user_id: by default the first
+# person added to the team), else the organization's owners. Admins can also decide anything;
+# everyone else in the organization can see requests but not decide them.
 
 async def _owners(s: AsyncSession, org_id: str) -> list[User]:
     rows = (await s.execute(select(User, Membership.role).join(Membership, Membership.user_id == User.id)

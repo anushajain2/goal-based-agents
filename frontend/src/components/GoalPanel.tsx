@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { api, Campaign, Playbook, usd } from "@/lib/api";
 import { StepList, teamName, usePermissions } from "./GoalPlan";
+import { TargetHistory, TargetLine } from "./Target";
 import { AgentAvatar } from "./team";
 import { Button } from "./ui";
 
@@ -43,9 +44,18 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
             <p className="mt-1 text-[15px] leading-snug text-ink">{goal.first_deliverable || goal.goal_description}</p>
           </section>
 
+          {goal.target?.target && (
+            <section>
+              <h3 className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Target</h3>
+              <TargetLine goal={goal} />
+              <p className="mt-1 text-[11.5px] text-muted">An ongoing goal: {goal.agent?.name || "the AI employee"} suggests a new target as results come in, and you approve it.</p>
+              <div className="mt-2"><TargetHistory target={goal.target} /></div>
+            </section>
+          )}
+
           {(goal.key_results?.length || 0) > 0 && (
             <section>
-              <h3 className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Key results</h3>
+              <h3 className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Also tracking</h3>
               <ul className="space-y-1">
                 {goal.key_results.map((kr) => (
                   <li key={kr} className="flex items-start gap-2 text-[13.5px]"><Target size={14} className="mt-0.5 shrink-0 text-violet-600" /> {kr}</li>
@@ -64,7 +74,7 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
 
           {goal.done_when && (
             <section>
-              <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Counts as done when</h3>
+              <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">What counts as one</h3>
               <p className="flex gap-1.5 text-[13px]"><Flag size={13} className="mt-0.5 shrink-0 text-muted" /> {goal.done_when}</p>
             </section>
           )}

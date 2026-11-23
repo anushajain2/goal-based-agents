@@ -25,7 +25,7 @@ from app.models import (
     utcnow,
 )
 from app.org import Member, current_member, get_goal, pick_agent
-from app.services import activity, estimate
+from app.services import activity, estimate, targets
 from app.services.events import notify
 from app.services.policy import ACTION_TYPES
 
@@ -58,6 +58,7 @@ class CampaignIn(BaseModel):
     goal_description: str = Field(min_length=1)
     primary_metric: str = Field(min_length=1, max_length=120)
     target_value: float | None = None
+    target_period: str = "month"  # the period the target covers: week | month | quarter
     done_when: str = ""
     category: str = ""
     use_case: str = ""
@@ -79,6 +80,7 @@ class CampaignPatch(BaseModel):
     goal_description: str | None = None
     primary_metric: str | None = None
     target_value: float | None = None
+    target_period: str | None = None
     done_when: str | None = None
     client_name: str | None = None
     context: str | None = None
@@ -143,6 +145,7 @@ async def create_campaign(body: CampaignIn, s: AsyncSession = Depends(get_sessio
         channels=body.channels, budget_total=body.budget_total, daily_cap=body.daily_cap,
         end_date=body.end_date, cycle_hours=body.cycle_hours,
     )
+    targets.plan_first(c, body.target_value, body.target_period, set_by="person")
     s.add(c)
     await s.flush()
     await _set_budget_basis(s, c)
@@ -174,8 +177,17 @@ async def patch_campaign(campaign_id: str, body: CampaignPatch, s: AsyncSession 
         agent = await s.get(Agent, changes["agent_id"])
         if not agent or agent.org_id != me.org_id or not me.in_department(agent.department_id):
             raise HTTPException(403, "You can only hand goals to AI employees in your departments.")
+    new_target = changes.pop("target_value", None) if "target_value" in changes else None
+    new_period = changes.pop("target_period", None)
     for k, v in changes.items():
         setattr(c, k, v)
+    if new_target or new_period:
+        now_t = targets.current(c)
+        value = new_target or (now_t["target"] if now_t else None)
+        if value:
+            await targets.set_target(s, c, target=value, period=new_period or (now_t["period"] if now_t else "month"),
+                                     why=f"Set by {_who(me)}", set_by="person")
+        changes |= {"target": value}
     if {"budget_total", "cycle_hours", "end_date"} & set(changes):
         await _set_budget_basis(s, c)
     if "budget_total" in changes and c.status == CampaignStatus.out_of_budget.value:
@@ -208,6 +220,7 @@ async def _set_budget_basis(s: AsyncSession, c: Campaign) -> None:
 async def _launch(s: AsyncSession, c: Campaign) -> None:
     c.status = CampaignStatus.active.value
     c.next_cycle_at = utcnow()
+    await targets.ensure_started(s, c)
     await activity.log(s, c.id, "system", "Started working on this goal", status="info")
     await notify(s, c.id, "campaign")
 
@@ -251,6 +264,7 @@ async def resume(campaign_id: str, s: AsyncSession = Depends(get_session),
     ).all()
     if not interrupted and not c.next_cycle_at:
         c.next_cycle_at = utcnow()
+    await targets.ensure_started(s, c)
     await activity.log(s, c.id, "system", f"Resumed by {_who(me)}", status="info")
     await notify(s, c.id, "campaign")
     return await campaign_json(s, c, me=me)

@@ -10,13 +10,14 @@ import { GoalStatus, progressOf, ProgressBar } from "@/components/goal";
 import { BudgetBreakdown, BudgetCalculator } from "@/components/Budget";
 import { GoalPlan, PermissionsEditor, usePermissions } from "@/components/GoalPlan";
 import { ListEditor } from "@/components/Guardrails";
+import { TargetHistory } from "@/components/Target";
 import { StartGoal } from "@/components/StartGoal";
 import { MetricChart } from "@/components/MetricChart";
 import { AgentAvatar } from "@/components/team";
-import { Badge, Button, Card, CardHeader, Empty, ErrorNote, Field, Input, Tabs, Textarea } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, Empty, ErrorNote, Field, Input, Tabs, Textarea, Select } from "@/components/ui";
 import { CATEGORY_ICON } from "@/components/UseCaseLibrary";
 import { ViewToggle, WorkLog } from "@/components/WorkLog";
-import { ActivityItem, api, Campaign, Exclusion, Grant, Level, num, Person, Session, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
+import { ActivityItem, api, Campaign, Exclusion, Grant, Level, num, Person, Session, timeAgo, usd, useApi, UserRequest, PERIOD_WORD, Period } from "@/lib/api";
 import { CATEGORIES } from "@/lib/useCases";
 
 type Tab = "work" | "results" | "guardrails" | "settings";
@@ -128,6 +129,12 @@ function GoalPage() {
           {c.key_results.map((kr) => <span key={kr} className="inline-flex items-center gap-1.5"><Target size={13} className="text-violet-600" /> {kr}</span>)}
         </div>
       )}
+      {(c.target?.history?.length || 0) > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-[12px]">
+          <span className="font-semibold text-muted">Past periods</span>
+          <TargetHistory target={c.target} />
+        </div>
+      )}
 
       {c.origin === "setup" && c.status === "draft" && (
         <div className="flex flex-wrap items-start gap-3 rounded-xl border border-brand-500/30 bg-brand-50/60 px-4 py-3 text-sm">
@@ -150,15 +157,26 @@ function GoalPage() {
 
       {/* Scorecard */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="p-4">
-          <div className="text-xs font-semibold text-muted">Progress</div>
-          <div className="tabular mt-1 text-2xl font-bold">
-            {p.done === null ? "—" : num(p.done)}
-            {p.target ? <span className="text-base font-semibold text-muted"> / {num(p.target)}</span> : null}
-          </div>
-          <ProgressBar pct={p.pct} className="mt-2" />
-          <div className="mt-1 truncate text-xs text-muted">{c.primary_metric}</div>
-        </Card>
+        {c.target?.target && c.target.status === "active" ? (
+          <Card className="p-4">
+            <div className="text-xs font-semibold text-muted">Target {c.target.period ? PERIOD_WORD[c.target.period] : ""}</div>
+            <div className="tabular mt-1 text-2xl font-bold">
+              {num(c.target.progress)}<span className="text-base font-semibold text-muted"> / {num(c.target.target)}</span>
+            </div>
+            <ProgressBar pct={Math.min(100, ((c.target.progress || 0) / c.target.target) * 100)} className="mt-2" />
+            <div className="mt-1 truncate text-xs text-muted">{c.primary_metric}{c.target.days_left != null ? ` · ${Math.ceil(c.target.days_left)}d left` : ""}</div>
+          </Card>
+        ) : (
+          <Card className="p-4">
+            <div className="text-xs font-semibold text-muted">Progress</div>
+            <div className="tabular mt-1 text-2xl font-bold">
+              {p.done === null ? "—" : num(p.done)}
+              {p.target ? <span className="text-base font-semibold text-muted"> / {num(p.target)}</span> : null}
+            </div>
+            <ProgressBar pct={p.pct} className="mt-2" />
+            <div className="mt-1 truncate text-xs text-muted">{c.primary_metric}</div>
+          </Card>
+        )}
         <Kpi label="Cost per result" value={usd(c.cost_per_result)} sub={c.results.results ? `${num(c.results.results)} results so far` : "Shown once results come in"} />
         <Kpi label="Actions taken" value={num(c.actions_taken)} sub={`${c.cycles_completed} work session${c.cycles_completed === 1 ? "" : "s"}${avgSession !== null ? ` · ~${usd(avgSession)} each` : ""}`} />
         <Card className="p-4">
@@ -382,6 +400,7 @@ function SettingsTab({ c, onSaved, onDeleted }: { c: Campaign; onSaved: () => vo
     goal_description: c.goal_description,
     primary_metric: c.primary_metric,
     target_value: c.target_value?.toString() ?? "",
+    target_period: c.target?.period || "month",
     done_when: c.done_when || "",
     client_name: c.client_name || "",
     context: c.context || "",
@@ -404,6 +423,7 @@ function SettingsTab({ c, onSaved, onDeleted }: { c: Campaign; onSaved: () => vo
           goal_description: form.goal_description,
           primary_metric: form.primary_metric,
           target_value: form.target_value ? Number(form.target_value) : null,
+          target_period: form.target_period,
           done_when: form.done_when,
           client_name: form.client_name,
           context: form.context,
@@ -428,7 +448,7 @@ function SettingsTab({ c, onSaved, onDeleted }: { c: Campaign; onSaved: () => vo
         <Textarea value={form.goal_description} onChange={set("goal_description")} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Counts as done when">
+        <Field label="What counts as one">
           <Input value={form.done_when} onChange={set("done_when")} />
         </Field>
         <Field label="Client (for agencies)">
@@ -439,8 +459,13 @@ function SettingsTab({ c, onSaved, onDeleted }: { c: Campaign; onSaved: () => vo
         <Field label="Primary metric">
           <Input value={form.primary_metric} onChange={set("primary_metric")} />
         </Field>
-        <Field label="Target">
-          <Input type="number" value={form.target_value} onChange={set("target_value")} />
+        <Field label="Target" hint="An ongoing goal: this is what it aims for in each period.">
+          <div className="flex gap-2">
+            <Input type="number" value={form.target_value} onChange={set("target_value")} />
+            <Select value={form.target_period} onChange={(e) => setForm({ ...form, target_period: e.target.value as Period })}>
+              <option value="week">a week</option><option value="month">a month</option><option value="quarter">a quarter</option>
+            </Select>
+          </div>
         </Field>
         <Field label="Total budget (USD)" hint={`Already spent ${usd(c.budget.spent)}.`}>
           <Input type="number" min="1" value={form.budget_total} onChange={set("budget_total")} />

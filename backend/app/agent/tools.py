@@ -220,7 +220,8 @@ CAMPAIGN_TOOLS = [
     _tool(
         "record_metric",
         "Record a measurement of a campaign metric (e.g. follower count, sales, clicks) after reading it "
-        "from an app or page. Always record the primary metric at least once per cycle.",
+        "from an app or page. Always record the primary metric at least once per cycle, as a running "
+        "total since the goal started (targets count progress from it).",
         {
             "metric": {"type": "string"},
             "value": {"type": "number"},
@@ -255,6 +256,21 @@ CAMPAIGN_TOOLS = [
             "content": {"type": "string", "description": "The full document in Markdown."},
         },
         ["kind", "title", "summary", "content"],
+    ),
+    _tool(
+        "propose_change",
+        "Propose a change to your goal for the person you report to to approve: a new target (e.g. you "
+        "hit this week's 15 signups early, so 30 next week, or 100 for the month) or pausing the goal "
+        "when it isn't worth the budget. Explain your reasoning with the numbers. Nothing changes until "
+        "they approve; only one proposal can wait at a time. Carry on with your work meanwhile.",
+        {
+            "change": {"type": "string", "enum": ["target", "pause"]},
+            "target": {"type": "number", "description": "For a new target: the number to reach in the period."},
+            "period": {"type": "string", "enum": ["week", "month", "quarter"],
+                       "description": "For a new target: the period it covers."},
+            "reasoning": {"type": "string", "description": "Two or three sentences: what happened and why this change is better."},
+        },
+        ["change", "reasoning"],
     ),
     _tool(
         "ask_user",

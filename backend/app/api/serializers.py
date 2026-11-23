@@ -17,7 +17,7 @@ from app.models import (
     PermissionGrant,
     UserRequest,
 )
-from app.services import estimate, ledger
+from app.services import estimate, ledger, targets
 from app.services.policy import ACTION_TYPES
 
 
@@ -106,6 +106,7 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=Non
         "origin": c.origin or "", "suggested_reason": c.suggested_reason or "",
         "first_deliverable": c.first_deliverable or "",
         "key_results": c.key_results or [],
+        "target": targets.view(c, await targets.value_now(s, c) if targets.active(c) else None),
         "budget_basis": c.budget_basis, "has_playbook": bool(c.playbook),
         "actions_taken": actions_taken,
         "last_activity": {"title": last.title, "kind": last.kind, "at": last.created_at.isoformat()} if last else None,

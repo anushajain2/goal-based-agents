@@ -22,10 +22,11 @@ from sqlalchemy import and_, select, update
 
 from app.agent.org_setup import run_org_setup
 from app.agent.runner import CycleRunner
+from app.agent.team_lead import run_review, schedule_due_reviews
 from app.config import get_settings
 from app.db import session_scope
-from app.models import AgentRun, Campaign, CampaignStatus, OrgSetup, RunStatus, utcnow
-from app.services import activity
+from app.models import AgentRun, Campaign, CampaignStatus, LeadReview, OrgSetup, RunStatus, utcnow
+from app.services import activity, targets
 from app.services.events import notify
 
 log = logging.getLogger("autopilot.worker")
@@ -74,6 +75,17 @@ async def schedule_due_cycles() -> int:
             created += 1
             await notify(s, campaign.id, "run")
     return created
+
+
+async def roll_over_targets() -> int:
+    """Close ended target periods (hit or missed) and start the next ones."""
+    closed = 0
+    async with session_scope() as s:
+        for c in (await s.execute(select(Campaign).where(Campaign.status == CampaignStatus.active.value))).scalars():
+            if await targets.roll_over(s, c):
+                closed += 1
+                await notify(s, c.id, "campaign")
+    return closed
 
 
 async def claim_run(worker_id: str) -> str | None:
@@ -125,6 +137,30 @@ async def claim_setup(worker_id: str) -> str | None:
         return setup_id if result.rowcount == 1 else None
 
 
+async def claim_review(worker_id: str) -> str | None:
+    """Same claiming pattern, for AI team lead reviews."""
+    async with session_scope() as s:
+        review_id = (
+            await s.execute(
+                select(LeadReview.id).where(LeadReview.status == "queued")
+                .order_by(LeadReview.created_at).limit(1).with_for_update(skip_locked=True)
+            )
+        ).scalar_one_or_none()
+        if not review_id:
+            return None
+        result = await s.execute(
+            update(LeadReview).where(LeadReview.id == review_id, LeadReview.status == "queued")
+            .values(status="running", locked_by=worker_id, locked_at=utcnow())
+        )
+        return review_id if result.rowcount == 1 else None
+
+
+async def recover_stale_reviews() -> None:
+    async with session_scope() as s:
+        await s.execute(update(LeadReview).where(LeadReview.status == "running", LeadReview.locked_at < utcnow() - STALE_AFTER)
+                        .values(status="failed", locked_by=None, error="The review stopped responding."))
+
+
 async def recover_stale_setups() -> None:
     """A setup whose worker died: try once more, then give up with a clear error."""
     async with session_scope() as s:
@@ -165,12 +201,27 @@ async def main() -> None:
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
     runner = CycleRunner()
     tasks: set[asyncio.Task] = set()
+    last_rollover = None
     log.info("worker %s started (max %d concurrent runs)", worker_id, MAX_CONCURRENT_RUNS)
     while True:
         try:
             await recover_stale_runs()
             await recover_stale_setups()
             await schedule_due_cycles()
+            if not last_rollover or utcnow() - last_rollover > timedelta(minutes=1):
+                last_rollover = utcnow()
+                await roll_over_targets()
+                await recover_stale_reviews()
+                if settings.anthropic_api_key:
+                    await schedule_due_reviews()
+            while len(tasks) < MAX_CONCURRENT_RUNS:
+                review_id = await claim_review(worker_id)
+                if not review_id:
+                    break
+                log.info("team lead review (%s)", review_id)
+                task = asyncio.create_task(run_review(review_id))
+                tasks.add(task)
+                task.add_done_callback(tasks.discard)
             while len(tasks) < MAX_CONCURRENT_RUNS:
                 setup_id = await claim_setup(worker_id)
                 if not setup_id:

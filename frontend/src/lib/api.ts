@@ -31,6 +31,7 @@ export type Campaign = {
   suggested_reason: string;
   first_deliverable: string;
   key_results: string[];
+  target: TargetView | null;
   budget_basis: BudgetBasis | null;
   has_playbook: boolean;
   playbook?: Playbook | null; // full goal only
@@ -59,6 +60,15 @@ export type Campaign = {
   metrics?: { metric: string; value: number; source: string; note: string; recorded_at: string }[];
 };
 
+export type Period = "week" | "month" | "quarter";
+export type TargetView = {
+  period: Period | null; target: number | null; status?: "planned" | "active"; progress: number | null;
+  start?: string | null; end?: string | null; days_left?: number | null; why?: string; set_by?: string;
+  history: { period: Period; target: number; result: number | null; status: "hit" | "missed" | "replaced"; start?: string; end?: string }[];
+};
+export const PERIOD_WORD: Record<Period, string> = { week: "this week", month: "this month", quarter: "this quarter" };
+export const PER_PERIOD: Record<Period, string> = { week: "a week", month: "a month", quarter: "a quarter" };
+
 export type ActivityItem = {
   id: number;
   campaign_name?: string | null;
@@ -78,7 +88,7 @@ export type UserRequest = {
   id: string;
   campaign_id: string;
   campaign_name: string | null;
-  kind: "action" | "login" | "connect" | "question" | "review";
+  kind: "action" | "login" | "connect" | "question" | "review" | "proposal";
   status: string;
   action_type: string | null;
   action_label: string | null;
@@ -99,6 +109,11 @@ export type UserRequest = {
     options?: string[];
     deliverable_id?: string;
     handoff_to?: string | null;
+    change?: { type: "target" | "pause" | "resume" | "new_goal"; target?: number; period?: Period; by?: "agent" | "lead" };
+    current?: TargetView | null;
+    source?: "lead";
+    lead?: string;
+    budget_usd?: number;
   };
   est_spend_usd: number | null;
   decision_note: string | null;
@@ -108,6 +123,7 @@ export type UserRequest = {
   agent_name: string | null;
   agent_id: string | null;
   agent_title: string | null;
+  campaign_metric: string | null;
   routed_to_me: boolean;
   approvers: string[];
   can_decide: boolean;
@@ -162,7 +178,17 @@ export type AgentSummary = {
   handoff_to_agent_id: string | null; handoff_review: boolean;
   goals: number; active_goals: number; spent: number; working: boolean; needs_you: number;
 };
-export type DepartmentInfo = { id: string; name: string; kind: string; head: Person | null; people: Person[]; agents: AgentSummary[] };
+export type LeadReviewInfo = {
+  id: string; status: "queued" | "running" | "done" | "failed"; health: "" | "on_track" | "mixed" | "off_track"; summary: string;
+  proposals: { type: string; goal_id: string; title: string; reasoning: string; request_id: string }[];
+  error: string | null; cost_usd: number; created_at: string;
+};
+export type LeadInfo = {
+  name: string; enabled: boolean; review_days: number; monthly_cap_usd: number; spent_this_month_usd: number;
+  last_review_at: string | null; last: LeadReviewInfo | null;
+};
+/** head = the person on the team its AI employees report to (empty: the owner). */
+export type DepartmentInfo = { id: string; name: string; kind: string; head: Person | null; people: Person[]; agents: AgentSummary[]; lead: LeadInfo };
 export type BudgetBasis = {
   per_session_usd: number; sessions: number; cycle_hours: number; days: number; ai_usd: number; paid_spend_usd: number;
   suggested_usd: number; basis: "typical" | "history"; history_sessions: number; chosen_usd?: number;

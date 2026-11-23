@@ -279,7 +279,7 @@ function Routing({ agentId, org, onChanged }: { agentId: string; org: OrgInfo; o
           <Hand size={12} /> Asks
           <select disabled={!canEdit} className="rounded-md border border-line bg-white px-2 py-1 text-xs font-semibold text-ink" value={a.reports_to?.id || ""}
             onChange={(e) => patch({ reports_to_user_id: e.target.value || null })}>
-            <option value="">{name(lead)}{dept.head ? ` (head of ${dept.name})` : ""}</option>
+            <option value="">{name(lead)} (same as the {dept.name} team)</option>
             {org.members.filter((m) => m.id !== lead?.id).map((m) => <option key={m.id} value={m.id}>{name(m)}</option>)}
           </select>
         </label>

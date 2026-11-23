@@ -43,7 +43,7 @@ from app.models import (
     utcnow,
 )
 from app.org import approvers, goal_department
-from app.services import activity, ledger, policy
+from app.services import activity, ledger, policy, targets
 from app.services.events import notify
 from app.services.mailer import send_approval_needed
 from app.services.rule_check import check_action
@@ -660,6 +660,39 @@ class ToolExecutor:
                                status="info", details={"strategy": campaign.strategy})
             await notify(s, self.campaign_id, "campaign")
         return Outcome("Strategy updated.")
+
+    async def t_propose_change(self, inp: dict, _id: str) -> Outcome:
+        kind = inp.get("change")
+        reasoning = (inp.get("reasoning") or "").strip()
+        if not reasoning:
+            return Outcome("Explain your reasoning.", is_error=True)
+        async with session_scope() as s:
+            c = await s.get(Campaign, self.campaign_id)
+            waiting = (await s.execute(select(UserRequest.id).where(
+                UserRequest.campaign_id == c.id, UserRequest.kind == RequestKind.proposal.value,
+                UserRequest.status == RequestStatus.pending.value).limit(1))).scalar_one_or_none()
+            if waiting:
+                return Outcome("A proposal for this goal is already waiting for a decision. Wait for it.", is_error=True)
+            if kind == "target":
+                try:
+                    target = float(inp.get("target"))
+                except (TypeError, ValueError):
+                    return Outcome("Give the new target as a number.", is_error=True)
+                if target <= 0:
+                    return Outcome("The target must be above zero.", is_error=True)
+                change = {"type": "target", "target": target, "period": targets.period_of(inp.get("period"), "week"), "by": "agent"}
+            elif kind == "pause":
+                change = {"type": "pause", "by": "agent"}
+            else:
+                return Outcome("change must be 'target' or 'pause'.", is_error=True)
+            title = targets.change_title(c, change)
+            current = targets.view(c, await targets.value_now(s, c))
+        preview = {"change": change, "current": current}
+        if kind == "target":
+            preview |= {"fields": {"target": targets.fmt(change["target"]).replace(",", "")}, "editable": ["target"]}
+        await self._create_request(kind=RequestKind.proposal, tool_use_id=_id, blocking=False, title=title,
+                                   rationale=reasoning, preview=preview)
+        return Outcome("Proposed. Nothing changes until it's approved; you'll see the decision in the work log.")
 
     # ------------------------------------------------------------------ hand-ins and hand-offs
 

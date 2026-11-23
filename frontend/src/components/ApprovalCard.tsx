@@ -1,10 +1,11 @@
 "use client";
 
-import { Check, ExternalLink, FileText, HelpCircle, KeyRound, Link2, Lock, MessageSquare, ShieldQuestion, Users, X } from "lucide-react";
+import { ArrowRight, Check, Compass, ExternalLink, FileText, HelpCircle, KeyRound, Link2, Lock, MessageSquare, ShieldQuestion, TrendingUp, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { api, API_URL, OrgInfo, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
+import { api, API_URL, num, OrgInfo, PER_PERIOD, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
+import { TargetHistory } from "./Target";
 import { AgentAvatar } from "./team";
 import { Badge, Button, Card, cx, ErrorNote, Input, Select, Textarea } from "./ui";
 
@@ -14,7 +15,10 @@ export const KIND_BADGE: Record<UserRequest["kind"], { label: string; tone: "amb
   login: { label: "Sign-in", tone: "violet", icon: <KeyRound size={12} /> },
   connect: { label: "Connect an app", tone: "blue", icon: <Link2 size={12} /> },
   review: { label: "Review", tone: "green", icon: <FileText size={12} /> },
+  proposal: { label: "Suggestion", tone: "green", icon: <TrendingUp size={12} /> },
 };
+
+const PROPOSAL_YES: Record<string, string> = { target: "Approve new target", pause: "Pause it", resume: "Restart it", new_goal: "Start this goal" };
 
 /**
  * One thing an AI employee needs from a person: an approval, an answer, a sign-in or an app
@@ -90,6 +94,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
         <Badge tone={k.tone}>{k.icon} {req.kind === "action" ? req.action_label || k.label : k.label}</Badge>
         {req.scope && req.kind !== "question" && <Badge>{req.scope}</Badge>}
         {!detail && req.agent_name && <Badge tone="violet">{req.agent_name}</Badge>}
+        {req.preview.source === "lead" && <Badge tone="blue"><Compass size={12} /> From {req.preview.lead}</Badge>}
         {showCampaign && req.campaign_name && (
           <Link href={`/goals/${req.campaign_id}`} className="font-semibold text-brand-600 hover:underline">{req.campaign_name}</Link>
         )}
@@ -100,7 +105,37 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
         {req.kind === "action" ? `${agent} wants to: ${req.title}` : req.kind === "question" ? req.preview.question || req.title : req.title}
       </h4>
       {req.rationale && (
-        <p className={cx("text-sm text-muted", !detail && "mt-1")}>{req.kind === "question" ? <><b className="text-gray-700">Why it asks:</b> {req.rationale}</> : req.rationale}</p>
+        <p className={cx("text-sm text-muted", !detail && "mt-1")}>
+          {req.kind === "question" ? <><b className="text-gray-700">Why it asks:</b> {req.rationale}</> : req.kind === "proposal" ? <><b className="text-gray-700">Why:</b> {req.rationale}</> : req.rationale}
+        </p>
+      )}
+
+      {req.kind === "proposal" && req.preview.change && (
+        <div className={cx("space-y-2 rounded-lg border border-line p-3 text-sm", !detail && "mt-3")}>
+          {req.preview.current?.target != null && req.preview.current.period && (
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <span className="w-12 shrink-0 text-xs font-semibold uppercase text-muted">{req.preview.change.type === "new_goal" ? "Target" : "Now"}</span>
+              <span>{num(req.preview.current.target)} {req.campaign_metric || "results"} {PER_PERIOD[req.preview.current.period]}
+                {req.preview.current.progress != null && <span className="text-muted"> · {num(req.preview.current.progress)} so far</span>}</span>
+            </div>
+          )}
+          {req.preview.change.type === "target" && req.preview.change.period && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="w-12 shrink-0 text-xs font-semibold uppercase text-emerald-700">New</span>
+              {canDecide && !decided ? (
+                <input inputMode="decimal" aria-label="New target" className="h-8 w-20 rounded-md border border-line px-2 text-sm font-semibold"
+                  value={edits.target ?? ""} onChange={(e) => setEdits({ ...edits, target: e.target.value })} />
+              ) : <b>{edits.target}</b>}
+              <span>{req.campaign_metric || "results"} {PER_PERIOD[req.preview.change.period]}</span>
+            </div>
+          )}
+          {req.preview.change.type === "new_goal" && (
+            <p>Starts with a first-week budget of <b>{usd(req.preview.budget_usd ?? 0)}</b>. <Link href={`/goals/${req.campaign_id}`} className="inline-flex items-center gap-0.5 font-semibold text-brand-700 hover:underline">See the plan <ArrowRight size={12} /></Link></p>
+          )}
+          {req.preview.change.type === "pause" && <p className="text-muted">Pausing stops its work and spending; restart any time.</p>}
+          <TargetHistory target={req.preview.current || null} />
+          {!decided && <p className="flex items-center gap-1.5 text-xs text-emerald-800"><Lock size={12} /> Nothing changes unless you approve.</p>}
+        </div>
       )}
 
       {req.kind === "review" && req.preview.handoff_to && !decided && (
@@ -182,7 +217,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
 
       {decided ? (
         <div className={cx("rounded-md bg-gray-50 px-3 py-2 text-sm", !detail && "mt-3")}>
-          <b>{req.status === "approved" ? (req.kind === "question" ? "Answered" : "Approved") : req.kind === "question" ? "Skipped" : req.kind === "review" ? "Changes requested" : "Declined"}</b>
+          <b>{req.status === "approved" ? (req.kind === "question" ? "Answered" : "Approved") : req.kind === "question" ? "Skipped" : req.kind === "review" ? "Changes requested" : req.kind === "proposal" ? "Kept as is" : "Declined"}</b>
           {req.decided_by_name ? ` by ${req.decided_by_name}` : ""}
           {req.decision_note && <p className="mt-1 text-gray-700">&ldquo;{req.decision_note}&rdquo;</p>}
         </div>
@@ -206,13 +241,13 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
             <div className={cx("space-y-2", !detail && "mt-4")}>
               <Input autoFocus placeholder={`Tell ${agent} why (it will adjust)`} value={note} onChange={(e) => setNote(e.target.value)} />
               <div className="flex gap-2">
-                <Button variant="danger" disabled={busy} onClick={() => decide("reject")}><X size={15} /> {req.kind === "review" ? "Send back" : "Decline"}</Button>
+                <Button variant="danger" disabled={busy} onClick={() => decide("reject")}><X size={15} /> {req.kind === "review" ? "Send back" : req.kind === "proposal" ? "Keep as is" : "Decline"}</Button>
                 <Button variant="ghost" onClick={() => setRejecting(false)}>Cancel</Button>
               </div>
             </div>
           ) : (
             <div className={cx("space-y-3", !detail && "mt-4")}>
-              {(req.kind === "action" || req.kind === "review") && (commenting ? (
+              {(req.kind === "action" || req.kind === "review" || req.kind === "proposal") && (commenting ? (
                 <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={`Comment for ${agent} (optional), e.g. "Go ahead, and mention our pricing page"`} />
               ) : (
                 <button onClick={() => setCommenting(true)} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><MessageSquare size={12} /> Add a comment</button>
@@ -222,10 +257,11 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
                   <Check size={15} />
                   {req.kind === "login" ? "I've signed in" : req.kind === "connect" ? "I've connected it"
                     : req.kind === "review" ? (req.preview.handoff_to ? `Approve & send to ${req.preview.handoff_to}` : "Approve")
+                    : req.kind === "proposal" ? PROPOSAL_YES[req.preview.change?.type || ""] || "Approve"
                     : remember ? "Approve & don't ask again" : "Approve"}
                 </Button>
                 <Button variant="secondary" disabled={busy} onClick={() => setRejecting(true)}>
-                  {req.kind === "action" ? "Don't do this" : req.kind === "review" ? "Ask for changes" : "Not now"}
+                  {req.kind === "action" ? "Don't do this" : req.kind === "review" ? "Ask for changes" : req.kind === "proposal" ? "Keep as is" : "Not now"}
                 </Button>
                 {req.kind === "action" && (
                   <label className="ml-1 flex cursor-pointer items-center gap-2 text-sm">

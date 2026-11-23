@@ -77,7 +77,7 @@ function TeamPage() {
         <div>
           <h1 className="text-2xl font-bold">Team</h1>
           <p className="text-sm text-muted">
-            Who reports to whom. Each AI employee reports to a person (its department&apos;s head, or you until there is one), who gets its
+            Who works with whom. Each team has its people, an AI team lead and AI employees. Every AI employee asks one person on its team, who gets its
             approvals and questions in Needs you.
           </p>
         </div>

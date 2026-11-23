@@ -30,6 +30,7 @@ from app.models import (
     utcnow,
 )
 from app.org import Member, approvers, can_decide, current_member, routed_to_me
+from app.services.proposals import apply_change
 from app.services import activity
 from app.services.events import notify
 from app.services.handoff import hand_off
@@ -61,7 +62,7 @@ async def _enrich(s: AsyncSession, me: Member, rows) -> list[dict]:
     }
     cache: dict[str | None, list] = {}
     out = []
-    for r, campaign_name, agent_id in rows:
+    for r, campaign_name, agent_id, *rest in rows:
         if agent_id not in cache:
             cache[agent_id] = await approvers(s, me.org_id, r.department_id, agent_id)
         people = cache[agent_id]
@@ -73,6 +74,7 @@ async def _enrich(s: AsyncSession, me: Member, rows) -> list[dict]:
             "agent_id": agent_id,
             "agent_name": agent.name if agent else None,
             "agent_title": agent.title if agent else None,
+            "campaign_metric": rest[0] if rest else None,
             "approvers": [u.name or u.email for u in people],
             "routed_to_me": me.user.id in {u.id for u in people},
             "can_decide": me.is_admin or me.user.id in {u.id for u in people},
@@ -87,7 +89,7 @@ async def list_requests(status: str | None = "pending", campaign_id: str | None 
                         s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
     """scope=mine: what's routed to me. scope=all: everything in the organization (view only)."""
     q = (
-        select(UserRequest, Campaign.name, Campaign.agent_id)
+        select(UserRequest, Campaign.name, Campaign.agent_id, Campaign.primary_metric)
         .join(Campaign, Campaign.id == UserRequest.campaign_id)
         .where(Campaign.org_id == me.org_id)
     )
@@ -167,6 +169,12 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
             c.guardrail_version += 1
 
     handoff_note = ""
+    if req.kind == RequestKind.proposal.value and approved:
+        try:
+            handoff_note = ": " + await apply_change(s, campaign, (req.preview or {}).get("change") or {},
+                                                     req.rationale, req.edited_fields)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from None
     if req.kind == RequestKind.review.value:
         d = await s.get(Deliverable, (req.preview or {}).get("deliverable_id") or "-")
         if d and d.org_id == me.org_id:
@@ -186,7 +194,8 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
             "login": "Signed in" if approved else "Declined sign-in",
             "connect": "Connected" if approved else "Declined to connect",
             "question": "Answered" if approved else "Skipped the question",
-            "review": "Approved" if approved else "Asked for changes to"}[req.kind]
+            "review": "Approved" if approved else "Asked for changes to",
+            "proposal": "Approved" if approved else "Kept things as they are instead of"}[req.kind]
     edited = " (edited)" if req.edited_fields else ""
     await activity.log(
         s, req.campaign_id, "decision", f"{verb}{edited} by {who}: {req.title}{grant_note}{handoff_note}", run_id=req.run_id,
@@ -200,4 +209,4 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
         if run and run.status == RunStatus.waiting.value:
             run.status = RunStatus.queued.value
     await notify(s, req.campaign_id, "request", id=req.id)
-    return (await _enrich(s, me, [(req, campaign.name, campaign.agent_id)]))[0]
+    return (await _enrich(s, me, [(req, campaign.name, campaign.agent_id, campaign.primary_metric)]))[0]

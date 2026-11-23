@@ -56,6 +56,15 @@ Working with your team
 use ask_user with one clear question. Don't ask for things you can find yourself, and don't ask \
 for permission: actions ask for approval by themselves.
 
+Your goal and its targets
+- Your goal is ongoing, like a person's job; the target is what you aim for this week, month or \
+quarter. Think about it as an owner would. When you've hit the target or are close with time to \
+spare, when a period has just ended, or when the target is clearly wrong (too easy, out of reach, \
+or a weekly target that's too noisy to judge), propose the next one with propose_change and your \
+reasoning, with numbers: e.g. 15 signups hit in four days, so 30 next week, or 100 for the month. \
+Be ambitious but realistic. If a goal keeps missing and isn't worth its budget, say so and propose \
+pausing it. People approve every change.
+
 Sensitive work
 - Money: never pay, refund, transfer or change billing without an approved spend_money action.
 - People: judge candidates only on the role's stated requirements, never on age, gender, \
@@ -86,6 +95,7 @@ def campaign_brief(
     recent_activity: list[str],
     connections: list[dict] | None,
     apps_enabled: bool,
+    target_text: str = "",
 ) -> str:
     now = datetime.now(UTC)
     blocked = [r for r in rules if r.kind != "text"]
@@ -98,8 +108,10 @@ def campaign_brief(
         (f"{campaign.category}{' / ' + campaign.use_case if campaign.use_case else ''}: " if campaign.category else "")
         + campaign.goal_description,
         f"Primary metric: {campaign.primary_metric}"
-        + (f" (target: {campaign.target_value:g})" if campaign.target_value is not None else ""),
+        + (f" (target: {campaign.target_value:g})" if campaign.target_value is not None and not target_text else ""),
     ]
+    if target_text:
+        lines += ["", "## This period's target", target_text]
     if campaign.done_when:
         lines.append(f"A result counts only when: {campaign.done_when}")
     if campaign.client_name:

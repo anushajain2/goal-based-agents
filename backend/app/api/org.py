@@ -19,6 +19,7 @@ from app.models import (
     Department,
     DepartmentMember,
     Invitation,
+    LeadReview,
     LedgerEntry,
     Membership,
     Organization,
@@ -41,6 +42,7 @@ from app.org import (
     require_admin,
 )
 
+from app.agent.team_lead import lead_name, review_json, spent_this_month
 from app.services.website import UnsafeURL, normalize_url
 
 router = APIRouter(prefix="/api", tags=["organization"])
@@ -258,6 +260,11 @@ async def get_org(s: AsyncSession = Depends(get_session), me: Member = Depends(c
         by_user.setdefault(u, []).append(d)
     users = {u.id: u for u, _ in rows}
     stats = await _agent_stats(s, me.org_id)
+    last_reviews: dict[str, LeadReview] = {}
+    for r in (await s.execute(select(LeadReview).where(LeadReview.org_id == me.org_id)
+                              .order_by(LeadReview.created_at))).scalars():
+        last_reviews[r.department_id] = r
+    lead_cost = {d.id: float(await spent_this_month(s, d.id)) for d in departments}
     empty = {"goals": 0, "active_goals": 0, "spent": 0.0, "working": False, "needs_you": 0}
     invitations = []
     if me.is_admin:
@@ -276,6 +283,10 @@ async def get_org(s: AsyncSession = Depends(get_session), me: Member = Depends(c
             {
                 "id": d.id, "name": d.name, "kind": d.kind,
                 "head": _user(users[d.head_user_id]) if d.head_user_id in users else None,
+                "lead": {"name": lead_name(d), "enabled": d.lead_enabled, "review_days": d.lead_review_days,
+                         "monthly_cap_usd": float(d.lead_monthly_cap_usd), "spent_this_month_usd": lead_cost[d.id],
+                         "last_review_at": d.lead_last_review_at.isoformat() if d.lead_last_review_at else None,
+                         "last": review_json(last_reviews[d.id]) if d.id in last_reviews else None},
                 "people": [_user(users[u]) for u in by_dept.get(d.id, []) if u in users],
                 "agents": [
                     {"id": a.id, "name": a.name, "title": a.title, "objective": a.objective,
@@ -325,6 +336,61 @@ async def create_department(body: DepartmentIn, s: AsyncSession = Depends(get_se
     return {"id": d.id, "name": d.name}
 
 
+class LeadPatch(BaseModel):
+    enabled: bool | None = None
+    review_days: int | None = Field(default=None, ge=1, le=30)
+    monthly_cap_usd: float | None = Field(default=None, ge=0, le=500)
+
+
+def _may_manage_team(me: Member, department_id: str) -> None:
+    if not (me.is_admin or me.in_department(department_id)):
+        raise HTTPException(403, "Only people on this team (or admins) can do that.")
+
+
+@router.patch("/departments/{department_id}/lead")
+async def update_lead(department_id: str, body: LeadPatch, s: AsyncSession = Depends(get_session),
+                      me: Member = Depends(current_member)):
+    d = await _department(s, me, department_id)
+    _may_manage_team(me, d.id)
+    changes = body.model_dump(exclude_unset=True)
+    if "enabled" in changes:
+        d.lead_enabled = bool(changes["enabled"])
+    if changes.get("review_days"):
+        d.lead_review_days = changes["review_days"]
+    if changes.get("monthly_cap_usd") is not None:
+        from decimal import Decimal
+
+        d.lead_monthly_cap_usd = Decimal(str(changes["monthly_cap_usd"]))
+    return {"ok": True}
+
+
+@router.get("/departments/{department_id}/lead/reviews")
+async def lead_reviews(department_id: str, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    d = await _department(s, me, department_id)
+    rows = (await s.execute(select(LeadReview).where(LeadReview.department_id == d.id)
+                            .order_by(LeadReview.created_at.desc()).limit(10))).scalars()
+    return [review_json(r) for r in rows]
+
+
+@router.post("/departments/{department_id}/lead/review")
+async def review_now(department_id: str, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    """Ask the AI team lead to review the team now (the worker picks it up within seconds)."""
+    d = await _department(s, me, department_id)
+    _may_manage_team(me, d.id)
+    if not _can_research():
+        raise HTTPException(400, "Add ANTHROPIC_API_KEY to the .env file and restart to use AI team leads.")
+    busy = (await s.execute(select(LeadReview.id).where(LeadReview.department_id == d.id,
+                                                        LeadReview.status.in_(["queued", "running"])))).first()
+    if busy:
+        raise HTTPException(409, f"{lead_name(d)} is already reviewing the team.")
+    if await spent_this_month(s, d.id) >= d.lead_monthly_cap_usd:
+        raise HTTPException(400, f"This month's limit for {lead_name(d)} (${d.lead_monthly_cap_usd:.2f}) is used up. Raise it to review now.")
+    r = LeadReview(org_id=me.org_id, department_id=d.id, requested_by=me.user.id)
+    s.add(r)
+    await s.flush()
+    return review_json(r)
+
+
 class DepartmentPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     head_user_id: str | None = None  # send null to clear
@@ -344,7 +410,7 @@ async def update_department(department_id: str, body: DepartmentPatch, s: AsyncS
             in_org = (await s.execute(select(Membership.id).where(Membership.org_id == me.org_id,
                                                                   Membership.user_id == head))).first()
             if not in_org:
-                raise HTTPException(400, "The head must be a member of the organization. Invite them first.")
+                raise HTTPException(400, "Pick someone in the organization. Invite them first.")
             await set_head(s, d, head)
         else:
             d.head_user_id = None
@@ -532,6 +598,12 @@ async def update_member(user_id: str, body: MemberPatch, s: AsyncSession = Depen
                                                        DepartmentMember.department_id.in_(org_depts)))
         for d in valid:
             s.add(DepartmentMember(department_id=d, user_id=user_id))
+        await s.flush()
+        for d in (await s.execute(select(Department).where(Department.org_id == me.org_id))).scalars():
+            if d.head_user_id == user_id and d.id not in valid:
+                d.head_user_id = None  # left the team: its AI employees go back to the default
+            elif d.id in valid and not d.head_user_id and m.role != Role.owner.value:
+                d.head_user_id = user_id  # the first person on a team gets its AI employees' requests
     return {"ok": True}
 
 

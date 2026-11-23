@@ -45,7 +45,7 @@ from app.models import (
     utcnow,
 )
 from app.org import approvers
-from app.services import activity, ledger, policy
+from app.services import activity, ledger, policy, targets
 from app.services.events import notify
 
 log = logging.getLogger(__name__)
@@ -355,12 +355,14 @@ class CycleRunner:
                 agent.name if agent else None, dept.name if dept else None, org.name if org else None,
                 [p.name or p.email for p in people],
             )
+            await targets.roll_over(s, campaign)
+            target_text = targets.describe(campaign, await targets.value_now(s, campaign)) if targets.active(campaign) else ""
             brief = identity + "\n\n" + prompts.campaign_brief(
                 campaign=campaign, budget=budget, cycle_number=run.cycle_number, rules=rules, grants=grants,
                 recent_cycles=[f"Cycle {n}: {summary}" for n, summary in reversed(cycles)],
                 metrics=list(reversed(metrics)),
                 recent_activity=[f"{a.created_at:%m-%d %H:%M} [{a.status}] {a.title}" for a in reversed(acts)],
-                connections=connections, apps_enabled=uses_apps,
+                connections=connections, apps_enabled=uses_apps, target_text=target_text,
             )
             servers = (await s.execute(select(McpServer).where(McpServer.org_id == campaign.org_id)
                                        .order_by(McpServer.created_at))).scalars().all() if campaign.org_id else []
