@@ -56,6 +56,16 @@ cd frontend && npm install && npm run dev
 ```
 </details>
 
+### Starting over with an email
+
+To delete an account so the same email can sign up and go through onboarding again:
+
+```bash
+cd backend && .venv/bin/python -m app.cli delete-user someone@example.com
+```
+
+It shows what will be deleted and asks you to confirm. If that person was the only member of their organization, the organization and everything in it goes too; otherwise the team keeps its goals.
+
 ### Tests
 
 ```bash
