@@ -29,6 +29,16 @@ export default function WelcomePage() {
       else if (r.status === 401) router.replace("/login?next=/welcome");
     });
     fetch("/api/org/presets").then((r) => r.json()).then((d) => setPresets(d.departments)).catch(() => null);
+    // The website typed on the landing page, so people don't type it twice.
+    try {
+      const site = localStorage.getItem("autopilot:website");
+      if (site) {
+        setWebsite((w) => w || site);
+        const guess = site.replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[./]/)[0];
+        const pretty = guess.split(/[-_]+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        if (pretty) setName((n) => n || pretty);
+      }
+    } catch { /* storage blocked: they type it in */ }
   }, [router]);
 
   const toggle = (k: string) => setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
