@@ -7,7 +7,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { ApprovalCard, KIND_BADGE } from "@/components/ApprovalCard";
 import { AgentAvatar } from "@/components/team";
-import { Badge, Card, cx, Empty } from "@/components/ui";
+import { Badge, Card, cx, Empty, PageHeader } from "@/components/ui";
 import { OrgInfo, timeAgo, useApi, UserRequest } from "@/lib/api";
 
 type Tab = "mine" | "all" | "done";
@@ -59,19 +59,20 @@ function NeedsYouPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Needs you</h1>
-          <p className="text-sm text-muted">Approvals, questions and sign-ins from the AI employees who report to you. Each one waits here until someone decides.</p>
-        </div>
-        <div className="inline-flex overflow-hidden rounded-md border border-line text-xs font-semibold">
-          {tabs.map(([t, label]) => (
-            <button key={t} onClick={() => { setTab(t); setMobileDetail(false); }} className={cx("px-3 py-1.5", tab === t ? "bg-ink text-white" : "bg-white text-muted hover:text-ink")}>
-              {label}{t !== "done" && counts[t] ? <span className={cx("ml-1.5 rounded-full px-1.5", tab === t ? "bg-white/20" : "bg-amber-100 text-amber-800")}>{counts[t]}</span> : null}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        title="Needs you"
+        subtitle="Approvals, questions and suggestions waiting for a yes. Nothing happens until someone decides."
+        actions={
+          <div className="inline-flex rounded-xl bg-zinc-100 p-1 text-[13px] font-semibold">
+            {tabs.map(([t, label]) => (
+              <button key={t} onClick={() => { setTab(t); setMobileDetail(false); }}
+                className={cx("rounded-lg px-3 py-1.5 transition", tab === t ? "bg-white text-ink shadow-sm" : "text-zinc-500 hover:text-ink")}>
+                {t === "all" ? "Everyone" : label}{t !== "done" && counts[t] ? <span className={cx("tabular ml-1.5 rounded-full px-1.5 text-[11px]", tab === t ? "bg-amber-100 text-amber-800" : "bg-zinc-200 text-zinc-600")}>{counts[t]}</span> : null}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {list && list.length === 0 ? (
         <Card>

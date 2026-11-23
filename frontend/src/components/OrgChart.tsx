@@ -45,15 +45,15 @@ export function OrgChart({ org, goals, onGoalClick, onChanged }: {
         </div>
       </div>
     ) : (
-      <button onClick={() => setAdding(true)} className="flex h-24 w-[200px] items-center justify-center gap-1.5 rounded-xl border border-dashed border-line text-sm font-semibold text-muted hover:border-gray-400 hover:text-ink">
+      <button onClick={() => setAdding(true)} className="flex h-24 w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-zinc-300 text-sm font-semibold text-muted transition hover:border-zinc-400 hover:bg-white hover:text-ink">
         <Plus size={15} /> Add department
       </button>
     )
   );
 
   const cells = [
-    ...org.departments.map((d, i) => <div key={d.id} className="org-child w-[260px] shrink-0">{columns[i]}</div>),
-    ...(addColumn ? [<div key="add" className="org-child w-[260px] shrink-0">{addColumn}</div>] : []),
+    ...org.departments.map((d, i) => <div key={d.id} className="org-child w-[250px] shrink-0">{columns[i]}</div>),
+    ...(addColumn ? [<div key="add" className="org-child w-[250px] shrink-0">{addColumn}</div>] : []),
   ];
   const rows = Array.from({ length: Math.ceil(cells.length / 4) }, (_, r) => cells.slice(r * 4, r * 4 + 4));
   return (
@@ -88,7 +88,7 @@ const roleWord = (r: string) => (r === "owner" ? "Owner" : r === "admin" ? "Admi
 
 function PersonCard({ person, label }: { person: Person; label: string }) {
   return (
-    <div className="flex w-max items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 shadow-sm">
+    <div className="flex w-max items-center gap-3 rounded-2xl border border-line bg-white px-4 py-2.5 shadow-[var(--shadow-card)]">
       <PersonAvatar name={person.name || person.email} size={36} />
       <div>
         <div className="text-sm font-bold">{person.name || person.email}</div>
@@ -109,42 +109,38 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
   const agentName = (id: string) => org.departments.flatMap((x) => x.agents).find((x) => x.id === id)?.name || "another AI employee";
 
   return (
-    <div>
+    <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[var(--shadow-card)]">
       <TeamCard d={d} org={org} onChanged={onChanged} />
-      <div className="org-stem" />
-      <LeadCard d={d} org={org} onChanged={onChanged} />
-      <div className="org-stem" />
-      <div className="space-y-2">
+      <div className="px-2.5 pt-2.5"><LeadCard d={d} org={org} onChanged={onChanged} /></div>
+      <div className="space-y-1 p-2.5">
         {d.agents.map((a) => {
           const mine = (goals || []).filter((g) => g.agent?.id === a.id);
           const live = mine.filter((g) => g.status !== "draft");
           const later = mine.filter((g) => g.status === "draft");
           const boss = a.reports_to || lead;
           return (
-            <div key={a.id} className="rounded-xl border border-violet-200 bg-violet-50/40">
-              <Link href={`/team/agents/${a.id}`} className="block px-3 py-2.5 hover:bg-violet-50">
+            <div key={a.id} className="rounded-xl transition hover:bg-zinc-50">
+              <Link href={`/team/agents/${a.id}`} className="block px-2 py-2" title={a.objective || undefined}>
                 <span className="flex items-center gap-2.5">
-                  <AgentAvatar name={a.name} size={32} state={a.working ? "working" : a.needs_you ? "waiting" : "idle"} />
-                  <span className="min-w-0">
+                  <AgentAvatar name={a.name} size={30} state={a.working ? "working" : a.needs_you ? "waiting" : "idle"} />
+                  <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13.5px] font-semibold">{a.name}</span>
-                    <span className="block truncate text-[11.5px] text-muted">AI employee{a.title ? ` · ${a.title}` : ""}</span>
+                    <span className="block truncate text-[11.5px] text-muted">{a.title || "AI employee"} · asks {leadName(boss)}</span>
                   </span>
                 </span>
-                {a.objective && <span className="mt-1.5 line-clamp-2 block text-[11.5px] leading-snug text-gray-700"><b className="text-violet-700">Objective:</b> {a.objective}</span>}
-                <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-violet-700"><Hand size={11} /> Asks {leadName(boss)}</span>
+                {a.objective && <span className="mt-1.5 line-clamp-2 block pl-[40px] text-[11.5px] leading-snug text-zinc-600">{a.objective}</span>}
                 {a.handoff_to_agent_id && (
-                  <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-brand-700">
-                    <ArrowRight size={11} /> PRDs go to {agentName(a.handoff_to_agent_id)}{a.handoff_review ? `, ${leadName(boss) === "you" ? "you approve" : leadName(boss) + " approves"} first` : ""}
+                  <span className="mt-1 flex items-center gap-1 pl-[40px] text-[11px] font-semibold text-brand-700">
+                    <ArrowRight size={11} /> PRDs to {agentName(a.handoff_to_agent_id)}{a.handoff_review ? `, ${leadName(boss) === "you" ? "you approve" : leadName(boss) + " approves"} first` : ""}
                   </span>
                 )}
               </Link>
-              {goals && (
-                <div className="space-y-1.5 border-t border-violet-100 px-2 py-2">
-                  {mine.length === 0 && <p className="px-1 text-[11.5px] text-muted">No goals yet</p>}
+              {goals && mine.length > 0 && (
+                <div className="space-y-1 pb-2 pl-[48px] pr-2">
                   {live.length > 0 && <GoalChips goals={live} onGoalClick={onGoalClick} />}
                   {later.length > 0 && (
                     <div>
-                      <div className="px-1 pb-1 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{live.length ? "Not started" : "Suggested · not started"}</div>
+                      {live.length > 0 && <div className="px-1 pb-0.5 pt-1 text-[10.5px] font-semibold uppercase tracking-wide text-zinc-400">Not started</div>}
                       <GoalChips goals={later} onGoalClick={onGoalClick} muted />
                     </div>
                   )}
@@ -154,8 +150,8 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
           );
         })}
         {canStaff && (
-          <button onClick={() => setHiring(true)} className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-line py-1.5 text-[12px] font-semibold text-muted hover:border-gray-400 hover:text-ink">
-            <Plus size={12} /> Hire another AI employee
+          <button onClick={() => setHiring(true)} className="flex w-full items-center justify-center gap-1 rounded-xl py-2 text-[12.5px] font-semibold text-muted transition hover:bg-zinc-50 hover:text-ink">
+            <Plus size={13} /> Hire an AI employee
           </button>
         )}
         {hiring && <HireDialog org={org} department={d} onClose={() => setHiring(false)} onHired={() => { setHiring(false); onChanged?.(); }} />}
@@ -196,17 +192,17 @@ function TeamCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInfo; onCh
   };
 
   return (
-    <div className="rounded-xl border border-line bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-line px-3 py-2">
-        <span className="text-[12px] font-bold uppercase tracking-wide text-gray-600">{d.name} team</span>
-        {admin && !adding && <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><UserPlus size={12} /> Add people</button>}
+    <div className="border-b border-line bg-zinc-50/70">
+      <div className="flex items-center justify-between px-3.5 pt-3">
+        <span className="text-[14.5px] font-semibold">{d.name}</span>
+        {admin && !adding && <button onClick={() => setAdding(true)} title="Add people to this team" className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 hover:bg-white hover:text-ink"><UserPlus size={14} /></button>}
       </div>
-      <div className="px-3 py-2.5">
+      <div className="px-3.5 pb-2.5 pt-1.5">
         <div className="flex items-center gap-2">
           <span className="flex -space-x-2">
-            {people.slice(0, 4).map((p) => <span key={p.id} className="rounded-full ring-2 ring-white"><PersonAvatar name={p.name || p.email} size={28} /></span>)}
+            {people.slice(0, 4).map((p) => <span key={p.id} className="rounded-full ring-2 ring-zinc-50"><PersonAvatar name={p.name || p.email} size={24} /></span>)}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold" title={people.map(nameOf).join(", ")}>
+          <span className="min-w-0 flex-1 truncate text-[12.5px] text-zinc-600" title={people.map(nameOf).join(", ")}>
             {people.length === 1 && people[0].id === org.me.id ? "Just you so far" : people.map(nameOf).join(", ")}
           </span>
         </div>
@@ -233,7 +229,7 @@ function TeamCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInfo; onCh
         )}
         {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
       </div>
-      <div className="flex items-center gap-1.5 border-t border-line px-3 py-1.5 text-[11.5px] text-muted">
+      {(people.length > 1 || (asks && asks.id !== org.me.id)) && <div className="flex items-center gap-1.5 px-3.5 pb-2.5 text-[11.5px] text-muted">
         <Hand size={11} className="shrink-0" />
         <span className="shrink-0">AI employees ask</span>
         {admin && people.length > 1 ? (
@@ -244,7 +240,7 @@ function TeamCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInfo; onCh
         ) : (
           <b className="truncate text-ink">{asks ? nameOf(asks) : "the owner"}</b>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -254,7 +250,7 @@ function GoalChips({ goals, onGoalClick, muted }: { goals: Campaign[]; onGoalCli
     <ul className="space-y-1">
       {goals.map((g) => (
         <li key={g.id}>
-          <button onClick={() => onGoalClick?.(g)} className={cx("flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ring-1 hover:ring-brand-500", muted ? "bg-white/60 text-gray-600 ring-gray-300" : "bg-white ring-line")}>
+          <button onClick={() => onGoalClick?.(g)} className={cx("flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] ring-1 ring-inset transition hover:ring-brand-200", muted ? "bg-white text-zinc-500 ring-dashed ring-zinc-200" : "bg-white ring-line")}>
             <span className={cx("mt-1 h-2 w-2 shrink-0 rounded-full", g.status === "active" ? (g.pending_requests ? "bg-amber-500" : "bg-emerald-500") : "bg-gray-300")} />
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2">

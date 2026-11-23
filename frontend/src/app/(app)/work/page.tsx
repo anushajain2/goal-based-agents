@@ -3,7 +3,7 @@
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { Card, cx, Input, Select } from "@/components/ui";
+import { Card, cx, Input, Select, PageHeader } from "@/components/ui";
 import { ViewToggle, WorkLog } from "@/components/WorkLog";
 import { ActivityItem, Campaign, usd, useApi } from "@/lib/api";
 
@@ -42,10 +42,7 @@ export default function WorkPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Work log</h1>
-        <p className="text-sm text-muted">Everything Autopilot has done, decided and asked, across all goals. Click any entry for the details.</p>
-      </div>
+      <PageHeader title="Work log" subtitle="Everything your AI employees did, decided and asked." />
 
       <Card className="flex flex-wrap items-center gap-3 px-4 py-3">
         <div className="w-full sm:w-64">

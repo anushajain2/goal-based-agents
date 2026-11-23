@@ -273,7 +273,11 @@ function SuggestedTeam({ info, onAdding }: { info: SetupInfo; onAdding: () => vo
           Click any goal to see what it does; change the team whenever you like.
         </p>
         <div className="mb-3"><TeamSize profile={info.org.profile} canAdd={info.can_run && info.can_research} onAdding={onAdding} /></div>
-        {org && <OrgChart org={org} goals={mine} onGoalClick={setPanel} onChanged={refresh} />}
+        {org && (
+          <div className="rounded-3xl border border-line bg-zinc-50/60 bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] p-6 [background-size:18px_18px]">
+            <OrgChart org={org} goals={mine} onGoalClick={setPanel} onChanged={refresh} />
+          </div>
+        )}
       </section>
 
       {panel && <GoalPanel goal={panel} onClose={() => setPanel(null)} onStart={(g) => { setPanel(null); setStarting([g]); }} onRemoved={() => { setPanel(null); refresh(); }} />}

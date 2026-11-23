@@ -24,10 +24,10 @@ export function LeadCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInf
   return (
     <>
       <button onClick={() => setOpen(true)}
-        className={cx("block w-full rounded-xl border px-3 py-2.5 text-left hover:border-teal-400",
-          lead.enabled ? "border-teal-200 bg-teal-50/50" : "border-dashed border-line bg-white")}>
+        className={cx("block w-full rounded-xl px-3 py-2.5 text-left ring-1 ring-inset transition",
+          lead.enabled ? "bg-gradient-to-br from-teal-50 to-emerald-50/40 ring-teal-100 hover:ring-teal-300" : "bg-white ring-zinc-200 ring-dashed hover:ring-zinc-300")}>
         <span className="flex items-center gap-2.5">
-          <span className={cx("grid h-8 w-8 shrink-0 place-items-center rounded-full", lead.enabled ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-400")}>
+          <span className={cx("grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full", lead.enabled ? "bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm" : "bg-zinc-100 text-zinc-400")}>
             <Compass size={16} />
           </span>
           <span className="min-w-0 flex-1">

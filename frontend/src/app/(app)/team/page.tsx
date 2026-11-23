@@ -12,7 +12,7 @@ import { HireDialog, OrgChart } from "@/components/OrgChart";
 import { TeamSize } from "@/components/TeamSize";
 import { StartGoal } from "@/components/StartGoal";
 import { AgentAvatar, PersonAvatar } from "@/components/team";
-import { Badge, Button, Card, cx, ErrorNote, Input } from "@/components/ui";
+import { Badge, Button, Card, cx, ErrorNote, Input, PageHeader } from "@/components/ui";
 import { api, Campaign, DepartmentInfo, OrgInfo, usd, useApi } from "@/lib/api";
 
 export default function Page() {
@@ -73,22 +73,17 @@ function TeamPage() {
         </Card>
       )}
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Team</h1>
-          <p className="text-sm text-muted">
-            Who works with whom. Each team has its people, AI employees, and an AI team lead that keeps reviewing the team and suggests updated
-            goals or new AI employees to take live. Every AI employee asks one person on its team, in Needs you.
-          </p>
-        </div>
-        {admin && (
-          <div className="flex gap-2">
-            <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold hover:bg-gray-50"><UserPlus size={15} /> Invite people</Link>
-            <Button onClick={() => setAdding(true)}><Plus size={15} /> Add department</Button>
+      <PageHeader
+        title="Team"
+        subtitle="Your people, AI employees, and an AI team lead per team that keeps suggesting what to do next."
+        actions={admin && (
+          <>
+            <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3.5 text-sm font-semibold shadow-[0_1px_2px_rgb(16_24_40/0.05)] hover:bg-zinc-50"><UserPlus size={15} /> Invite</Link>
+            <Button onClick={() => setAdding(true)}><Plus size={15} /> Team</Button>
             <Button variant="primary" onClick={() => setHiring(true)}><Bot size={15} /> Hire AI employee</Button>
-          </div>
+          </>
         )}
-      </div>
+      />
 
       {err && <ErrorNote>{err}</ErrorNote>}
 
@@ -111,18 +106,18 @@ function TeamPage() {
 
       <TeamSize profile={org.org.profile} canAdd={org.me.is_admin} onAdding={() => router.push("/setup")} />
 
-          <div className="inline-flex overflow-hidden rounded-md border border-line text-xs font-semibold">
+      <div className="inline-flex rounded-xl bg-zinc-100 p-1 text-[13px] font-semibold">
         {(["chart", "list"] as const).map((v) => (
-          <button key={v} onClick={() => setView(v)} className={cx("px-3 py-1.5", view === v ? "bg-ink text-white" : "bg-white text-muted hover:text-ink")}>
+          <button key={v} onClick={() => setView(v)} className={cx("rounded-lg px-3 py-1.5 transition", view === v ? "bg-white text-ink shadow-sm" : "text-zinc-500 hover:text-ink")}>
             {v === "chart" ? "Org chart" : "Details"}
           </button>
         ))}
       </div>
 
       {view === "chart" ? (
-        <Card className="p-5">
+        <div className="rounded-3xl border border-line bg-zinc-50/60 bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] p-6 [background-size:18px_18px]">
           <OrgChart org={org} goals={goals || []} onGoalClick={setPanel} onChanged={() => { reload(); reloadGoals(); }} />
-        </Card>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {org.departments.map((d) => (

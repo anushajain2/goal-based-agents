@@ -81,7 +81,7 @@ function GoalPage() {
             {c.category && <span className="inline-flex items-center gap-1">{catKey && CATEGORY_ICON[catKey]} {c.category}{c.use_case ? ` · ${c.use_case}` : ""}</span>}
             {c.client_name && <Badge tone="violet">for {c.client_name}</Badge>}
           </div>
-          <h1 className="text-2xl font-bold leading-tight">{c.name}</h1>
+          <h1 className="text-[28px] font-semibold leading-tight tracking-tight">{c.name}</h1>
           {c.agent && (
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
               <Link href={`/team/agents/${c.agent.id}`} className="inline-flex items-center gap-1.5 font-semibold hover:underline">
@@ -95,7 +95,7 @@ function GoalPage() {
               )}
             </div>
           )}
-          {c.goal_description !== c.name && <p className="mt-1 text-[15px] text-gray-700">{c.goal_description}</p>}
+          {c.goal_description !== c.name && <p className="mt-1.5 max-w-2xl text-[14.5px] text-zinc-600">{c.goal_description}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
             <GoalStatus c={c} />
             {c.done_when && (
@@ -124,7 +124,7 @@ function GoalPage() {
       </div>
 
       {(c.key_results?.length || 0) > 0 && (
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border border-violet-200 bg-violet-50/40 px-4 py-2.5 text-[13px]">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] shadow-[var(--shadow-card)]">
           <span className="text-[11px] font-bold uppercase tracking-wide text-violet-700">Key results</span>
           {c.key_results.map((kr) => <span key={kr} className="inline-flex items-center gap-1.5"><Target size={13} className="text-violet-600" /> {kr}</span>)}
         </div>

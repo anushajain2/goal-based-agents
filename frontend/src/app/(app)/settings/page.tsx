@@ -6,7 +6,7 @@ import { useState } from "react";
 import { CodeAndData } from "@/components/Connections";
 import { ListEditor } from "@/components/Guardrails";
 import { PersonAvatar } from "@/components/team";
-import { Badge, Button, Card, CardHeader, Dot, ErrorNote, Input, Select } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, Dot, ErrorNote, Input, Select, PageHeader } from "@/components/ui";
 import { api, Exclusion, Grant, Level, McpServerInfo, OrgInfo, timeAgo, usd, useApi } from "@/lib/api";
 
 type Connections = {
@@ -22,10 +22,7 @@ const POPULAR = ["twitter", "linkedin", "gmail", "slack", "hubspot", "shopify", 
 export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-muted">Your organization and its people, what your AI employees are connected to, and the permissions you&apos;ve given them.</p>
-      </div>
+      <PageHeader title="Settings" subtitle="Your organization, people, connections and permissions." />
       <Organization />
       <People />
       <Staffing />

@@ -1,16 +1,16 @@
 "use client";
 
-import { ArrowRight, Plus, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 import { KIND_BADGE } from "@/components/ApprovalCard";
-import { GoalProgress, GoalStatus } from "@/components/goal";
+import { GoalProgress } from "@/components/goal";
 import { EmployeeAvatar } from "@/components/Shell";
-import { Badge, Card, CardHeader, ErrorNote } from "@/components/ui";
+import { TargetLine } from "@/components/Target";
+import { Badge, Card, cx, ErrorNote, PageHeader } from "@/components/ui";
 import { CATEGORY_ICON, UseCaseCard } from "@/components/UseCaseLibrary";
-import { ViewToggle, WorkLog } from "@/components/WorkLog";
+import { WorkLog } from "@/components/WorkLog";
 import { AgentAvatar } from "@/components/team";
 import { ActivityItem, Campaign, num, OrgInfo, Overview, SetupInfo, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
 import { CATEGORIES, FEATURED, findUseCase } from "@/lib/useCases";
@@ -24,7 +24,6 @@ export default function HomePage() {
   const { data: org } = useApi<OrgInfo>("/api/org");
   const { data: setup } = useApi<SetupInfo>("/api/org/setup", { live: false, pollMs: 5000 });
   const researching = setup?.setup && ["queued", "running"].includes(setup.setup.status);
-  const [view, setView] = useState<"highlights" | "everything">("highlights");
 
   if (error) return <ErrorNote>Can&apos;t reach the backend ({error}). Is <code>./scripts/dev.sh</code> running?</ErrorNote>;
   if (!ov || !goals) return <p className="text-muted">Loading…</p>;
@@ -43,162 +42,155 @@ export default function HomePage() {
   const team = (org?.departments || []).flatMap((d) => d.agents.map((a) => ({ ...a, dept: d.name })));
 
   const state = ov.working_on.length ? "working" : ov.waiting_on_you ? "waiting" : "idle";
+  const hour = new Date().getHours();
+  const hello = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const live = goals.filter((g) => g.status === "active");
+  const onTrack = live.filter((g) => g.target?.status === "active" && g.target.target && g.target.progress != null
+    && g.target.progress / g.target.target >= Math.max(0, 1 - (g.target.days_left ?? 0) / ({ week: 7, month: 30, quarter: 91 }[g.target.period || "week"]) - 0.15)).length;
+  const firstName = (org?.me.name || "").split(" ")[0];
+
   return (
-    <div className="space-y-6">
-      {/* The employee, at a glance */}
-      <Card className="flex flex-wrap items-center gap-4 p-5">
-        <EmployeeAvatar state={state} size={52} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-semibold text-muted">{org ? `${org.org.name} · ${team.length} AI employees` : "Your AI team"}</div>
-          <div className="mt-0.5 text-xl font-bold leading-snug">
-            {state === "working" ? <>Working on {ov.working_on.join(", ")}</>
-              : state === "waiting" ? <>Waiting on you for {ov.waiting_on_you} {ov.waiting_on_you === 1 ? "decision" : "decisions"}</>
-              : ov.goals.active ? <>Between work sessions{ov.next_check_in ? <>: next check-in {timeAgo(ov.next_check_in)}</> : null}</>
-              : <>No active goals right now</>}
-          </div>
-          {ov.now && state === "working" && (
-            <div className="mt-1 flex items-center gap-2 text-sm text-brand-700">
-              <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-brand-500" />
-              <span className="truncate">{ov.now.title}</span>
-            </div>
-          )}
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow={new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+        title={`${hello}${firstName ? `, ${firstName}` : ""}`}
+        subtitle={<>
+          {team.length} AI employees on {live.length} live goal{live.length === 1 ? "" : "s"}
+          {ov.waiting_on_you ? <> · <Link href="/approvals" className="font-semibold text-amber-700 hover:underline">{ov.waiting_on_you} {ov.waiting_on_you === 1 ? "thing needs" : "things need"} you</Link></> : " · nothing needs you"}
+        </>}
+        actions={<Link href="/goals/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-sm hover:bg-brand-600"><Plus size={16} /> New goal</Link>}
+      />
+
+      {state === "working" && ov.now && (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white px-4 py-3">
+          <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
+          <span className="min-w-0 flex-1 truncate text-[13.5px]"><b className="font-semibold">Working now</b> <span className="text-zinc-600">· {ov.now.title}</span></span>
+          <Link href="/work" className="shrink-0 text-[13px] font-semibold text-emerald-700 hover:underline">Watch</Link>
         </div>
-        <Link href="/goals/new" className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600">
-          <Plus size={16} /> New goal
-        </Link>
-        {team.length > 0 && (
-          <div className="flex w-full flex-wrap gap-2 border-t border-line pt-3">
-            {team.map((a) => (
-              <Link key={a.id} href={`/team/agents/${a.id}`} className="inline-flex items-center gap-2 rounded-full border border-line py-1 pl-1 pr-3 text-xs hover:bg-gray-50">
-                <AgentAvatar name={a.name} size={24} state={a.working ? "working" : a.needs_you ? "waiting" : "idle"} />
-                <span className="font-semibold">{a.name}</span>
-                <span className="text-muted">{a.working ? "working" : a.needs_you ? "needs a yes" : a.active_goals ? `${a.active_goals} active` : "idle"}</span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Spent this month" value={usd(ov.spend_this_month.total)} sub={`AI ${usd(ov.spend_this_month.ai_usage)} · other ${usd(ov.spend_this_month.other)}`} />
-        <Stat label="Actions this week" value={num(ov.actions_this_week)} sub={`${num(ov.steps_this_week)} ${ov.steps_this_week === 1 ? "step" : "steps"} in total`} />
-        <Stat label="Active goals" value={`${ov.goals.active}`} sub={`${ov.goals.total} in total`} />
-        <Stat label="Needs you" value={`${ov.waiting_on_you}`} sub={ov.waiting_on_you ? "Approvals and sign-ins" : "Nothing waiting"} highlight={ov.waiting_on_you > 0} />
+        <Stat href="/approvals" label="Needs you" value={`${ov.waiting_on_you}`} sub={ov.waiting_on_you ? "Waiting for a yes" : "All caught up"} tone={ov.waiting_on_you ? "amber" : undefined} />
+        <Stat href="/goals" label="On target" value={`${onTrack}/${live.length}`} sub="live goals on pace" />
+        <Stat href="/work" label="Done this week" value={num(ov.actions_this_week)} sub="actions taken" />
+        <Stat href="/settings" label="Spent this month" value={usd(ov.spend_this_month.total)} sub={ov.budget_total ? `of ${usd(ov.budget_total)} budgeted` : "No budgets yet"} />
       </div>
 
       {researchBanner}
       {suggested.length > 0 && (
-        <Card>
-          <CardHeader
-            title={<span className="flex items-center gap-2"><Sparkles size={15} className="text-brand-600" /> {suggested.length} suggested {suggested.length === 1 ? "goal is" : "goals are"} ready to start</span>}
-            subtitle="Picked for where your company is right now. Review, then start the ones you want."
-            action={<Link href="/setup" className="text-sm font-semibold text-brand-600">Review all →</Link>}
-          />
-          <ul className="divide-y divide-line">
-            {suggested.slice(0, 4).map((g) => (
-              <li key={g.id}>
-                <Link href={`/goals/${g.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-[13px] hover:bg-gray-50">
-                  <span className="min-w-0 flex-1 font-semibold">{g.name}</span>
-                  <span className="text-xs text-muted">{g.agent?.name} · {usd(g.budget.total)}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <Link href="/setup" className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-brand-500 to-violet-600 px-5 py-4 text-white shadow-[var(--shadow-pop)] transition hover:brightness-105">
+          <Sparkles size={20} className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">{suggested.length} suggested {suggested.length === 1 ? "goal is" : "goals are"} ready to start</span>
+            <span className="block text-[13px] text-white/80">Picked for where {org?.org.name || "your company"} is right now</span>
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-semibold">Review <ArrowRight size={14} /></span>
+        </Link>
       )}
 
-      {requests && requests.length > 0 && (
-        <Card className="border-amber-300">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-amber-50/60 px-4 py-2.5">
-            <h2 className="text-[15px] font-bold">{requests.length} {requests.length === 1 ? "thing needs" : "things need"} you</h2>
-            <Link href="/approvals" className="inline-flex h-8 items-center gap-1 rounded-lg bg-ink px-3 text-xs font-semibold text-white hover:bg-gray-800">Open inbox <ArrowRight size={13} /></Link>
-          </div>
-          <ul className="divide-y divide-line">
-            {requests.slice(0, 5).map((r) => {
-              const k = KIND_BADGE[r.kind] || KIND_BADGE.action;
-              return (
-                <li key={r.id}>
-                  <Link href={`/approvals?id=${r.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50">
-                    {r.agent_name && <AgentAvatar name={r.agent_name} size={26} />}
-                    <Badge tone={k.tone}>{k.label}</Badge>
-                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{r.kind === "question" ? r.preview.question || r.title : r.title}</span>
-                    <span className="hidden shrink-0 text-xs text-muted sm:block">{r.agent_name} · {timeAgo(r.created_at)}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Card>
-          <CardHeader
-            title="Work log"
-            subtitle="Everything your AI employees have done recently, across all goals"
-            action={<ViewToggle value={view} onChange={setView} />}
-          />
-          <div className="p-3">
-            <WorkLog items={log || []} showGoal view={view} />
-          </div>
-          <Link href="/work" className="flex items-center justify-center gap-1 border-t border-line py-2.5 text-sm font-semibold text-brand-600 hover:bg-gray-50">
-            Full work log <ArrowRight size={14} />
-          </Link>
-        </Card>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader title="Goals" action={<Link href="/goals" className="text-sm font-semibold text-brand-600">All →</Link>} />
-            <ul className="divide-y divide-line">
-              {goals.slice(0, 6).map((c) => (
-                <li key={c.id}>
-                  <Link href={`/goals/${c.id}`} className="block px-4 py-3 hover:bg-gray-50">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13.5px] font-semibold">{c.name}</span>
-                        {c.client_name && <span className="text-xs text-muted">for {c.client_name}</span>}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="space-y-8">
+          <section>
+            <SectionTitle title="Needs you" href="/approvals" link="Open inbox" />
+            {requests && requests.length > 0 ? (
+              <Card className="divide-y divide-line overflow-hidden">
+                {requests.slice(0, 4).map((r) => {
+                  const k = KIND_BADGE[r.kind] || KIND_BADGE.action;
+                  return (
+                    <Link key={r.id} href={`/approvals?id=${r.id}`} className="flex items-center gap-3 px-4 py-3 transition hover:bg-zinc-50">
+                      {r.agent_name ? <AgentAvatar name={r.agent_name} size={32} /> : <span className="h-8 w-8" />}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] font-medium">{r.kind === "question" ? r.preview.question || r.title : r.title}</span>
+                        <span className="block truncate text-[12px] text-muted">{r.agent_name} · {timeAgo(r.created_at)}</span>
                       </span>
-                      <GoalStatus c={c} />
+                      <Badge tone={k.tone}>{k.label}</Badge>
+                      <ArrowRight size={15} className="shrink-0 text-zinc-300" />
+                    </Link>
+                  );
+                })}
+              </Card>
+            ) : (
+              <Card className="flex items-center gap-3 px-4 py-4 text-[14px] text-muted">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-emerald-50 text-emerald-600"><Check size={16} /></span>
+                You&apos;re all caught up. Your AI employees will ask here before anything important.
+              </Card>
+            )}
+          </section>
+
+          <section>
+            <SectionTitle title="Your teams" href="/team" link="Org chart" />
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(org?.departments || []).filter((d) => d.agents.length).map((d) => {
+                const dGoals = goals.filter((g) => d.agents.some((a) => a.id === g.agent?.id));
+                const dLive = dGoals.filter((g) => g.status === "active");
+                const health = d.lead?.last?.status === "done" ? d.lead.last.health : "";
+                return (
+                  <Link key={d.id} href="/team" className="group rounded-2xl border border-line bg-white p-4 shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-pop)]">
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{d.name}</span>
+                      {health && <Badge tone={health === "on_track" ? "green" : health === "mixed" ? "amber" : "red"}>{health === "on_track" ? "On track" : health === "mixed" ? "Mixed" : "Off track"}</Badge>}
                     </div>
-                    <div className="mt-2 grid grid-cols-[1fr_auto] items-end gap-3">
-                      <GoalProgress c={c} compact />
-                      <span className="tabular text-xs text-muted">{usd(c.budget.spent)} / {usd(c.budget.total)}</span>
+                    <div className="mt-0.5 text-[12px] text-muted">{d.agents.length} AI employee{d.agents.length === 1 ? "" : "s"} · {dLive.length} live goal{dLive.length === 1 ? "" : "s"}</div>
+                    <div className="mt-3 space-y-2.5">
+                      {dLive.slice(0, 3).map((g) => (
+                        <div key={g.id}>
+                          <div className="mb-1 truncate text-[12.5px] font-medium text-zinc-700">{g.name}</div>
+                          {g.target?.target ? <TargetLine goal={g} compact /> : <GoalProgress c={g} compact />}
+                        </div>
+                      ))}
+                      {dLive.length === 0 && <p className="text-[12.5px] text-muted">{dGoals.length ? `${dGoals.length} goal${dGoals.length === 1 ? "" : "s"} ready to start` : "No goals yet"}</p>}
                     </div>
                   </Link>
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          <Card>
-            <CardHeader title="More it can do" subtitle="Ideas founders and agencies give their AI employees" action={<Link href="/capabilities" className="text-sm font-semibold text-brand-600">Browse →</Link>} />
-            <ul className="divide-y divide-line">
-              {FEATURED.slice(0, 4).map((id) => {
-                const uc = findUseCase(id)!;
-                return (
-                  <li key={id}>
-                    <button onClick={() => pick(id)} className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-50">
-                      <span className="mt-0.5 text-gray-400">{CATEGORY_ICON[uc.categoryKey]}</span>
-                      <span className="text-[13px] leading-snug">{uc.goal}</span>
-                    </button>
-                  </li>
                 );
               })}
-            </ul>
-          </Card>
+            </div>
+          </section>
         </div>
+
+        <aside className="space-y-8">
+          <section>
+            <SectionTitle title="Latest work" href="/work" link="Work log" />
+            <Card className="p-2">
+              <WorkLog items={(log || []).slice(0, 8)} showGoal view="highlights" />
+            </Card>
+          </section>
+          <section>
+            <SectionTitle title="Goal ideas" href="/capabilities" link="Browse" />
+            <Card className="divide-y divide-line overflow-hidden">
+              {FEATURED.slice(0, 3).map((id) => {
+                const uc = findUseCase(id)!;
+                return (
+                  <button key={id} onClick={() => pick(id)} className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-zinc-50">
+                    <span className="mt-0.5 text-zinc-400">{CATEGORY_ICON[uc.categoryKey]}</span>
+                    <span className="text-[13px] leading-snug">{uc.goal}</span>
+                  </button>
+                );
+              })}
+            </Card>
+          </section>
+        </aside>
       </div>
     </div>
   );
 }
 
-function Stat({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
+function SectionTitle({ title, href, link }: { title: string; href: string; link: string }) {
   return (
-    <Card className={highlight ? "border-amber-300 bg-amber-50/50 p-4" : "p-4"}>
-      <div className="text-xs font-semibold text-muted">{label}</div>
-      <div className="tabular mt-1 text-2xl font-bold">{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-muted">{sub}</div>}
-    </Card>
+    <div className="mb-3 flex items-center justify-between">
+      <h2 className="text-[16px] font-semibold">{title}</h2>
+      <Link href={href} className="inline-flex items-center gap-0.5 text-[13px] font-semibold text-muted hover:text-ink">{link} <ArrowRight size={13} /></Link>
+    </div>
+  );
+}
+
+function Stat({ label, value, sub, tone, href }: { label: string; value: string; sub?: string; tone?: "amber"; href: string }) {
+  return (
+    <Link href={href} className={cx("rounded-2xl border bg-white p-4 shadow-[var(--shadow-card)] transition hover:shadow-[var(--shadow-pop)]",
+      tone === "amber" ? "border-amber-200 bg-gradient-to-b from-amber-50 to-white" : "border-line")}>
+      <div className="text-[12.5px] font-medium text-muted">{label}</div>
+      <div className={cx("tabular mt-1 text-[28px] font-semibold leading-none tracking-tight", tone === "amber" && "text-amber-700")}>{value}</div>
+      {sub && <div className="mt-1.5 text-[12px] text-muted">{sub}</div>}
+    </Link>
   );
 }
 
@@ -206,7 +198,7 @@ function FirstRun({ onPick, org }: { onPick: (id: string) => void; org: OrgInfo 
   const count = (org?.departments || []).reduce((n, d) => n + d.agents.length, 0);
   return (
     <div className="space-y-8">
-      <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 p-8 text-white">
+      <div className="rounded-3xl bg-gradient-to-br from-brand-500 via-indigo-600 to-violet-600 p-10 text-white shadow-[var(--shadow-pop)]">
         <EmployeeAvatar size={56} />
         <h1 className="mt-4 text-3xl font-bold tracking-tight">{org ? `${org.org.name} has ${count} AI employees ready to work` : "Meet your AI team"}</h1>
         <p className="mt-2 max-w-2xl text-white/85">
