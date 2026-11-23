@@ -273,7 +273,8 @@ export type OrgInfo = {
 export const CATEGORY_DEPARTMENT: Record<string, string> = {
   sales: "sales", marketing: "marketing", research: "research", product: "product", fundraising: "fundraising",
   hiring: "hiring", partnerships: "partnerships", success: "success", finance: "finance", operations: "operations",
-  pr: "pr", intel: "research", agency: "sales", founder: "operations", legal: "legal", it: "it",
+  pr: "pr", intel: "research", agency: "sales", founder: "exec", legal: "legal", it: "it",
+  support: "support", revops: "revops", data: "data", engineering: "engineering", ecommerce: "store",
 };
 
 export type ActionType = { key: string; label: string; description: string; default: "auto" | "ask" };

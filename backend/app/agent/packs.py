@@ -5,10 +5,11 @@ what it does on its own, what it asks a person about first, the tools it uses, a
 goal. A pack is a type of company (B2B startup, agency, e-commerce brand...) with the roles that
 usually matter most at each size, in priority order.
 
-At setup Autopilot still reads the company's website and researches it, and the planner
-personalises everything. The pack gives it a sensible starting point: the functions and AI
-employees companies like this usually need at this stage. Without a Claude key, the pack alone
-builds a starter team (templates, not personalised).
+At setup Autopilot reads the company's website and researches it; Claude then decides which type
+of company it is and how big (org_setup.classify_company), and the planner personalises
+everything starting from that pack: the functions and AI employees companies like this usually
+need at this stage. Without a Claude key nothing can decide, so the starter team uses the general
+pack (templates, not personalised) until the company is researched.
 """
 
 from __future__ import annotations
@@ -487,7 +488,6 @@ class Pack:
     key: str
     label: str
     description: str
-    signals: tuple[str, ...]  # words and phrases that suggest this type of company
     stages: dict[str, tuple[str, ...]]  # size -> role keys added at that size, most important first
     notes: str  # guidance for the planner
     later: tuple[tuple[str, str], ...] = ()  # (department kind, when)
@@ -497,8 +497,6 @@ SIZE_ORDER = ["tiny", "small", "mid", "large"]
 
 PACKS: dict[str, Pack] = {p.key: p for p in [
     Pack("startup", "B2B startup", "Seed to Series A software or tech company selling to businesses",
-         ("saas", "platform", "b2b", "api", "book a demo", "request a demo", "get a demo", "for teams", "enterprise",
-          "integrations", "workflow", "startup", "seed", "series a", "venture", "ai-powered", "software"),
          {"tiny": ("sdr", "content", "pm", "customer_research", "fundraiser", "engineer"),
           "small": ("inbound", "seo", "onboarding", "recruiter", "collections", "market_intel", "exec_assistant"),
           "mid": ("deal_desk", "renewals", "support_agent", "data_analyst", "crm_hygiene", "compliance", "fpa", "contracts",
@@ -510,8 +508,6 @@ PACKS: dict[str, Pack] = {p.key: p for p in [
          (("finance", "once there is recurring revenue"), ("it", "when enterprise customers send security reviews"),
           ("legal", "when contract volume grows"))),
     Pack("solo_saas", "Solo or bootstrapped software", "Solo founder or small bootstrapped team with a self-serve product",
-         ("indie", "bootstrapped", "solo founder", "indie hacker", "chrome extension", "app store", "lifetime deal",
-          "free trial", "self-serve", "no credit card", "templates", "plugin", "side project", "one-time purchase"),
          {"tiny": ("seo", "content", "community", "support_agent", "lifecycle"),
           "small": ("paid_ads", "reviews", "help_center", "pricing", "engineer", "qa"),
           "mid": ("partnerships", "data_analyst", "bookkeeper", "pm"),
@@ -520,8 +516,6 @@ PACKS: dict[str, Pack] = {p.key: p for p in [
          "unless they sell to businesses with large contracts. Keep it small: the founder approves everything.",
          (("revops", "when pricing and plans multiply"), ("finance", "once revenue needs proper books"))),
     Pack("agency", "Agency", "Marketing, growth, design, development or recruiting agency serving clients",
-         ("agency", "our clients", "for clients", "case studies", "we help brands", "retainer", "white label", "white-label",
-          "growth partner", "studio", "full-service", "creative agency", "digital agency", "performance marketing", "consultancy"),
          {"tiny": ("agency_bd", "client_delivery", "client_reporting", "content"),
           "small": ("proposals", "collections", "reviews", "recruiter"),
           "mid": ("contracts", "fpa", "crm_hygiene", "partnerships"),
@@ -530,9 +524,6 @@ PACKS: dict[str, Pack] = {p.key: p for p in [
          "reports). Client goals should name the client (agencies run goals per client).",
          (("finance", "when invoicing many clients"), ("legal", "when contracts and SOWs pile up"))),
     Pack("services", "Professional services", "Consultancy, accounting, law, IT managed services or another expert firm",
-         ("consulting", "consultancy", "advisory", "accounting", "accountants", "bookkeeping services", "tax", "cpa",
-          "law firm", "attorney", "lawyers", "legal services", "managed services", "msp", "it support", "audit",
-          "engineering firm", "architecture firm", "partners"),
          {"tiny": ("proposals", "sdr", "content", "client_onboarding", "collections"),
           "small": ("reviews", "tenders", "exec_assistant", "recruiter"),
           "mid": ("contracts", "fpa", "crm_hygiene", "compliance", "events"),
@@ -541,8 +532,6 @@ PACKS: dict[str, Pack] = {p.key: p for p in [
          "Smooth intake and getting paid matter as much as winning. Keep a professional, careful tone.",
          (("legal", "when engagement letters multiply"), ("it", "when clients ask for security reviews"))),
     Pack("ecommerce", "E-commerce or DTC brand", "Brand selling physical products online, direct to consumers",
-         ("shop", "add to cart", "free shipping", "shopify", "cart", "checkout", "returns", "dtc", "d2c", "direct-to-consumer",
-          "skincare", "apparel", "collection", "subscribe & save", "bestsellers", "in stock", "sizes"),
          {"tiny": ("paid_ads", "content", "influencer", "support_agent", "reviews"),
           "small": ("merchandising", "lifecycle", "seo", "wholesale", "inventory"),
           "mid": ("bookkeeper", "procurement", "data_analyst", "partnerships", "community"),
@@ -551,35 +540,12 @@ PACKS: dict[str, Pack] = {p.key: p for p in [
          "reviews protect the brand. Inventory and suppliers once volume grows.",
          (("operations", "when stock and suppliers need weekly attention"), ("finance", "when margins need tracking"))),
     Pack("general", "Business", "Any other business",
-         (),
          {"tiny": ("sdr", "content", "customer_research", "support_agent"),
           "small": ("collections", "reviews", "seo", "recruiter"),
           "mid": ("crm_hygiene", "fpa", "contracts", "exec_assistant"),
           "large": ("it_admin", "hr_ops", "procurement", "pr")},
          "No template fits exactly: choose functions from the catalog that match what this company does."),
 ]}
-
-BEST_FIT = ["startup", "solo_saas", "agency", "services", "ecommerce"]
-
-
-# Words that on their own say a lot about the type of company.
-STRONG = {"saas", "b2b", "shopify", "dtc", "d2c", "direct-to-consumer", "agency", "white label", "white-label",
-          "bootstrapped", "indie hacker", "solo founder", "law firm", "consultancy", "accounting", "msp", "managed services"}
-
-
-def classify(*texts: str) -> tuple[str, list[str]]:
-    """The type of company the text most likely describes, and the signals that matched. A
-    starting point only: the planner confirms or corrects it."""
-    text = " " + re.sub(r"\s+", " ", " ".join(t for t in texts if t).lower()) + " "
-    best, best_hits, best_score = "general", [], 0.0
-    for key in BEST_FIT:
-        hits = [sig for sig in PACKS[key].signals
-                if re.search(r"(?<![a-z])" + re.escape(sig) + r"(?:s|es)?(?![a-z])", text)]
-        score = sum(2 if sig in STRONG else 1.5 if " " in sig else 1 for sig in hits)
-        if score > best_score:
-            best, best_hits, best_score = key, hits, score
-    return (best, best_hits) if best_score >= 2 else ("general", best_hits)
-
 
 def roles_for(pack_key: str, size: str) -> list[Role]:
     """Every role the pack suggests up to this size, most important first."""
@@ -604,13 +570,13 @@ def catalog_text() -> str:
     return "\n".join(lines)
 
 
-def pack_brief(pack_key: str, matched: list[str]) -> str:
+def pack_brief(pack_key: str, reason: str = "", size: str = "") -> str:
     """The starting template for the planner: what companies like this usually need, by size."""
     from app.org import PRESET_NAMES
 
     pack = PACKS.get(pack_key) or PACKS["general"]
-    lines = [f"Likely type: {pack.label} ({pack.description})"
-             + (f", from: {', '.join(matched[:8])}" if matched else "") + ". Correct it if the research says otherwise.",
+    lines = [f"Likely type: {pack.label} ({pack.description})" + (f": {reason}" if reason else "")
+             + (f". Likely size: {size}" if size else "") + ". Correct either if the research says otherwise.",
              f"What usually matters for this type: {pack.notes}", "Roles it usually needs, added by size:"]
     for size in SIZE_ORDER:
         keys = pack.stages.get(size) or ()

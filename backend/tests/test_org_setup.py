@@ -182,9 +182,11 @@ async def test_failed_plan_offers_retry_and_basic_team(with_key, fake_site):
     def bad_plan(kw):
         raise RuntimeError("model unavailable")
 
+    startup = lambda kw: {"company_type": "startup", "size": "tiny", "reason": "Sells route-planning software to fleets."}  # noqa: E731
     async with client() as c:
         setup_id = await start_setup(c)
-        await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(research_script, org_planner=bad_plan)))
+        await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(research_script, org_planner=bad_plan,
+                                                                         classifier=startup)))
         st = (await c.get("/api/org/setup")).json()
         assert st["setup"]["status"] == "failed"
         assert "model unavailable" in st["setup"]["error"]
@@ -199,7 +201,7 @@ async def test_failed_plan_offers_retry_and_basic_team(with_key, fake_site):
         # ...or start with a basic team instead.
         assert (await c.post("/api/org/setup/basic")).status_code == 200
         names = [d["name"] for d in (await org_of(c))["departments"]]
-        assert names == ["Sales", "Marketing", "Product", "Customer Research"]  # the B2B startup pack ("Route planning SaaS")
+        assert names == ["Sales", "Marketing", "Product", "Customer Research"]  # the pack for the type Claude decided
 
 
 async def test_rerun_adds_only_whats_missing(with_key, fake_site):
@@ -217,12 +219,12 @@ async def test_without_a_claude_key_starts_with_a_basic_team(monkeypatch):
     async with client() as c:
         await sign_in(c, "solo@acme.test")
         r = (await c.post("/api/org", json={"name": "Acme", "description": "B2B SaaS platform for logistics teams. Book a demo."})).json()
-        assert r["setup_id"] is None and r["setup_skipped"] == "no_api_key" and r["company_type"] == "startup"
+        # Without Claude nothing decides the type of company: the general starter team, until it's researched.
+        assert r["setup_id"] is None and r["setup_skipped"] == "no_api_key" and r["company_type"] == "general"
         org = await org_of(c)
-        # The usual team for a small B2B startup, from the pack: one AI employee per role, each with a starter goal.
-        assert [d["name"] for d in org["departments"]] == ["Sales", "Marketing", "Product", "Customer Research"]  # 4 for a tiny team
+        assert [d["name"] for d in org["departments"]] == ["Sales", "Marketing", "Customer Research", "Customer Support"]
         assert org["departments"][0]["agents"][0]["name"] == "Outbound Agent"
-        assert org["org"]["profile"]["pack_label"] == "B2B startup"
+        assert org["org"]["profile"]["pack_label"] == "Business"
         goals = (await c.get("/api/campaigns")).json()
         assert len(goals) == 4 and {g["status"] for g in goals} == {"draft"}
         book = next(g for g in goals if g["name"] == "Book meetings with ideal customers")
@@ -376,10 +378,15 @@ async def test_planner_starts_from_the_pack_and_staffs_several_ai_employees(with
     ]}
     async with client() as c:
         setup_id = await start_setup(c, description="Route planning SaaS for logistics teams. Book a demo.")
-        fake = FakeAnthropic(research_script, org_planner=lambda kw: plan)
+        fake = FakeAnthropic(research_script, org_planner=lambda kw: plan, classifier=lambda kw: {
+            "company_type": "startup", "size": "small", "reason": "Sells route-planning software to logistics companies"})
         await run_org_setup(setup_id, MeteredClaude(client=fake))
-        planner = next(k for k in fake.calls if k.get("output_config", {}).get("format"))
-        assert "Likely type: B2B startup" in planner["messages"][0]["content"]
+        formats = [k for k in fake.calls if k.get("output_config", {}).get("format")]
+        decide, planner = formats[0], formats[1]
+        assert "company_type" in decide["output_config"]["format"]["schema"]["properties"]
+        assert decide["model"] == get_settings().checker_model  # the fast, cheap model decides the type
+        msg = planner["messages"][0]["content"]
+        assert "Likely type: B2B startup" in msg and "route-planning software to logistics" in msg and "Likely size: small" in msg
         assert "sdr (Sales)" in planner["messages"][0]["content"]  # the pack's roles by size
         assert "seo: SEO" in planner["system"]  # the role catalog
 

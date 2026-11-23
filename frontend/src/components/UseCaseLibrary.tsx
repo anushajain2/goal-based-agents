@@ -2,7 +2,12 @@
 
 import {
   ArrowRight,
+  BarChart3,
   Building2,
+  Code2,
+  Gauge,
+  LifeBuoy,
+  ShoppingBag,
   Handshake,
   HeartHandshake,
   Landmark,
@@ -43,6 +48,11 @@ export const CATEGORY_ICON: Record<string, ReactNode> = {
   founder: <UserRound size={16} />,
   legal: <Scale size={16} />,
   it: <ShieldCheck size={16} />,
+  support: <LifeBuoy size={16} />,
+  revops: <Gauge size={16} />,
+  data: <BarChart3 size={16} />,
+  engineering: <Code2 size={16} />,
+  ecommerce: <ShoppingBag size={16} />,
 };
 
 export function FitBadge({ fit }: { fit: UseCase["fit"] }) {

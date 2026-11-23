@@ -23,19 +23,6 @@ def test_every_role_and_pack_is_valid():
         assert all(kind in PRESET_NAMES for kind, _ in p.later)
 
 
-def test_the_type_of_company_is_guessed_from_its_words():
-    cases = {
-        "Route-planning SaaS platform for logistics teams. Book a demo.": "startup",
-        "Bootstrapped indie hacker: a Chrome extension with a free trial": "solo_saas",
-        "Performance marketing agency. Our clients and case studies; monthly retainers.": "agency",
-        "Boutique law firm: our attorneys advise founders on tax and contracts": "services",
-        "Clean skincare. Free shipping over $50, easy returns. Add to cart.": "ecommerce",
-        "A family bakery in town": "general",
-    }
-    for text, expected in cases.items():
-        assert packs.classify(text)[0] == expected, text
-
-
 def test_bigger_companies_get_more_of_the_pack():
     tiny = [r.key for r in packs.roles_for("startup", "tiny")]
     mid = [r.key for r in packs.roles_for("startup", "mid")]
@@ -57,5 +44,6 @@ def test_a_starter_plan_has_ai_employees_with_goals():
 def test_the_planner_sees_the_catalog_and_the_template():
     text = packs.catalog_text()
     assert "Customer Support (kind support)" in text and "support_agent" in text and "Founder's Office" in text
-    brief = packs.pack_brief("agency", ["agency", "retainer"])
-    assert "Agency" in brief and "agency_bd" in brief and "from: agency, retainer" in brief
+    brief = packs.pack_brief("agency", "Sells monthly growth retainers to DTC brands", "small")
+    assert "Likely type: Agency" in brief and "agency_bd" in brief and "retainers to DTC brands" in brief
+    assert "Likely size: small" in brief

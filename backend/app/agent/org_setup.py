@@ -370,6 +370,47 @@ def include_names(include: list[str]) -> list[str]:
     return [PRESET_NAMES.get(k, k) for k in include]
 
 
+CLASSIFY_SYSTEM = """You decide which kind of company this is, so Autopilot can start its AI team \
+from the right template. Base it on what the company actually does and how it makes money, from \
+the research and website, not on single words. Also judge its size from headcount and revenue \
+(funding alone counts for less). Give the reason in one short sentence with the evidence."""
+
+
+def classify_schema() -> dict:
+    return {"type": "json_schema", "schema": {
+        "type": "object",
+        "properties": {"company_type": {"type": "string", "enum": list(packs.PACKS)},
+                       "size": {"type": "string", "enum": list(SIZES)},
+                       "reason": {"type": "string"}},
+        "required": ["company_type", "size", "reason"],
+        "additionalProperties": False,
+    }}
+
+
+async def classify_company(claude: MeteredClaude, setup_id: str | None, name: str, website: str, description: str,
+                           research: str, site_text: str) -> tuple[str, str, str]:
+    """(company type, size, reason), decided by Claude (the fast model; a fraction of a cent).
+    Falls back to the general pack if it can't decide."""
+    types = "\n".join(f"- {p.key}: {p.label}. {p.description}" for p in packs.PACKS.values())
+    sizes = "\n".join(f"- {k}: {v['label']}" for k, v in SIZES.items())
+    content = (f"Company: {name}\nWebsite: {website or '(none)'}\nWhat the founders say it does: {description or '(not given)'}\n\n"
+               f"Research:\n{(research or '(none)')[:8000]}\n\nWebsite text:\n{(site_text or '(none)')[:4000]}\n\n"
+               f"Types:\n{types}\n\nSizes:\n{sizes}")
+    try:
+        result = await claude.create(campaign_id=None, run_id=None, purpose="setup company type", role="checker",
+                                     system=CLASSIFY_SYSTEM, messages=[{"role": "user", "content": content}],
+                                     max_tokens=1000, output_format=classify_schema())
+        data = json.loads(_texts(result.content))
+    except Exception as e:  # noqa: BLE001 - planning can still go ahead from the general template
+        log.warning("company type: %s", e)
+        return "general", "", ""
+    if setup_id:
+        await _step(setup_id, "plan", "running", "", result.cost)
+    kind = data.get("company_type") if data.get("company_type") in packs.PACKS else "general"
+    size = data.get("size") if data.get("size") in SIZES else ""
+    return kind, size, (data.get("reason") or "").strip()[:300]
+
+
 async def plan_team(claude: MeteredClaude, setup_id: str, name: str, website: str, description: str,
                     research: str, site_text: str, include: list[str] | None = None,
                     existing: list[str] | None = None, template: str = "") -> dict:
@@ -687,14 +728,24 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
         # 3. Plan
         current = "plan"
         await _step(setup_id, "plan", "running")
-        # A starting template for this type of company; the planner personalises it.
+        # Claude decides which type of company this is and how big; that type's pack is the
+        # starting template, and the planner personalises it.
         known_type = (org_profile or {}).get("company_type") if include else None
-        pack_key, matched = (known_type, []) if known_type in packs.PACKS else packs.classify(description, site_text, research)
+        if known_type in packs.PACKS:
+            pack_key, size_guess, reason = known_type, (org_profile or {}).get("size", ""), ""
+        else:
+            pack_key, size_guess, reason = await classify_company(claude, setup_id, name, website, description,
+                                                                  research, site_text)
+            async with session_scope() as s:  # kept even if planning fails (a starter team can use it)
+                org = await s.get(Organization, org_id)
+                org.profile = {**(org.profile or {}), "company_type": pack_key,
+                               "pack_label": packs.PACKS[pack_key].label}
         plan = await plan_team(claude, setup_id, name, website, description, research, site_text,
-                               include=include or None, existing=existing, template=packs.pack_brief(pack_key, matched))
+                               include=include or None, existing=existing,
+                               template=packs.pack_brief(pack_key, reason, size_guess))
         company_type = (plan.get("profile") or {}).get("company_type") or pack_key
         plan["profile"] = {**(plan.get("profile") or {}), "company_type": company_type,
-                           "pack_label": packs.PACKS[company_type].label, "pack_guess": pack_key}
+                           "pack_label": packs.PACKS[company_type].label, "type_reason": reason}
         if not plan["departments"]:
             raise RuntimeError("Couldn't work out any functions to set up. Add a few words about what you do and try again.")
         async with session_scope() as s:
@@ -735,12 +786,13 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
 
 
 async def build_starter_team(org_id: str, requested_by: str | None) -> dict:
-    """Without research (no Claude key, or research failed): a starter team from the pack for this
-    type of company, guessed from the name, website and description. Templates, not personalised;
-    people edit them, or research the company later to personalise."""
+    """Without a personalised plan (no Claude key, or planning failed): a starter team from the pack
+    for the type of company Claude decided on during setup, else the general pack. Templates, not
+    personalised; people edit them, or research the company again to personalise."""
     async with session_scope() as s:
         org = await s.get(Organization, org_id)
-        pack_key, _ = packs.classify(org.description, org.website, org.name)
+        known = (org.profile or {}).get("company_type")
+        pack_key = known if known in packs.PACKS else "general"
         per, basis, n = await estimate.session_cost(s, org_id)
     plan = tidy_plan(packs.starter_plan(pack_key, "tiny"))
     for d in plan["departments"]:

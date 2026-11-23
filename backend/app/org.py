@@ -66,7 +66,8 @@ CATEGORY_KEYS = {
     "Partnerships & BD": "partnerships", "Customer success & retention": "success", "Finance": "finance",
     "Operations & procurement": "operations", "Brand, PR & community": "pr",
     "Market & competitive intel": "intel", "For agencies": "agency", "Founder leverage": "founder",
-    "Legal & admin": "legal", "IT & security": "it",
+    "Legal & admin": "legal", "IT & security": "it", "Customer support": "support", "Revenue operations": "revops",
+    "Data & analytics": "data", "Engineering": "engineering", "E-commerce": "ecommerce",
 }
 
 # Library categories (as stored on goals) -> the department kind that handles them.
@@ -75,8 +76,9 @@ CATEGORY_TO_KIND = {
     "Product & launch": "product", "Fundraising & investors": "fundraising", "Hiring & talent": "hiring",
     "Partnerships & BD": "partnerships", "Customer success & retention": "success", "Finance": "finance",
     "Operations & procurement": "operations", "Brand, PR & community": "pr",
-    "Market & competitive intel": "research", "For agencies": "sales", "Founder leverage": "operations",
-    "Legal & admin": "legal", "IT & security": "it",
+    "Market & competitive intel": "research", "For agencies": "sales", "Founder leverage": "exec",
+    "Legal & admin": "legal", "IT & security": "it", "Customer support": "support", "Revenue operations": "revops",
+    "Data & analytics": "data", "Engineering": "engineering", "E-commerce": "store",
 }
 
 
