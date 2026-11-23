@@ -1,13 +1,13 @@
 "use client";
 
-import { Check, Hand, PartyPopper, Pencil, Plus, Sparkles, Target, Trash2, UserPlus, Users, X } from "lucide-react";
+import { Bot, Check, Hand, PartyPopper, Pencil, Plus, Sparkles, Target, Trash2, UserPlus, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 import { CompanyProfileCard } from "@/components/CompanyProfile";
 import { GoalPanel } from "@/components/GoalPanel";
-import { OrgChart } from "@/components/OrgChart";
+import { HireDialog, OrgChart } from "@/components/OrgChart";
 import { StartGoal } from "@/components/StartGoal";
 import { AgentAvatar, PersonAvatar } from "@/components/team";
 import { Badge, Button, Card, cx, ErrorNote, Input } from "@/components/ui";
@@ -28,6 +28,7 @@ function TeamPage() {
   const [view, setView] = useState<"chart" | "list">("chart");
   const [panel, setPanel] = useState<Campaign | null>(null);
   const [starting, setStarting] = useState<Campaign[] | null>(null);
+  const [hiring, setHiring] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newDept, setNewDept] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -73,14 +74,15 @@ function TeamPage() {
         <div>
           <h1 className="text-2xl font-bold">Team</h1>
           <p className="text-sm text-muted">
-            Who reports to whom. AI employees work in departments under a department head, and ask the people in their department before
-            anything goes out.
+            Who reports to whom. Each AI employee reports to a person (its department&apos;s head, or you until there is one), who gets its
+            approvals and questions in Needs you.
           </p>
         </div>
         {admin && (
           <div className="flex gap-2">
             <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold hover:bg-gray-50"><UserPlus size={15} /> Invite people</Link>
-            <Button variant="primary" onClick={() => setAdding(true)}><Plus size={15} /> Add department</Button>
+            <Button onClick={() => setAdding(true)}><Plus size={15} /> Add department</Button>
+            <Button variant="primary" onClick={() => setHiring(true)}><Bot size={15} /> Hire AI employee</Button>
           </div>
         )}
       </div>
@@ -138,6 +140,7 @@ function TeamPage() {
         </Link>
       )}
 
+      {hiring && <HireDialog org={org} onClose={() => setHiring(false)} onHired={() => { setHiring(false); reload(); }} />}
       {panel && <GoalPanel goal={panel} onClose={() => setPanel(null)} onStart={(g) => { setPanel(null); setStarting([g]); }} onRemoved={() => { setPanel(null); reloadGoals(); }} />}
       {starting && <StartGoal goals={starting} onClose={() => setStarting(null)} onStarted={() => { setStarting(null); reloadGoals(); reload(); }} />}
     </div>

@@ -1,66 +1,122 @@
 "use client";
 
-import { Inbox } from "lucide-react";
+import { ArrowLeft, Inbox } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
-import { ApprovalCard } from "@/components/ApprovalCard";
-import { Badge, Card, CardHeader, cx, Empty } from "@/components/ui";
+import { ApprovalCard, KIND_BADGE } from "@/components/ApprovalCard";
+import { AgentAvatar } from "@/components/team";
+import { Badge, Card, cx, Empty } from "@/components/ui";
 import { OrgInfo, timeAgo, useApi, UserRequest } from "@/lib/api";
 
-export default function NeedsYouPage() {
-  const [scope, setScope] = useState<"mine" | "all">("mine");
+type Tab = "mine" | "all" | "done";
+
+/** Everything AI employees need from people: approvals, questions, sign-ins. An inbox, not a feed. */
+export default function Page() {
+  return (
+    <Suspense>
+      <NeedsYouPage />
+    </Suspense>
+  );
+}
+
+function NeedsYouPage() {
+  const params = useSearchParams();
+  const [tab, setTab] = useState<Tab>("mine");
+  const [selected, setSelected] = useState<string | null>(params.get("id"));
+  const [mobileDetail, setMobileDetail] = useState(!!params.get("id"));
   const { data: org } = useApi<OrgInfo>("/api/org");
-  const { data, reload } = useApi<UserRequest[]>(`/api/requests?status=pending&scope=${scope}`);
-  const { data: approved } = useApi<UserRequest[]>("/api/requests?status=approved&scope=all&limit=10");
-  const { data: rejected } = useApi<UserRequest[]>("/api/requests?status=rejected&scope=all&limit=10");
-  const recent = [...(approved || []), ...(rejected || [])].sort((a, b) => (b.created_at > a.created_at ? 1 : -1)).slice(0, 12);
-  const myTeams = (org?.departments || []).filter((d) => org?.me.department_ids.includes(d.id)).map((d) => d.name);
+  const { data: mine, reload: reloadMine } = useApi<UserRequest[]>("/api/requests?status=pending&scope=mine");
+  const { data: all, reload: reloadAll } = useApi<UserRequest[]>("/api/requests?status=pending&scope=all");
+  const { data: approved, reload: reloadA } = useApi<UserRequest[]>("/api/requests?status=approved&scope=all&limit=30");
+  const { data: rejected, reload: reloadR } = useApi<UserRequest[]>("/api/requests?status=rejected&scope=all&limit=30");
+  const done = useMemo(() => [...(approved || []), ...(rejected || [])].sort((a, b) => (b.created_at > a.created_at ? 1 : -1)), [approved, rejected]);
+  const list = tab === "mine" ? mine : tab === "all" ? all : done;
+  const current = (list || []).find((r) => r.id === selected) || null;
+
+  // Keep something selected: the first item, or the next one after deciding.
+  useEffect(() => {
+    if (list && list.length && !list.some((r) => r.id === selected)) setSelected(list[0].id);
+    if (list && !list.length) setSelected(null);
+  }, [list, selected]);
+
+  const reload = () => { reloadMine(); reloadAll(); reloadA(); reloadR(); };
+  const counts = { mine: mine?.length ?? 0, all: all?.length ?? 0, done: done.length };
+  const tabs: [Tab, string][] = [["mine", "For you"], ["all", `Everyone in ${org?.org.name || "the organization"}`], ["done", "Done"]];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Needs you</h1>
-        <p className="text-sm text-muted">
-          When an AI employee needs a yes, it asks the people in its department.
-          {myTeams.length > 0 && <> You approve for <b className="text-ink">{myTeams.join(", ")}</b>{org?.me.is_admin ? ", plus anything for teams with nobody in them" : ""}.</>}
-        </p>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Needs you</h1>
+          <p className="text-sm text-muted">Approvals, questions and sign-ins from the AI employees who report to you. Each one waits here until someone decides.</p>
+        </div>
+        <div className="inline-flex overflow-hidden rounded-md border border-line text-xs font-semibold">
+          {tabs.map(([t, label]) => (
+            <button key={t} onClick={() => { setTab(t); setMobileDetail(false); }} className={cx("px-3 py-1.5", tab === t ? "bg-ink text-white" : "bg-white text-muted hover:text-ink")}>
+              {label}{t !== "done" && counts[t] ? <span className={cx("ml-1.5 rounded-full px-1.5", tab === t ? "bg-white/20" : "bg-amber-100 text-amber-800")}>{counts[t]}</span> : null}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="inline-flex overflow-hidden rounded-md border border-line text-xs font-semibold">
-        {(["mine", "all"] as const).map((v) => (
-          <button key={v} onClick={() => setScope(v)} className={cx("px-3 py-1.5", scope === v ? "bg-ink text-white" : "bg-white text-muted hover:text-ink")}>
-            {v === "mine" ? "Routed to me" : `Everything in ${org?.org.name || "the organization"}`}
-          </button>
-        ))}
-      </div>
-
-      {data && data.length === 0 && (
+      {list && list.length === 0 ? (
         <Card>
-          <Empty icon={<Inbox size={36} />} title={scope === "mine" ? "You're all caught up" : "Nothing is waiting on anyone"}>
-            When an AI employee in your department wants to post, message, spend or change something that isn&apos;t pre-approved, it asks here.
+          <Empty icon={<Inbox size={36} />} title={tab === "done" ? "Nothing decided yet" : "You're all caught up"}>
+            When an AI employee wants to send, post, spend or change something, or needs an answer only your team has, it shows up here.
           </Empty>
         </Card>
-      )}
-      {(data || []).map((r) => <ApprovalCard key={r.id} req={r} onDone={reload} showCampaign />)}
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <Card className={cx("overflow-hidden", mobileDetail && "hidden lg:block")}>
+            <ul className="max-h-[calc(100vh-220px)] divide-y divide-line overflow-y-auto">
+              {(list || []).map((r) => {
+                const k = KIND_BADGE[r.kind] || KIND_BADGE.action;
+                return (
+                  <li key={r.id}>
+                    <button
+                      onClick={() => { setSelected(r.id); setMobileDetail(true); }}
+                      className={cx("flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-50", r.id === selected && "bg-brand-50/70 hover:bg-brand-50")}
+                    >
+                      {r.agent_name ? <AgentAvatar name={r.agent_name} size={30} /> : <span className="h-[30px] w-[30px]" />}
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1.5">
+                          <Badge tone={tab === "done" ? (r.status === "approved" ? "green" : "gray") : k.tone}>
+                            {tab === "done" ? (r.status === "approved" ? (r.kind === "question" ? "Answered" : "Approved") : r.kind === "question" ? "Skipped" : "Declined") : k.label}
+                          </Badge>
+                          <span className="truncate text-[11.5px] text-muted">{r.agent_name}</span>
+                        </span>
+                        <span className="mt-1 line-clamp-2 block text-[13.5px] font-semibold leading-snug">{r.kind === "question" ? r.preview.question || r.title : r.title}</span>
+                        <span className="mt-0.5 block truncate text-[11.5px] text-muted">
+                          {r.campaign_name} · {timeAgo(r.created_at)}{tab === "all" && !r.routed_to_me ? ` · for ${r.approvers.join(", ")}` : ""}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
 
-      {recent.length > 0 && (
-        <Card>
-          <CardHeader title="Recently decided" />
-          <ul className="divide-y divide-line">
-            {recent.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-[13px]">
-                <Badge tone={r.status === "approved" ? "green" : "gray"}>{r.status === "approved" ? "Approved" : "Declined"}</Badge>
-                <span className="min-w-0 flex-1 truncate">{r.title}</span>
-                <span className="text-xs text-muted">
-                  {r.decided_by_name ? `by ${r.decided_by_name}` : ""}{r.department_name ? ` · ${r.department_name}` : ""}
-                </span>
-                {r.campaign_name && <Link href={`/goals/${r.campaign_id}`} className="shrink-0 text-xs text-brand-600 hover:underline">{r.campaign_name}</Link>}
-                <span className="shrink-0 text-xs text-muted">{timeAgo(r.created_at)}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
+          <div className={cx(!mobileDetail && "hidden lg:block")}>
+            {current ? (
+              <Card className="p-5">
+                <button onClick={() => setMobileDetail(false)} className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink lg:hidden"><ArrowLeft size={15} /> All requests</button>
+                <ApprovalCard key={current.id} req={current} onDone={reload} detail />
+                {current.campaign_name && (
+                  <div className="mt-5 border-t border-line pt-3 text-sm">
+                    <span className="text-muted">For the goal </span>
+                    <Link href={`/goals/${current.campaign_id}`} className="font-semibold text-brand-600 hover:underline">{current.campaign_name}</Link>
+                    {current.agent_id && <><span className="text-muted"> · </span><Link href={`/team/agents/${current.agent_id}`} className="text-brand-600 hover:underline">about {current.agent_name}</Link></>}
+                  </div>
+                )}
+              </Card>
+            ) : (
+              <Card className="p-8 text-center text-sm text-muted">Pick something on the left.</Card>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

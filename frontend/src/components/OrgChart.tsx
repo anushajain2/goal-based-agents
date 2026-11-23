@@ -91,17 +91,11 @@ function PersonCard({ person, label }: { person: Person; label: string }) {
 function Department({ d, org, goals, onGoalClick, onChanged }: {
   d: DepartmentInfo; org: OrgInfo; goals?: Campaign[]; onGoalClick?: (g: Campaign) => void; onChanged?: () => void;
 }) {
-  const admin = org.me.is_admin;
+  const canStaff = org.me.is_admin || org.me.department_ids.includes(d.id);
   const [hiring, setHiring] = useState(false);
-  const [agentName, setAgentName] = useState("");
-  const approvers = d.people.length ? d.people.map((p) => (p.id === org.me.id ? "you" : p.name || p.email)) : ["admins"];
-
-  async function hire() {
-    await api("/api/agents", { method: "POST", json: { department_id: d.id, name: agentName, title: "" } });
-    setHiring(false);
-    setAgentName("");
-    onChanged?.();
-  }
+  const owner = org.members.find((m) => m.role === "owner");
+  const lead = d.head || owner;
+  const leadName = (p?: Person | null) => (!p ? "the owner" : p.id === org.me.id ? "you" : p.name || p.email);
 
   return (
     <div>
@@ -109,50 +103,49 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
         <div className="border-b border-line px-3 py-2 text-[12px] font-bold uppercase tracking-wide text-gray-600">{d.name}</div>
         <HeadSlot d={d} org={org} onChanged={onChanged} />
         <div className="flex items-center gap-1 border-t border-line px-3 py-1.5 text-[11.5px] text-muted">
-          <Hand size={11} /> Approvals go to {approvers.join(", ")}
+          <Hand size={11} /> Requests go to {leadName(lead)}{d.head ? "" : " until there's a head"}
         </div>
       </div>
       <div className="org-stem" />
       <div className="space-y-2">
         {d.agents.map((a) => {
           const mine = (goals || []).filter((g) => g.agent?.id === a.id);
+          const live = mine.filter((g) => g.status !== "draft");
+          const later = mine.filter((g) => g.status === "draft");
           return (
             <div key={a.id} className="rounded-xl border border-violet-200 bg-violet-50/40">
-              <Link href={`/team/agents/${a.id}`} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-violet-50">
-                <AgentAvatar name={a.name} size={32} state={a.working ? "working" : a.needs_you ? "waiting" : "idle"} />
-                <span className="min-w-0">
-                  <span className="block truncate text-[13.5px] font-semibold">{a.name}</span>
-                  <span className="block truncate text-[11.5px] text-muted">AI employee{a.title ? ` · ${a.title}` : ""}</span>
+              <Link href={`/team/agents/${a.id}`} className="block px-3 py-2.5 hover:bg-violet-50">
+                <span className="flex items-center gap-2.5">
+                  <AgentAvatar name={a.name} size={32} state={a.working ? "working" : a.needs_you ? "waiting" : "idle"} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13.5px] font-semibold">{a.name}</span>
+                    <span className="block truncate text-[11.5px] text-muted">AI employee{a.title ? ` · ${a.title}` : ""}</span>
+                  </span>
                 </span>
+                {a.objective && <span className="mt-1.5 line-clamp-2 block text-[11.5px] leading-snug text-gray-700"><b className="text-violet-700">Objective:</b> {a.objective}</span>}
+                {a.reports_to && <span className="mt-1 block text-[11px] font-semibold text-violet-700">Reports to {leadName(a.reports_to)}</span>}
               </Link>
               {goals && (
-                <ul className="space-y-1 border-t border-violet-100 px-2 py-2">
-                  {mine.length === 0 && <li className="px-1 text-[11.5px] text-muted">No goals yet</li>}
-                  {mine.map((g) => (
-                    <li key={g.id}>
-                      <button onClick={() => onGoalClick?.(g)} className="flex w-full items-center gap-2 rounded-md bg-white px-2 py-1.5 text-left text-[12px] ring-1 ring-line hover:ring-brand-500">
-                        <span className={cx("h-2 w-2 shrink-0 rounded-full", g.status === "active" ? "bg-emerald-500" : g.pending_requests ? "bg-amber-500" : "bg-gray-300")} />
-                        <span className="min-w-0 flex-1 truncate font-medium">{g.name}</span>
-                        <span className="shrink-0 text-[11px] text-muted">{g.status === "draft" ? usd(g.budget.total) : g.status === "active" ? "Active" : "Paused"}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <div className="space-y-1.5 border-t border-violet-100 px-2 py-2">
+                  {mine.length === 0 && <p className="px-1 text-[11.5px] text-muted">No goals yet</p>}
+                  {live.length > 0 && <GoalChips goals={live} onGoalClick={onGoalClick} />}
+                  {later.length > 0 && (
+                    <div>
+                      <div className="px-1 pb-1 text-[10.5px] font-bold uppercase tracking-wide text-gray-400">{live.length ? "Not started" : "Suggested · not started"}</div>
+                      <GoalChips goals={later} onGoalClick={onGoalClick} muted />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           );
         })}
-        {admin && (hiring ? (
-          <div className="flex gap-1.5">
-            <Input autoFocus className="h-8 py-1 text-xs" value={agentName} onChange={(e) => setAgentName(e.target.value)} placeholder={`${d.name} Agent 2`} onKeyDown={(e) => e.key === "Enter" && hire()} />
-            <Button size="sm" variant="primary" onClick={hire}>Hire</Button>
-            <button onClick={() => setHiring(false)} className="text-muted" aria-label="Cancel"><X size={14} /></button>
-          </div>
-        ) : (
+        {canStaff && (
           <button onClick={() => setHiring(true)} className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-line py-1.5 text-[12px] font-semibold text-muted hover:border-gray-400 hover:text-ink">
             <Plus size={12} /> Hire another AI employee
           </button>
-        ))}
+        )}
+        {hiring && <HireDialog org={org} department={d} onClose={() => setHiring(false)} onHired={() => { setHiring(false); onChanged?.(); }} />}
       </div>
     </div>
   );
@@ -226,6 +219,86 @@ function HeadSlot({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInfo; onCh
         <div className="text-[11.5px] text-muted">{invited ? "Invited to lead" : "Head of"} {d.name}</div>
       </div>
       {admin && <button onClick={() => setEditing(true)} className="text-xs font-semibold text-brand-600 hover:underline">{invited ? "Change" : "Add"}</button>}
+    </div>
+  );
+}
+
+
+function GoalChips({ goals, onGoalClick, muted }: { goals: Campaign[]; onGoalClick?: (g: Campaign) => void; muted?: boolean }) {
+  return (
+    <ul className="space-y-1">
+      {goals.map((g) => (
+        <li key={g.id}>
+          <button onClick={() => onGoalClick?.(g)} className={cx("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] ring-1 hover:ring-brand-500", muted ? "bg-white/60 text-gray-600 ring-gray-300" : "bg-white ring-line")}>
+            <span className={cx("h-2 w-2 shrink-0 rounded-full", g.status === "active" ? (g.pending_requests ? "bg-amber-500" : "bg-emerald-500") : "bg-gray-300")} />
+            <span className="min-w-0 flex-1 truncate font-medium">{g.name}</span>
+            <span className="shrink-0 text-[11px] text-muted">{g.status === "draft" ? usd(g.budget.total) : g.status === "active" ? (g.pending_requests ? "Needs you" : "Live") : "Paused"}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Hire an AI employee into a department, with an objective and someone to report to. */
+export function HireDialog({ org, department, onClose, onHired }: { org: OrgInfo; department?: DepartmentInfo; onClose: () => void; onHired: () => void }) {
+  const staffable = org.departments.filter((d) => org.me.is_admin || org.me.department_ids.includes(d.id));
+  const [deptId, setDeptId] = useState(department?.id || staffable[0]?.id || "");
+  const dept = org.departments.find((d) => d.id === deptId);
+  const [form, setForm] = useState({ name: "", title: "", objective: "", reports_to_user_id: "" });
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const owner = org.members.find((m) => m.role === "owner");
+  const defaultLead = dept?.head || owner;
+
+  async function hire() {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api("/api/agents", { method: "POST", json: { department_id: deptId, ...form, reports_to_user_id: form.reports_to_user_id || null } });
+      onHired();
+    } catch (e) {
+      setErr((e as Error).message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-t-2xl bg-white shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="flex items-center justify-between border-b border-line px-5 py-3">
+          <h2 className="text-lg font-bold">Hire an AI employee</h2>
+          <button onClick={onClose} className="rounded p-1 text-muted hover:bg-gray-100" aria-label="Close"><X size={18} /></button>
+        </div>
+        <div className="space-y-3 px-5 py-4">
+          <label className="block text-[13px] font-semibold">Function
+            <Select className="mt-1" value={deptId} onChange={(e) => setDeptId(e.target.value)}>
+              {staffable.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </Select>
+          </label>
+          <label className="block text-[13px] font-semibold">Name
+            <Input className="mt-1" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={`${dept?.name || "Sales"} Agent 2`} />
+          </label>
+          <label className="block text-[13px] font-semibold">Focus <span className="font-normal text-muted">(a few words)</span>
+            <Input className="mt-1" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Partner outreach" />
+          </label>
+          <label className="block text-[13px] font-semibold">Objective <span className="font-normal text-muted">(what it&apos;s here to achieve)</span>
+            <Input className="mt-1" value={form.objective} onChange={(e) => setForm({ ...form, objective: e.target.value })} placeholder="e.g. Turn conference contacts into design partners" />
+          </label>
+          <label className="block text-[13px] font-semibold">Reports to
+            <Select className="mt-1" value={form.reports_to_user_id} onChange={(e) => setForm({ ...form, reports_to_user_id: e.target.value })}>
+              <option value="">{dept?.head ? `Head of ${dept.name}` : "The owner"} ({defaultLead ? (defaultLead.id === org.me.id ? "you" : defaultLead.name || defaultLead.email) : "owner"})</option>
+              {org.members.map((m) => <option key={m.id} value={m.id}>{m.id === org.me.id ? "Me" : m.name || m.email}</option>)}
+            </Select>
+            <span className="mt-1 block text-xs font-normal text-muted">Its approvals and questions go to this person.</span>
+          </label>
+          {err && <p className="text-sm text-red-600">{err}</p>}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" disabled={busy || !deptId} onClick={hire}><Plus size={14} /> Hire</Button>
+        </div>
+      </div>
     </div>
   );
 }

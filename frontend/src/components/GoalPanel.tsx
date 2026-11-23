@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Flag, Lock, Play, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowRight, Flag, Lock, Play, Sparkles, Target, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -42,6 +42,17 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
             <div className="text-[11px] font-bold uppercase tracking-wide text-brand-700">{goal.first_deliverable ? "In your first week you get" : "The goal"}</div>
             <p className="mt-1 text-[15px] leading-snug text-ink">{goal.first_deliverable || goal.goal_description}</p>
           </section>
+
+          {(goal.key_results?.length || 0) > 0 && (
+            <section>
+              <h3 className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Key results</h3>
+              <ul className="space-y-1">
+                {goal.key_results.map((kr) => (
+                  <li key={kr} className="flex items-start gap-2 text-[13.5px]"><Target size={14} className="mt-0.5 shrink-0 text-violet-600" /> {kr}</li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section>
             <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">How it works</h3>

@@ -7,13 +7,13 @@ import { useState } from "react";
 
 import { GoalProgress, GoalStatus } from "@/components/goal";
 import { AgentAvatar, PersonAvatar } from "@/components/team";
-import { Button, Card, CardHeader, Empty, ErrorNote, Input, Select } from "@/components/ui";
+import { Button, Card, CardHeader, cx, Empty, ErrorNote, Input, Select } from "@/components/ui";
 import { ViewToggle, WorkLog } from "@/components/WorkLog";
 import { ActivityItem, api, Campaign, num, OrgInfo, Person, usd, useApi } from "@/lib/api";
 
 type AgentInfo = {
-  id: string; name: string; title: string; department: { id: string; name: string };
-  approvers: Person[]; can_manage: boolean; goals: number; actions: number;
+  id: string; name: string; title: string; objective: string; reports_to_user_id: string | null;
+  department: { id: string; name: string }; approvers: Person[]; can_manage: boolean; can_edit: boolean; goals: number; actions: number;
 };
 
 export default function AgentPage() {
@@ -75,10 +75,22 @@ export default function AgentPage() {
             </>
           )}
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <span className="flex items-center gap-1 text-muted"><Hand size={14} /> Asks for approval from:</span>
+            <span className="flex items-center gap-1 text-muted"><Hand size={14} /> Reports to</span>
             {agent.approvers.map((p) => (
-              <span key={p.id} className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 py-0.5 pl-0.5 pr-2.5 text-xs"><PersonAvatar name={p.name || p.email} size={20} title={p.email} /> {p.name || p.email}</span>
+              <span key={p.id} className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 py-0.5 pl-0.5 pr-2.5 text-xs"><PersonAvatar name={p.name || p.email} size={20} title={p.email} /> {p.id === org?.me.id ? "You" : p.name || p.email}</span>
             ))}
+            {agent.can_edit && org && (
+              <select
+                aria-label="Change who it reports to"
+                className="rounded-md border border-line bg-white px-2 py-0.5 text-xs text-muted"
+                value={agent.reports_to_user_id || ""}
+                onChange={async (e) => { await api(`/api/agents/${id}`, { method: "PATCH", json: { reports_to_user_id: e.target.value || null } }); reload(); }}
+              >
+                <option value="">Change: head of {agent.department.name} (default)</option>
+                {org.members.map((m) => <option key={m.id} value={m.id}>{m.id === org.me.id ? "Me" : m.name || m.email}</option>)}
+              </select>
+            )}
+            <span className="text-xs text-muted">· its approvals and questions go here</span>
           </div>
         </div>
         {agent.can_manage && (
@@ -86,6 +98,8 @@ export default function AgentPage() {
         )}
       </Card>
       {err && <ErrorNote>{err}</ErrorNote>}
+
+      <Okrs agent={agent} goals={goals || []} onSaved={reload} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Status" value={working ? "Working" : waiting ? "Needs a yes" : "Idle"} />
@@ -132,6 +146,50 @@ function Stat({ label, value }: { label: string; value: string }) {
     <Card className="p-4">
       <div className="text-xs font-semibold text-muted">{label}</div>
       <div className="tabular mt-1 text-xl font-bold">{value}</div>
+    </Card>
+  );
+}
+
+
+/** Like an employee's OKRs: one objective, and the key results of its goals. */
+function Okrs({ agent, goals, onSaved }: { agent: AgentInfo; goals: Campaign[]; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(agent.objective);
+  const live = goals.filter((g) => g.status !== "draft");
+  const later = goals.filter((g) => g.status === "draft");
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="text-[11px] font-bold uppercase tracking-wide text-violet-700">Objective</div>
+        {agent.can_edit && !editing && <button onClick={() => { setText(agent.objective); setEditing(true); }} className="text-xs font-semibold text-brand-600 hover:underline">{agent.objective ? "Edit" : "Add an objective"}</button>}
+      </div>
+      {editing ? (
+        <div className="mt-1 flex flex-wrap gap-2">
+          <Input className="min-w-60 flex-1" value={text} onChange={(e) => setText(e.target.value)} placeholder="What is it here to achieve?" />
+          <Button variant="primary" onClick={async () => { await api(`/api/agents/${agent.id}`, { method: "PATCH", json: { objective: text } }); setEditing(false); onSaved(); }}>Save</Button>
+          <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+        </div>
+      ) : (
+        <p className="mt-1 text-[16px] font-semibold leading-snug">{agent.objective || <span className="font-normal text-muted">No objective yet.</span>}</p>
+      )}
+      <div className="mt-4 text-[11px] font-bold uppercase tracking-wide text-muted">Key results</div>
+      {live.length === 0 && <p className="mt-1 text-sm text-muted">Nothing live yet. {later.length ? `${later.length} goal${later.length > 1 ? "s" : ""} ready to start below.` : ""}</p>}
+      <ul className="mt-2 space-y-3">
+        {live.map((g) => (
+          <li key={g.id}>
+            <Link href={`/goals/${g.id}`} className="text-[13px] font-semibold hover:text-brand-600 hover:underline">{g.name}</Link>
+            <ul className="mt-1 space-y-1">
+              {(g.key_results?.length ? g.key_results : [g.primary_metric]).map((kr, i) => (
+                <li key={i} className="flex items-center gap-2 text-[13px]">
+                  <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", i === 0 ? "bg-emerald-500" : "bg-gray-300")} />
+                  <span className="min-w-0 flex-1">{kr}</span>
+                  {i === 0 && <span className="w-40 shrink-0"><GoalProgress c={g} compact /></span>}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }

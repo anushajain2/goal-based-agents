@@ -30,6 +30,7 @@ export type Campaign = {
   origin: string; // "setup" = suggested by setup research
   suggested_reason: string;
   first_deliverable: string;
+  key_results: string[];
   budget_basis: BudgetBasis | null;
   has_playbook: boolean;
   playbook?: Playbook | null; // full goal only
@@ -77,7 +78,7 @@ export type UserRequest = {
   id: string;
   campaign_id: string;
   campaign_name: string | null;
-  kind: "action" | "login" | "connect";
+  kind: "action" | "login" | "connect" | "question";
   status: string;
   action_type: string | null;
   action_label: string | null;
@@ -94,6 +95,8 @@ export type UserRequest = {
     action_name?: string;
     details?: string;
     screenshot?: string | null;
+    question?: string;
+    options?: string[];
   };
   est_spend_usd: number | null;
   decision_note: string | null;
@@ -101,6 +104,9 @@ export type UserRequest = {
   department_id: string | null;
   department_name: string | null;
   agent_name: string | null;
+  agent_id: string | null;
+  agent_title: string | null;
+  routed_to_me: boolean;
   approvers: string[];
   can_decide: boolean;
   decided_by_name: string | null;
@@ -149,7 +155,10 @@ export type Grant = {
 };
 
 export type Person = { id: string; name: string; email: string };
-export type AgentSummary = { id: string; name: string; title: string; goals: number; active_goals: number; spent: number; working: boolean; needs_you: number };
+export type AgentSummary = {
+  id: string; name: string; title: string; objective: string; reports_to: Person | null;
+  goals: number; active_goals: number; spent: number; working: boolean; needs_you: number;
+};
 export type DepartmentInfo = { id: string; name: string; kind: string; head: Person | null; people: Person[]; agents: AgentSummary[] };
 export type BudgetBasis = {
   per_session_usd: number; sessions: number; cycle_hours: number; days: number; ai_usd: number; paid_spend_usd: number;

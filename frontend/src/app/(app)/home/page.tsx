@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { ApprovalCard } from "@/components/ApprovalCard";
+import { KIND_BADGE } from "@/components/ApprovalCard";
 import { GoalProgress, GoalStatus } from "@/components/goal";
 import { EmployeeAvatar } from "@/components/Shell";
-import { Card, CardHeader, ErrorNote } from "@/components/ui";
+import { Badge, Card, CardHeader, ErrorNote } from "@/components/ui";
 import { CATEGORY_ICON, UseCaseCard } from "@/components/UseCaseLibrary";
 import { ViewToggle, WorkLog } from "@/components/WorkLog";
 import { AgentAvatar } from "@/components/team";
@@ -108,15 +108,27 @@ export default function HomePage() {
       )}
 
       {requests && requests.length > 0 && (
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-[15px] font-bold">Needs you</h2>
-            {requests.length > 2 && <Link href="/approvals" className="text-sm font-semibold text-brand-600">All {requests.length} →</Link>}
+        <Card className="border-amber-300">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-amber-50/60 px-4 py-2.5">
+            <h2 className="text-[15px] font-bold">{requests.length} {requests.length === 1 ? "thing needs" : "things need"} you</h2>
+            <Link href="/approvals" className="inline-flex h-8 items-center gap-1 rounded-lg bg-ink px-3 text-xs font-semibold text-white hover:bg-gray-800">Open inbox <ArrowRight size={13} /></Link>
           </div>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {requests.slice(0, 2).map((r) => <ApprovalCard key={r.id} req={r} onDone={reloadRequests} showCampaign />)}
-          </div>
-        </section>
+          <ul className="divide-y divide-line">
+            {requests.slice(0, 5).map((r) => {
+              const k = KIND_BADGE[r.kind] || KIND_BADGE.action;
+              return (
+                <li key={r.id}>
+                  <Link href={`/approvals?id=${r.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50">
+                    {r.agent_name && <AgentAvatar name={r.agent_name} size={26} />}
+                    <Badge tone={k.tone}>{k.label}</Badge>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{r.kind === "question" ? r.preview.question || r.title : r.title}</span>
+                    <span className="hidden shrink-0 text-xs text-muted sm:block">{r.agent_name} · {timeAgo(r.created_at)}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">

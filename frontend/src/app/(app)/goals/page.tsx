@@ -6,29 +6,44 @@ import { useMemo, useState } from "react";
 
 import { StartGoal } from "@/components/StartGoal";
 import { AgentAvatar } from "@/components/team";
-import { GoalProgress, GoalStatus, goalActivity, ProgressBar } from "@/components/goal";
+import { GoalProgress, GoalStatus, ProgressBar } from "@/components/goal";
 import { Card, cx, Empty, ErrorNote, Select, Toggle } from "@/components/ui";
 import { api, Campaign, num, OrgInfo, timeAgo, usd, useApi } from "@/lib/api";
 
-type Filter = "all" | "active" | "needs" | "paused";
+type Tab = "live" | "suggested" | "drafts";
+
+const TAB_HELP: Record<Tab, string> = {
+  live: "Goals your AI employees are working on, or have worked on.",
+  suggested: "Suggested by setup research for where your company is now. Nothing runs until you start one.",
+  drafts: "Goals you set up but haven't started yet.",
+};
+
+const inTab = (c: Campaign, tab: Tab) =>
+  tab === "live" ? c.status !== "draft" : tab === "suggested" ? c.status === "draft" && c.origin === "setup" : c.status === "draft" && c.origin !== "setup";
 
 export default function GoalsPage() {
   const { data, error, reload } = useApi<Campaign[]>("/api/campaigns");
   const [busy, setBusy] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [tab, setTab] = useState<Tab | null>(null);
   const [client, setClient] = useState("");
   const [dept, setDept] = useState("");
   const { data: org } = useApi<OrgInfo>("/api/org", { live: false });
 
   const clients = useMemo(() => [...new Set((data || []).map((c) => c.client_name).filter(Boolean))].sort(), [data]);
+  const counts = { live: 0, suggested: 0, drafts: 0 } as Record<Tab, number>;
+  for (const c of data || []) for (const t of ["live", "suggested", "drafts"] as Tab[]) if (inTab(c, t)) counts[t]++;
+  // Open on live goals, or on suggestions when nothing is running yet.
+  const shown: Tab = tab ?? (counts.live ? "live" : counts.suggested ? "suggested" : "live");
   const rows = (data || []).filter((c) => {
     if (client && c.client_name !== client) return false;
     if (dept && c.department?.id !== dept) return false;
-    if (filter === "active") return c.status === "active";
-    if (filter === "paused") return c.status !== "active";
-    if (filter === "needs") return goalActivity(c).label === "Needs you";
-    return true;
+    return inTab(c, shown);
   });
+  // Grouped by function (department), in the organization's order.
+  const order = (org?.departments || []).map((d) => d.id);
+  const groups = [...new Set(rows.map((c) => c.department?.id || ""))]
+    .sort((a, b) => (order.indexOf(a) + 1 || 999) - (order.indexOf(b) + 1 || 999))
+    .map((id) => ({ id, name: rows.find((c) => (c.department?.id || "") === id)?.department?.name || "Other", goals: rows.filter((c) => (c.department?.id || "") === id) }));
   const totals = rows.reduce((t, c) => ({ spent: t.spent + c.budget.spent, budget: t.budget + c.budget.total, actions: t.actions + c.actions_taken }), { spent: 0, budget: 0, actions: 0 });
 
   const [starting, setStarting] = useState<Campaign | null>(null);
@@ -64,9 +79,10 @@ export default function GoalsPage() {
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-2.5">
           <div className="inline-flex overflow-hidden rounded-md border border-line text-xs font-semibold">
-            {(["all", "active", "needs", "paused"] as Filter[]).map((f) => (
-              <button key={f} onClick={() => setFilter(f)} className={cx("px-3 py-1.5", filter === f ? "bg-ink text-white" : "bg-white text-muted hover:text-ink")}>
-                {{ all: "All", active: "Active", needs: "Needs you", paused: "Paused / not started" }[f]}
+            {(["live", "suggested", "drafts"] as Tab[]).filter((t) => t !== "drafts" || counts.drafts).map((t) => (
+              <button key={t} onClick={() => setTab(t)} className={cx("px-3 py-1.5", shown === t ? "bg-ink text-white" : "bg-white text-muted hover:text-ink")}>
+                {{ live: "Live", suggested: "Suggested", drafts: "Not started" }[t]}
+                <span className={cx("ml-1.5", shown === t ? "text-white/70" : "text-gray-400")}>{counts[t]}</span>
               </button>
             ))}
           </div>
@@ -86,14 +102,17 @@ export default function GoalsPage() {
               </Select>
             </div>
           )}
+          <span className="text-xs text-muted">{TAB_HELP[shown]}</span>
           <span className="ml-auto text-xs text-muted">
             {rows.length} goals · spent <b className="tabular text-ink">{usd(totals.spent)}</b> of {usd(totals.budget)} · {num(totals.actions)} actions
           </span>
         </div>
 
-        {data && data.length === 0 ? (
-          <Empty icon={<Target size={36} />} title="No goals yet">
-            <Link href="/goals/new" className="font-semibold text-brand-600">Give an AI employee its first goal →</Link>
+        {data && rows.length === 0 ? (
+          <Empty icon={<Target size={36} />} title={shown === "live" ? "Nothing live yet" : "Nothing here"}>
+            {shown === "live" && counts.suggested
+              ? <button onClick={() => setTab("suggested")} className="font-semibold text-brand-600">See the {counts.suggested} suggested goals →</button>
+              : <Link href="/goals/new" className="font-semibold text-brand-600">Give an AI employee a goal →</Link>}
           </Empty>
         ) : (
           <div className="overflow-x-auto">
@@ -111,8 +130,14 @@ export default function GoalsPage() {
                   <th className="px-4 py-2.5">Last activity</th>
                 </tr>
               </thead>
-              <tbody>
-                {rows.map((c) => {
+              {groups.map((grp) => (
+              <tbody key={grp.id}>
+                <tr className="border-b border-line bg-gray-50/80">
+                  <td colSpan={9} className="px-4 py-1.5 text-[11.5px] font-bold uppercase tracking-wide text-gray-600">
+                    {grp.name} <span className="font-semibold text-gray-400">· {grp.goals.length}</span>
+                  </td>
+                </tr>
+                {grp.goals.map((c) => {
                   const on = c.status === "active";
                   const pct = c.budget.total ? (c.budget.spent / c.budget.total) * 100 : 0;
                   return (
@@ -160,6 +185,7 @@ export default function GoalsPage() {
                   );
                 })}
               </tbody>
+              ))}
             </table>
           </div>
         )}

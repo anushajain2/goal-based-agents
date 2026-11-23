@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Flag, Hand, Inbox, Pause, Play, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Flag, Hand, Inbox, Pause, Play, RefreshCw, Sparkles, Target, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
@@ -121,6 +121,13 @@ function GoalPage() {
           )}
         </div>
       </div>
+
+      {(c.key_results?.length || 0) > 0 && (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border border-violet-200 bg-violet-50/40 px-4 py-2.5 text-[13px]">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-violet-700">Key results</span>
+          {c.key_results.map((kr) => <span key={kr} className="inline-flex items-center gap-1.5"><Target size={13} className="text-violet-600" /> {kr}</span>)}
+        </div>
+      )}
 
       {c.origin === "setup" && c.status === "draft" && (
         <div className="flex flex-wrap items-start gap-3 rounded-xl border border-brand-500/30 bg-brand-50/60 px-4 py-3 text-sm">
