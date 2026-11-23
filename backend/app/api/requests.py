@@ -1,5 +1,8 @@
-"""The approvals inbox. Requests are routed to the department of the AI employee that raised them:
-anyone in that department (or an admin) can approve, edit or decline."""
+"""The "Needs you" inbox: approvals, questions, sign-ins and app connections from AI employees.
+
+Each request goes to the person the AI employee reports to on the org chart (see org.approvers).
+That person, or an admin, decides; they can add a comment, which the AI employee reads.
+"""
 
 from __future__ import annotations
 
@@ -25,7 +28,7 @@ from app.models import (
     UserRequest,
     utcnow,
 )
-from app.org import Member, approvers, can_decide, current_member, departments_without_people, routed_to_me
+from app.org import Member, approvers, can_decide, current_member, routed_to_me
 from app.services import activity
 from app.services.events import notify
 from app.services.policy import ACTION_TYPES
@@ -46,7 +49,7 @@ class Decision(BaseModel):
 
 async def _enrich(s: AsyncSession, me: Member, rows) -> list[dict]:
     dept_names = dict((await s.execute(select(Department.id, Department.name).where(Department.org_id == me.org_id))).all())
-    agent_names = dict((await s.execute(select(Agent.id, Agent.name).where(Agent.org_id == me.org_id))).all())
+    agents = {a.id: a for a in (await s.execute(select(Agent).where(Agent.org_id == me.org_id))).scalars()}
     deciders = {r.decided_by for r, *_ in rows if r.decided_by}
     names = {
         uid: (name or email)
@@ -54,18 +57,23 @@ async def _enrich(s: AsyncSession, me: Member, rows) -> list[dict]:
             await s.execute(select(User.id, User.name, User.email).where(User.id.in_(deciders or ["-"])))
         ).all()
     }
-    approver_cache: dict[str | None, list[str]] = {}
+    cache: dict[str | None, list] = {}
     out = []
     for r, campaign_name, agent_id in rows:
-        if r.department_id not in approver_cache:
-            approver_cache[r.department_id] = [u.name or u.email for u in await approvers(s, me.org_id, r.department_id)]
+        if agent_id not in cache:
+            cache[agent_id] = await approvers(s, me.org_id, r.department_id, agent_id)
+        people = cache[agent_id]
+        agent = agents.get(agent_id)
         out.append({
             **request_json(r, campaign_name),
             "department_id": r.department_id,
             "department_name": dept_names.get(r.department_id),
-            "agent_name": agent_names.get(agent_id),
-            "approvers": approver_cache[r.department_id],
-            "can_decide": await can_decide(s, me, r.department_id),
+            "agent_id": agent_id,
+            "agent_name": agent.name if agent else None,
+            "agent_title": agent.title if agent else None,
+            "approvers": [u.name or u.email for u in people],
+            "routed_to_me": me.user.id in {u.id for u in people},
+            "can_decide": me.is_admin or me.user.id in {u.id for u in people},
             "decided_by_name": names.get(r.decided_by),
         })
     return out
@@ -86,7 +94,7 @@ async def list_requests(status: str | None = "pending", campaign_id: str | None 
     if campaign_id:
         q = q.where(UserRequest.campaign_id == campaign_id)
     elif scope == "mine":
-        q = q.where(routed_to_me(me, await departments_without_people(s, me.org_id)))
+        q = q.where(await routed_to_me(s, me))
     rows = (await s.execute(q.order_by(UserRequest.created_at.desc()).limit(min(limit, 500)))).all()
     return await _enrich(s, me, rows)
 
@@ -100,12 +108,15 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
     campaign = await s.get(Campaign, req.campaign_id) if req else None
     if not req or not campaign or campaign.org_id != me.org_id:
         raise HTTPException(404, "Request not found")
-    if not await can_decide(s, me, req.department_id):
-        raise HTTPException(403, "This request is for another department. Someone in that department (or an admin) can decide.")
+    if not await can_decide(s, me, req.campaign_id):
+        people = ", ".join(u.name or u.email for u in await approvers(s, me.org_id, req.department_id, campaign.agent_id))
+        raise HTTPException(403, f"This goes to {people}, who the AI employee reports to (or an admin).")
     if req.status != RequestStatus.pending.value:
         raise HTTPException(409, f"Already {req.status}")
 
     approved = body.decision == "approve"
+    if req.kind == RequestKind.question.value and approved and not (body.note or "").strip():
+        raise HTTPException(400, "Write an answer first.")
     req.status = RequestStatus.approved.value if approved else RequestStatus.rejected.value
     req.decision_note = body.note
     req.decided_at = utcnow()
@@ -155,7 +166,8 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
 
     verb = {"action": "Approved" if approved else "Declined",
             "login": "Signed in" if approved else "Declined sign-in",
-            "connect": "Connected" if approved else "Declined to connect"}[req.kind]
+            "connect": "Connected" if approved else "Declined to connect",
+            "question": "Answered" if approved else "Skipped the question"}[req.kind]
     edited = " (edited)" if req.edited_fields else ""
     await activity.log(
         s, req.campaign_id, "decision", f"{verb}{edited} by {who}: {req.title}{grant_note}", run_id=req.run_id,

@@ -95,45 +95,84 @@ async def test_invited_people_join_on_sign_in_with_their_departments():
             assert (await other.post("/api/invitations", json={"email": "maya@acme.com"})).status_code == 409
 
 
-async def test_approvals_route_to_the_ai_employees_department():
+async def test_approvals_follow_the_org_chart():
     async with client() as owner, client() as maya, client() as sam:
         await sign_in_with_org(owner, "owner@acme.com")
         org = await org_of(owner)
         depts = {d["name"]: d["id"] for d in org["departments"]}
-        await owner.post("/api/invitations", json={"email": "maya@acme.com", "department_ids": [depts["Marketing"]]})
+        # Maya leads Marketing; Sam is in Sales.
+        await owner.post("/api/invitations", json={"email": "maya@acme.com", "head_of": [depts["Marketing"]]})
         await owner.post("/api/invitations", json={"email": "sam@acme.com", "department_ids": [depts["Sales"]]})
         await sign_in(maya, "maya@acme.com")
         await sign_in(sam, "sam@acme.com")
+        assert (await maya.get("/api/org")).status_code == 200 and (await sam.get("/api/org")).status_code == 200
 
-        # Maya (Marketing) gives the Marketing Agent a goal; Sam (Sales) can't.
+        # Maya gives the Marketing Agent a goal; Sam (Sales) can't.
         assert (await sam.post("/api/campaigns", json=goal(agent_in(org, "Marketing")))).status_code == 403
         r = await maya.post("/api/campaigns", json=goal(agent_in(org, "Marketing")))
-        assert r.status_code == 200 and r.json()["agent"]["name"] == "Marketing Agent"
+        assert r.status_code == 200 and r.json()["department"]["name"] == "Marketing"
         goal_id = r.json()["id"]
-        assert r.json()["department"]["name"] == "Marketing"
 
-        await run_cycle()  # the agent asks to post -> routed to Marketing
+        await run_cycle()  # the Marketing Agent asks to post -> to its head, Maya, not the owner
 
-        maya_inbox = (await maya.get("/api/requests")).json()
-        assert len(maya_inbox) == 1
-        req = maya_inbox[0]
-        assert req["department_name"] == "Marketing" and req["agent_name"] == "Marketing Agent"
-        assert set(req["approvers"]) == {"maya@acme.com", "owner@acme.com"}  # everyone in Marketing
-        assert req["can_decide"] is True
-        # Sam isn't in Marketing: nothing in his inbox, can't decide, but can see it org-wide.
+        req = (await maya.get("/api/requests")).json()
+        assert len(req) == 1
+        req = req[0]
+        assert req["agent_name"] == "Marketing Agent" and req["approvers"] == ["maya@acme.com"]
+        assert req["routed_to_me"] is True and req["can_decide"] is True
+        assert (await owner.get("/api/requests")).json() == []  # not in the owner's inbox...
+        everything = (await owner.get("/api/requests?scope=all")).json()
+        assert everything[0]["can_decide"] is True  # ...though owners and admins can still step in
         assert (await sam.get("/api/requests")).json() == []
-        everything = (await sam.get("/api/requests?scope=all")).json()
-        assert len(everything) == 1 and everything[0]["can_decide"] is False
+        assert (await sam.get("/api/requests?scope=all")).json()[0]["can_decide"] is False
         assert (await sam.post(f"/api/requests/{req['id']}/decide", json={"decision": "approve"})).status_code == 403
         # Everyone can see the goal; only Marketing (or admins) can change it.
         assert (await sam.get(f"/api/campaigns/{goal_id}")).status_code == 200
         assert (await sam.post(f"/api/campaigns/{goal_id}/pause")).status_code == 403
 
-        r = await maya.post(f"/api/requests/{req['id']}/decide", json={"decision": "approve"})
+        r = await maya.post(f"/api/requests/{req['id']}/decide", json={"decision": "approve", "note": "Add a link to the demo"})
         assert r.status_code == 200 and r.json()["decided_by_name"] == "maya@acme.com"
         log = (await owner.get(f"/api/campaigns/{goal_id}/activity")).json()
-        assert any("Asked the Marketing team" in a["title"] for a in log)
+        assert any(a["title"].startswith("Asked maya@acme.com") for a in log)
         assert any("Approved by maya@acme.com" in a["title"] for a in log)
+
+
+async def test_reporting_lines_can_be_changed():
+    async with client() as owner, client() as maya, client() as sam:
+        await sign_in_with_org(owner, "owner@acme.com")
+        org = await org_of(owner)
+        depts = {d["name"]: d["id"] for d in org["departments"]}
+        await owner.post("/api/invitations", json={"email": "maya@acme.com", "head_of": [depts["Marketing"]]})
+        await owner.post("/api/invitations", json={"email": "sam@acme.com", "department_ids": [depts["Marketing"]]})
+        await sign_in(maya, "maya@acme.com")
+        await sign_in(sam, "sam@acme.com")
+        await org_of(sam)  # joins on first load
+        org = await org_of(maya)
+        sam_id = next(m["id"] for m in org["members"] if m["email"] == "sam@acme.com")
+
+        # Maya (in Marketing) hires her own AI employee that reports to Sam.
+        r = await maya.post("/api/agents", json={"department_id": depts["Marketing"], "name": "Content Agent",
+                                                 "objective": "Make Acme the go-to voice on routing", "reports_to_user_id": sam_id})
+        assert r.status_code == 200
+        content = r.json()["id"]
+        info = (await maya.get(f"/api/agents/{content}")).json()
+        assert info["objective"] == "Make Acme the go-to voice on routing"
+        assert [p["email"] for p in info["approvers"]] == ["sam@acme.com"]
+        assert (await maya.post("/api/agents", json={"department_id": depts["Sales"], "name": "x"})).status_code == 403
+        assert (await maya.post("/api/agents", json={"department_id": depts["Marketing"], "reports_to_user_id": "nobody"})).status_code == 400
+
+        await maya.post("/api/campaigns", json=goal(content, "Grow blog traffic"))
+        await run_cycle()
+        assert len((await sam.get("/api/requests")).json()) == 1
+        assert (await maya.get("/api/requests")).json() == []
+
+        # Back to the department's head; with no head, to the owner.
+        await maya.patch(f"/api/agents/{content}", json={"reports_to_user_id": None})
+        assert len((await maya.get("/api/requests")).json()) == 1
+        await owner.patch(f"/api/departments/{depts['Marketing']}", json={"head_user_id": None})
+        assert len((await owner.get("/api/requests")).json()) == 1
+        listed = next(d for d in (await org_of(owner))["departments"] if d["name"] == "Marketing")
+        assert listed["agents"][-1]["objective"] == "Make Acme the go-to voice on routing"
 
 
 async def test_department_without_people_routes_to_admins():
@@ -158,7 +197,7 @@ async def test_dont_ask_again_for_the_whole_department():
         await sign_in_with_org(owner, "owner@acme.com")
         org = await org_of(owner)
         marketing = next(d["id"] for d in org["departments"] if d["name"] == "Marketing")
-        await owner.post("/api/invitations", json={"email": "maya@acme.com", "department_ids": [marketing]})
+        await owner.post("/api/invitations", json={"email": "maya@acme.com", "head_of": [marketing]})
         await sign_in(maya, "maya@acme.com")
         # A second Marketing AI employee.
         r = await owner.post("/api/agents", json={"department_id": marketing, "name": "Content Agent"})

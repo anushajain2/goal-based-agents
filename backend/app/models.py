@@ -60,6 +60,7 @@ class RequestKind(str, enum.Enum):
     action = "action"  # "I'm going to post this - can I go ahead?"
     login = "login"  # "Please sign in to X in Agent Chrome"
     connect = "connect"  # "Please connect your HubSpot account" (Composio OAuth link)
+    question = "question"  # "Which customers should I ask for a case study?" - needs an answer
 
 
 class RequestStatus(str, enum.Enum):
@@ -240,6 +241,11 @@ class Agent(Base):
     department_id: Mapped[str] = mapped_column(ForeignKey("departments.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(120))
     title: Mapped[str] = mapped_column(String(160), default="")  # e.g. "Outbound sales"
+    # Its objective, like an employee's OKR objective: what it is there to achieve.
+    objective: Mapped[str] = mapped_column(Text, default="")
+    # Who it reports to: its requests go to this person. Empty = the department's head, or, with
+    # no head, the organization's owner (see org.approvers).
+    reports_to_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
 
@@ -288,6 +294,7 @@ class Campaign(Base):
     origin: Mapped[str] = mapped_column(String(20), default="")  # "setup" = suggested by setup research
     suggested_reason: Mapped[str] = mapped_column(Text, default="")  # why setup suggested this goal
     first_deliverable: Mapped[str] = mapped_column(Text, default="")  # what people get in the first week
+    key_results: Mapped[list] = mapped_column(JSONType, default=list)  # 2-3 short measurable outcomes
     # How the budget was worked out (services/estimate.py): sessions x cost per session + paid spend.
     budget_basis: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # The plan shown to people before they start: steps, each with the kind of action it

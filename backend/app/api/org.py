@@ -272,7 +272,9 @@ async def get_org(s: AsyncSession = Depends(get_session), me: Member = Depends(c
                 "head": _user(users[d.head_user_id]) if d.head_user_id in users else None,
                 "people": [_user(users[u]) for u in by_dept.get(d.id, []) if u in users],
                 "agents": [
-                    {"id": a.id, "name": a.name, "title": a.title, **stats.get(a.id, empty)}
+                    {"id": a.id, "name": a.name, "title": a.title, "objective": a.objective,
+                     "reports_to": _user(users[a.reports_to_user_id]) if a.reports_to_user_id in users else None,
+                     **stats.get(a.id, empty)}
                     for a in agents if a.department_id == d.id
                 ],
             }
@@ -382,12 +384,31 @@ class AgentIn(BaseModel):
     department_id: str
     name: str = Field(default="", max_length=120)
     title: str = Field(default="", max_length=160)
+    objective: str = Field(default="", max_length=600)
+    reports_to_user_id: str | None = None  # empty: the department's head (or the owner)
 
 
 class AgentPatch(BaseModel):
     name: str | None = Field(default=None, max_length=120)
     title: str | None = Field(default=None, max_length=160)
+    objective: str | None = Field(default=None, max_length=600)
     department_id: str | None = None
+    reports_to_user_id: str | None = None  # send null to report to the department's head again
+
+
+async def _manager(s: AsyncSession, me: Member, user_id: str | None) -> str | None:
+    if not user_id:
+        return None
+    ok = (await s.execute(select(Membership.id).where(Membership.org_id == me.org_id, Membership.user_id == user_id))).first()
+    if not ok:
+        raise HTTPException(400, "An AI employee can only report to someone in the organization.")
+    return user_id
+
+
+def _may_staff(me: Member, department_id: str) -> None:
+    """Admins staff any department; people in a department (like its head) can add AI employees to it."""
+    if not (me.is_admin or me.in_department(department_id)):
+        raise HTTPException(403, "Only admins or people in this department can do that.")
 
 
 async def _agent(s: AsyncSession, me: Member, agent_id: str) -> Agent:
@@ -399,10 +420,11 @@ async def _agent(s: AsyncSession, me: Member, agent_id: str) -> Agent:
 
 @router.post("/agents")
 async def hire_agent(body: AgentIn, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
-    require_admin(me)
     d = await _department(s, me, body.department_id)
+    _may_staff(me, d.id)
     a = Agent(org_id=me.org_id, department_id=d.id, name=body.name.strip() or default_agent_name(d.name),
-              title=body.title.strip())
+              title=body.title.strip(), objective=body.objective.strip(),
+              reports_to_user_id=await _manager(s, me, body.reports_to_user_id))
     s.add(a)
     await s.flush()
     return {"id": a.id, "name": a.name}
@@ -414,10 +436,12 @@ async def get_agent(agent_id: str, s: AsyncSession = Depends(get_session), me: M
     d = await s.get(Department, a.department_id)
     goal_count = (await s.execute(select(func.count()).select_from(Campaign).where(Campaign.agent_id == a.id))).scalar_one()
     return {
-        "id": a.id, "name": a.name, "title": a.title,
+        "id": a.id, "name": a.name, "title": a.title, "objective": a.objective,
+        "reports_to_user_id": a.reports_to_user_id,
         "department": {"id": d.id, "name": d.name},
-        "approvers": [_user(u) for u in await approvers(s, me.org_id, d.id)],
+        "approvers": [_user(u) for u in await approvers(s, me.org_id, d.id, a.id)],
         "can_manage": me.in_department(d.id),
+        "can_edit": me.is_admin or me.in_department(d.id),
         "goals": goal_count,
         "actions": (
             await s.execute(select(func.count()).select_from(Activity).join(Campaign, Campaign.id == Activity.campaign_id)
@@ -429,14 +453,20 @@ async def get_agent(agent_id: str, s: AsyncSession = Depends(get_session), me: M
 @router.patch("/agents/{agent_id}")
 async def update_agent(agent_id: str, body: AgentPatch, s: AsyncSession = Depends(get_session),
                        me: Member = Depends(current_member)):
-    require_admin(me)
     a = await _agent(s, me, agent_id)
+    _may_staff(me, a.department_id)
+    changes = body.model_dump(exclude_unset=True)
     if body.department_id:
+        _may_staff(me, body.department_id)
         a.department_id = (await _department(s, me, body.department_id)).id
     if body.name is not None and body.name.strip():
         a.name = body.name.strip()
     if body.title is not None:
         a.title = body.title.strip()
+    if body.objective is not None:
+        a.objective = body.objective.strip()
+    if "reports_to_user_id" in changes:
+        a.reports_to_user_id = await _manager(s, me, body.reports_to_user_id)
     return {"ok": True}
 
 

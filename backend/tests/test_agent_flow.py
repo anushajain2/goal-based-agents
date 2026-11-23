@@ -149,7 +149,7 @@ async def test_approval_then_dont_ask_again(api):
         assert ai and all(e.status == "settled" for e in ai)
         assert sum(e.amount_usd for e in ai) > 0
     log = await titles(cid)
-    assert any(t.startswith("request:waiting:Asked the Sales team: Post v2 launch tweet") for t in log)
+    assert any(t.startswith("request:waiting:Asked ") and t.endswith(": Post v2 launch tweet") for t in log)
     assert any("Approved (edited) by owner@example.com: Post v2 launch tweet" in t and "won't ask again" in t for t in log)
     assert any(t.startswith("cycle:info:Session 1 done") for t in log)
     assert any(t.startswith("plan:info:Fresh start.") for t in log)
@@ -293,3 +293,39 @@ async def test_each_role_uses_its_model_and_checkin_follows_preference(api):
     from datetime import datetime
     hours = (datetime.fromisoformat(detail["next_cycle_at"]) - datetime.now(UTC)).total_seconds() / 3600
     assert 3.9 < hours < 4.1
+
+
+async def test_agents_ask_questions_and_read_comments(api):
+    """An AI employee asks the person it reports to; their answer, and comments on approvals, reach it."""
+    seen: list[str] = []
+
+    def script(kw):
+        results = last_tool_results(kw)
+        seen.extend(str(r.get("content")) for r in results)
+        step = len([m for m in kw["messages"] if m["role"] == "assistant"])
+        if step == 0:
+            return [tool_use("ask_user", question="Which 3 customers are happiest?", why="To ask them for case studies.",
+                             options=["Acme", "Globex"])]
+        if step == 1:
+            return [tool_use("browser_declare_action", action_type="publish_post", title="Post a customer quote",
+                             site="x.com", content="Our customers love us.")]
+        return [tool_use("finish_cycle", summary="Asked and posted.", next_check_in_hours=6)]
+
+    runner = CycleRunner(MeteredClaude(client=FakeAnthropic(script)))
+    cid = await make_campaign(api)
+    await run_next_cycle(runner)
+    q = (await api.get("/api/requests")).json()[0]
+    assert q["kind"] == "question" and q["preview"]["options"] == ["Acme", "Globex"]
+    assert q["title"] == "Which 3 customers are happiest?" and q["rationale"] == "To ask them for case studies."
+    # Answering needs words.
+    assert (await api.post(f"/api/requests/{q['id']}/decide", json={"decision": "approve"})).status_code == 400
+    await api.post(f"/api/requests/{q['id']}/decide", json={"decision": "approve", "note": "Acme, Initech and Hooli"})
+    await resume(runner)
+    assert any("Their answer: Acme, Initech and Hooli" in x for x in seen)
+
+    a = (await api.get("/api/requests")).json()[0]
+    await api.post(f"/api/requests/{a['id']}/decide", json={"decision": "approve", "note": "Tag them in it"})
+    await resume(runner)
+    assert any("Their comment when approving: Tag them in it" in x for x in seen)
+    log = await titles(cid)
+    assert any("Answered by owner@example.com: Which 3 customers are happiest?" in t for t in log)

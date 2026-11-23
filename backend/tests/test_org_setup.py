@@ -30,7 +30,8 @@ def goal(name: str, category: str = "Sales", **kw) -> dict:
                       {"text": "Write a first email to each", "action_type": "create_draft", "tool": "gmail"},
                       {"text": "Send each email", "action_type": "send_message", "tool": "gmail"}],
             "why": "You just raised a seed round.", "first_week": "40 leads with a drafted email each",
-            "start_here": False, **kw}
+            "start_here": False, "key_results": ["15 demos held", "300 accounts in the CRM", "Reply rate above 8%",
+                                                 "a fourth that gets cut"], **kw}
 
 
 PLAN = {
@@ -41,6 +42,7 @@ PLAN = {
                 "challenges": ["Long sales cycles"]},
     "departments": [
         {"kind": "sales", "name": "Sales", "agent_title": "Outbound pipeline", "why": "Hiring AEs.",
+         "objective": "Fill the pipeline for the new AEs",
          "goals": [goal("Book 15 demos with Heads of Ops"), goal("Build a list of 300 logistics companies"),
                    goal("Re-engage 40 stalled deals"), goal("A fourth goal that should be cut"),
                    goal("A fifth goal that should be cut")]},
@@ -109,6 +111,7 @@ async def test_setup_researches_and_builds_a_focused_team(with_key, fake_site):
         assert names == ["Sales", "Marketing"]  # duplicate and empty functions dropped
         sales = org["departments"][0]
         assert sales["agents"][0]["title"] == "Outbound pipeline"
+        assert sales["agents"][0]["objective"] == "Fill the pipeline for the new AEs"
         assert [p["email"] for p in sales["people"]] == ["founder@acme.test"]
 
         goals = (await c.get("/api/campaigns")).json()
@@ -126,6 +129,7 @@ async def test_setup_researches_and_builds_a_focused_team(with_key, fake_site):
         basis = full["budget_basis"]
         assert (basis["sessions"], basis["starter"], basis["full_usd"], basis["basis"]) == (28, True, 40, "typical")
         assert first["first_deliverable"] == "40 leads with a drafted email each"
+        assert first["key_results"] == ["15 demos held", "300 accounts in the CRM", "Reply rate above 8%"]
         # Editing the schedule keeps it a first-week budget.
         basis = (await c.patch(f"/api/campaigns/{first['id']}", json={"cycle_hours": 12})).json()["budget_basis"]
         assert (basis["sessions"], basis["suggested_usd"], basis["full_usd"]) == (14, 5, 20)

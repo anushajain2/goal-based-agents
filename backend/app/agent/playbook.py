@@ -45,6 +45,14 @@ tool is the main tool the step uses: a listed tool, "web" for web research and b
 "none"."""
 
 
+def default_key_results(metric: str, target: float | None) -> list[str]:
+    return [f"{target:g} {metric}" if target else f"Grow {metric}"]
+
+
+def tidy_key_results(krs: list | None) -> list[str]:
+    return [str(k).strip()[:160] for k in (krs or []) if str(k).strip()][:3]
+
+
 def tidy_steps(steps: list[dict] | None) -> list[dict]:
     out = []
     for st in steps or []:
@@ -71,7 +79,7 @@ def default_playbook(c: Campaign) -> dict:
         {"text": "Send or publish them, one by one", "action_type": "send_message" if outreach else "publish_post", "tool": main},
         {"text": f"Follow up and count {c.primary_metric}", "action_type": "send_message" if outreach else "read_data", "tool": main},
     ]
-    return {"steps": steps, "source": "default"}
+    return {"steps": steps, "source": "default", "key_results": default_key_results(c.primary_metric, c.target_value)}
 
 
 async def generate_playbook(claude: MeteredClaude, c: Campaign) -> dict:
@@ -83,7 +91,8 @@ async def generate_playbook(claude: MeteredClaude, c: Campaign) -> dict:
         f"Progress measured as: {c.primary_metric}" + (f" (target {c.target_value:g})" if c.target_value else "") + "\n"
         f"Preferred channels: {', '.join(c.channels) if c.channels else 'any'}\n"
         f"Context:\n{(c.context or '(none)')[:3000]}\n\n"
-        f"Tools available: {tools_list}.\n\n{STEP_GUIDANCE}"
+        f"Tools available: {tools_list}.\n\n{STEP_GUIDANCE}\n\nAlso give 2 or 3 key_results: short, measurable "
+        f"outcomes that show the goal is on track (the first is the goal's own target), e.g. '8 discovery calls held'."
     )
     result = await claude.create(
         campaign_id=c.id, run_id=None, purpose="plan of action", role="worker",
@@ -92,15 +101,19 @@ async def generate_playbook(claude: MeteredClaude, c: Campaign) -> dict:
                "outgoing or paid. Be concrete and brief.",
         messages=[{"role": "user", "content": prompt}], max_tokens=4000,
         output_format={"type": "json_schema", "schema": {
-            "type": "object", "properties": {"steps": {"type": "array", "items": step_schema()}},
-            "required": ["steps"], "additionalProperties": False}},
+            "type": "object", "properties": {"steps": {"type": "array", "items": step_schema()},
+                                             "key_results": {"type": "array", "items": {"type": "string"}}},
+            "required": ["steps", "key_results"], "additionalProperties": False}},
     )
     text = "\n".join(b.get("text", "") for b in result.content if b.get("type") == "text")
     try:
-        steps = tidy_steps(json.loads(text).get("steps"))
+        data = json.loads(text)
+        steps, krs = tidy_steps(data.get("steps")), tidy_key_results(data.get("key_results"))
     except (json.JSONDecodeError, AttributeError):
-        steps = []
-    return {"steps": steps, "source": "generated"} if steps else default_playbook(c)
+        steps, krs = [], []
+    if not steps:
+        return default_playbook(c)
+    return {"steps": steps, "source": "generated", "key_results": krs or default_key_results(c.primary_metric, c.target_value)}
 
 
 def tools_needed(c: Campaign) -> list[dict]:

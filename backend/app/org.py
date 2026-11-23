@@ -252,58 +252,83 @@ async def get_goal(s: AsyncSession, member: Member, campaign_id: str, *, manage:
     return c
 
 
-async def approvers(s: AsyncSession, org_id: str, department_id: str | None) -> list[User]:
-    """Who a request goes to: the department's people, or the organization's admins if it has none."""
-    users: list[User] = []
+# --- who approves what: the org chart ------------------------------------------------------------
+#
+# An AI employee's requests go to the person it reports to: someone chosen for it, else the head
+# of its department, else the organization's owners (the person who set it up). Admins can also
+# decide anything; everyone else in the organization can see requests but not decide them.
+
+async def _owners(s: AsyncSession, org_id: str) -> list[User]:
+    rows = (await s.execute(select(User, Membership.role).join(Membership, Membership.user_id == User.id)
+                            .where(Membership.org_id == org_id, Membership.role.in_([Role.owner.value, Role.admin.value]))
+                            .order_by(Membership.created_at))).all()
+    owners = [u for u, role in rows if role == Role.owner.value]
+    return owners or [u for u, _ in rows]
+
+
+async def _in_org(s: AsyncSession, org_id: str, user_id: str | None) -> User | None:
+    if not user_id:
+        return None
+    row = (await s.execute(select(User).join(Membership, Membership.user_id == User.id)
+                           .where(Membership.org_id == org_id, User.id == user_id))).scalar_one_or_none()
+    return row
+
+
+async def approvers(s: AsyncSession, org_id: str, department_id: str | None = None,
+                    agent_id: str | None = None) -> list[User]:
+    """Who an AI employee's requests go to (see above). Without an AI employee: the department's
+    head, else the owners."""
+    agent = await s.get(Agent, agent_id) if agent_id else None
+    if agent:
+        manager = await _in_org(s, org_id, agent.reports_to_user_id)
+        if manager:
+            return [manager]
+        department_id = agent.department_id
     if department_id:
-        users = list(
-            (
-                await s.execute(
-                    select(User).join(DepartmentMember, DepartmentMember.user_id == User.id)
-                    .where(DepartmentMember.department_id == department_id)
-                )
-            ).scalars()
-        )
-    if not users:
-        users = list(
-            (
-                await s.execute(
-                    select(User).join(Membership, Membership.user_id == User.id)
-                    .where(Membership.org_id == org_id, Membership.role.in_([Role.owner.value, Role.admin.value]))
-                )
-            ).scalars()
-        )
-    return users
+        dept = await s.get(Department, department_id)
+        head = await _in_org(s, org_id, dept.head_user_id if dept else None)
+        if head:
+            return [head]
+    return await _owners(s, org_id)
 
 
-async def departments_without_people(s: AsyncSession, org_id: str) -> set[str]:
-    rows = (
-        await s.execute(
-            select(Department.id, func.count(DepartmentMember.id))
-            .outerjoin(DepartmentMember, DepartmentMember.department_id == Department.id)
-            .where(Department.org_id == org_id).group_by(Department.id)
-        )
-    ).all()
-    return {d for d, n in rows if n == 0}
+async def managed_agents(s: AsyncSession, member: Member) -> set[str | None]:
+    """The AI employees whose requests come to this person (None = goals with no AI employee)."""
+    members = {u for (u,) in (await s.execute(select(Membership.user_id).where(Membership.org_id == member.org_id))).all()}
+    heads = {d.id: d.head_user_id for d in (await s.execute(select(Department).where(Department.org_id == member.org_id))).scalars()}
+    owners = {u.id for u in await _owners(s, member.org_id)}
+    mine: set[str | None] = {None} if member.user.id in owners else set()
+    for a in (await s.execute(select(Agent).where(Agent.org_id == member.org_id))).scalars():
+        if a.reports_to_user_id in members:
+            boss = {a.reports_to_user_id}
+        elif heads.get(a.department_id) in members:
+            boss = {heads[a.department_id]}
+        else:
+            boss = owners
+        if member.user.id in boss:
+            mine.add(a.id)
+    return mine
 
 
-async def can_decide(s: AsyncSession, member: Member, department_id: str | None) -> bool:
-    if member.is_admin:
-        return True
-    return department_id is not None and department_id in member.department_ids
-
-
-def routed_to_me(member: Member, empty_departments: set[str]):
-    """SQL filter for the requests a member should act on."""
+async def routed_to_me(s: AsyncSession, member: Member):
+    """SQL filter: the requests this person should act on."""
     from app.models import UserRequest
 
+    agents = await managed_agents(s, member)
+    ids = [a for a in agents if a]
+    clause = Campaign.agent_id.in_(ids or ["-"])
+    if None in agents:
+        clause = or_(clause, Campaign.agent_id.is_(None))
+    return UserRequest.campaign_id.in_(select(Campaign.id).where(Campaign.org_id == member.org_id, clause))
+
+
+async def can_decide(s: AsyncSession, member: Member, campaign_id: str) -> bool:
     if member.is_admin:
-        return or_(
-            UserRequest.department_id.in_(member.department_ids or ["-"]),
-            UserRequest.department_id.is_(None),
-            UserRequest.department_id.in_(empty_departments or ["-"]),
-        )
-    return UserRequest.department_id.in_(member.department_ids or ["-"])
+        return True
+    c = await s.get(Campaign, campaign_id)
+    if not c or c.org_id != member.org_id:
+        return False
+    return member.user.id in {u.id for u in await approvers(s, c.org_id, agent_id=c.agent_id)}
 
 
 async def pick_agent(s: AsyncSession, org_id: str, category: str) -> Agent | None:

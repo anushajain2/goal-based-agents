@@ -121,6 +121,11 @@ class ToolExecutor:
                 is_error=not connected,
             )
 
+        if kind == "question":
+            if request.status == RequestStatus.approved.value and request.decision_note:
+                return Outcome(f"Their answer: {request.decision_note}")
+            return Outcome("They chose not to answer. Use your best judgment and carry on.", is_error=True)
+
         # action approvals
         if request.status == RequestStatus.rejected.value:
             note = f" Their note: {request.decision_note}" if request.decision_note else ""
@@ -131,14 +136,18 @@ class ToolExecutor:
         edited = request.edited_fields or {}
         if kind == "app_action":
             args = {**stored["arguments"], **edited}
-            return await self._execute_app_action(stored, args, approved=True, edited=bool(edited))
-        if kind == "mcp_action":
+            outcome = await self._execute_app_action(stored, args, approved=True, edited=bool(edited))
+        elif kind == "mcp_action":
             args = {**stored["arguments"], **edited}
-            return await self._execute_mcp(stored, args, approved=True, edited=bool(edited))
-        if kind == "browser_action":
+            outcome = await self._execute_mcp(stored, args, approved=True, edited=bool(edited))
+        elif kind == "browser_action":
             content = edited.get("content", stored.get("content"))
-            return await self._issue_authorization(stored, request.id, content=content, edited="content" in edited)
-        return Outcome("Unknown pending action.", is_error=True)
+            outcome = await self._issue_authorization(stored, request.id, content=content, edited="content" in edited)
+        else:
+            return Outcome("Unknown pending action.", is_error=True)
+        if request.decision_note and isinstance(outcome.content, str):  # a comment from whoever approved it
+            outcome.content = f"{outcome.content}\nTheir comment when approving: {request.decision_note}"
+        return outcome
 
     # ------------------------------------------------------------------ helpers
 
@@ -200,12 +209,12 @@ class ToolExecutor:
             )
             s.add(req)
             await s.flush()
-            people = await approvers(s, campaign.org_id, department_id) if campaign.org_id else []
+            people = await approvers(s, campaign.org_id, department_id, campaign.agent_id) if campaign.org_id else []
             dept = await s.get(Department, department_id) if department_id else None
             agent = await s.get(Agent, campaign.agent_id) if campaign.agent_id else None
-            routed = f"{dept.name} team" if dept and people else "admins"
+            routed = ", ".join(p.name or p.email for p in people) or "the owner"
             await activity.log(
-                s, self.campaign_id, "request", f"Asked the {routed}: {title}", run_id=self.run_id,
+                s, self.campaign_id, "request", f"Asked {routed}: {title}", run_id=self.run_id,
                 status="waiting", action_type=action_type, channel=scope,
                 details={"request_id": req.id, "routed_to": [p.name or p.email for p in people]},
             )
@@ -639,6 +648,17 @@ class ToolExecutor:
                                status="info", details={"strategy": campaign.strategy})
             await notify(s, self.campaign_id, "campaign")
         return Outcome("Strategy updated.")
+
+    async def t_ask_user(self, inp: dict, tool_use_id: str) -> Outcome | Pending:
+        question = (inp.get("question") or "").strip()
+        if not question:
+            return Outcome("Ask a question.", is_error=True)
+        options = [str(o)[:120] for o in (inp.get("options") or [])][:6]
+        request_id = await self._create_request(
+            kind=RequestKind.question, tool_use_id=tool_use_id, title=question[:300], rationale=inp.get("why", ""),
+            preview={"question": question, "options": options},
+        )
+        return Pending(request_id, {"kind": "question"})
 
     async def t_notify_user(self, inp: dict, _id: str) -> Outcome:
         await self._log("note", inp["message"], status="info")

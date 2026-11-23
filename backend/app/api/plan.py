@@ -70,7 +70,11 @@ async def make_playbook(campaign_id: str, remake: bool = False, s: AsyncSession 
             book = default_playbook(c)
     else:
         book = default_playbook(c)
-    (await s.get(Campaign, campaign_id)).playbook = book
+    goal = await s.get(Campaign, campaign_id)
+    krs = book.pop("key_results", None)
+    goal.playbook = book
+    if krs and not goal.key_results:
+        goal.key_results = krs
     return book
 
 
@@ -79,7 +83,7 @@ async def make_playbook(campaign_id: str, remake: bool = False, s: AsyncSession 
 async def _people(s: AsyncSession, c: Campaign) -> tuple[str | None, list[str]]:
     dept_id = await goal_department(s, c)
     dept = await s.get(Department, dept_id) if dept_id else None
-    people = await approvers(s, c.org_id, dept_id) if c.org_id else []
+    people = await approvers(s, c.org_id, dept_id, c.agent_id) if c.org_id else []
     return (dept.name if dept else None), [p.name or p.email for p in people]
 
 

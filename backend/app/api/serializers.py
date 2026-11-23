@@ -105,6 +105,7 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=Non
         "done_when": c.done_when, "category": c.category, "use_case": c.use_case, "client_name": c.client_name,
         "origin": c.origin or "", "suggested_reason": c.suggested_reason or "",
         "first_deliverable": c.first_deliverable or "",
+        "key_results": c.key_results or [],
         "budget_basis": c.budget_basis, "has_playbook": bool(c.playbook),
         "actions_taken": actions_taken,
         "last_activity": {"title": last.title, "kind": last.kind, "at": last.created_at.isoformat()} if last else None,

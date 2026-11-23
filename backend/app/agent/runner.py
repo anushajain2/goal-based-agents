@@ -346,7 +346,7 @@ class CycleRunner:
             agent = await s.get(Agent, campaign.agent_id) if campaign.agent_id else None
             dept = await s.get(Department, agent.department_id) if agent else None
             org = await s.get(Organization, campaign.org_id) if campaign.org_id else None
-            people = await approvers(s, campaign.org_id, dept.id if dept else None) if campaign.org_id else []
+            people = await approvers(s, campaign.org_id, dept.id if dept else None, campaign.agent_id) if campaign.org_id else []
             identity = prompts.identity_line(
                 agent.name if agent else None, dept.name if dept else None, org.name if org else None,
                 [p.name or p.email for p in people],

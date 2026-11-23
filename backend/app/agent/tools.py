@@ -207,6 +207,20 @@ CAMPAIGN_TOOLS = [
         ["message"],
     ),
     _tool(
+        "ask_user",
+        "Ask the person you report to a question only they can answer (a fact, a preference, a choice "
+        "between options), e.g. 'Which 5 customers are happiest?' Not for permission: actions already ask "
+        "for approval by themselves. The session pauses until they answer, so ask everything you need at "
+        "once, and only when it matters.",
+        {
+            "question": {"type": "string", "description": "One clear question."},
+            "why": {"type": "string", "description": "One sentence: why you need it and how it helps the goal."},
+            "options": {"type": "array", "items": {"type": "string"},
+                        "description": "Optional short answers they can pick from."},
+        },
+        ["question", "why"],
+    ),
+    _tool(
         "finish_cycle",
         "End this optimization cycle. Give a 1-3 sentence summary of what you did and learned, and when to "
         "check in next.",

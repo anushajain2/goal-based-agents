@@ -24,7 +24,7 @@ from app.agent.llm import MeteredClaude
 from app.db import session_scope
 from app.models import Agent, Campaign, Department, Membership, Organization, OrgSetup, Role, utcnow
 from app.org import CATEGORY_KEYS, DEPARTMENT_PRESETS, PRESET_NAMES, add_department
-from app.agent.playbook import STEP_GUIDANCE, step_schema, tidy_steps
+from app.agent.playbook import STEP_GUIDANCE, default_key_results, step_schema, tidy_steps
 from app.services import activity, estimate
 from app.services.website import read_site
 
@@ -115,6 +115,12 @@ sentence a busy founder would be glad to read, e.g. "A list of 40 procurement le
 contractors with verified emails, and a personal first email drafted for each, waiting for your \
 OK". It must be realistic for one week. Goals start with a one-week budget so people can see \
 this before committing more.
+- objective (per function) is the AI employee's objective, like an employee's OKR objective: one \
+short sentence on what it is there to achieve for this company, e.g. "Fill the pipeline with EPC \
+procurement leads ready to pilot Oton".
+- key_results (per goal) are 2 or 3 short, measurable outcomes that show the goal is on track, \
+e.g. "8 discovery calls held", "150 qualified procurement contacts", "Reply rate above 8%". The first \
+should be the goal's target.
 - start_here is true for the 2 or 3 goals in total (across all functions) that would show value \
 fastest and matter most right now, false for the rest.
 - cycle_hours is how often it works on the goal: usually 12 or 24; 6 only when it must answer \
@@ -170,8 +176,9 @@ def plan_schema() -> dict:
             "why": {"type": "string"},
             "first_week": {"type": "string"},
             "start_here": {"type": "boolean"},
+            "key_results": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["first_week", "start_here", "name", "goal_description", "done_when", "primary_metric", "target_value", "category",
+        "required": ["first_week", "start_here", "key_results", "name", "goal_description", "done_when", "primary_metric", "target_value", "category",
                      "use_case", "cycle_hours", "duration_days", "paid_spend_usd", "steps", "channels", "why"],
         "additionalProperties": False,
     }
@@ -181,10 +188,11 @@ def plan_schema() -> dict:
             "kind": {"type": "string", "enum": kinds},
             "name": {"type": "string"},
             "agent_title": {"type": "string", "description": "The AI employee's focus, 2-4 words"},
+            "objective": {"type": "string"},
             "why": {"type": "string"},
             "goals": {"type": "array", "items": goal},
         },
-        "required": ["kind", "name", "agent_title", "why", "goals"],
+        "required": ["kind", "name", "agent_title", "objective", "why", "goals"],
         "additionalProperties": False,
     }
     profile_fields = ["summary", "offering", "customers", "business_model", "stage", "funding", "team", "traction"]
@@ -339,6 +347,7 @@ def tidy_plan(plan: dict) -> dict:
                 "channels": [str(c)[:60] for c in (g.get("channels") or [])][:8],
                 "why": (g.get("why") or "").strip(),
                 "first_week": (g.get("first_week") or "").strip(),
+                "key_results": [str(k).strip()[:160] for k in (g.get("key_results") or []) if str(k).strip()][:3],
                 "start_here": bool(g.get("start_here")),
             })
             seen_goals.add(title.lower())
@@ -347,6 +356,7 @@ def tidy_plan(plan: dict) -> dict:
             continue
         seen_names.add(name.lower())
         departments.append({"kind": kind, "name": name, "agent_title": (d.get("agent_title") or "").strip()[:160],
+                            "objective": (d.get("objective") or "").strip()[:400],
                             "why": (d.get("why") or "").strip(), "goals": goals})
         if len(departments) >= MAX_DEPARTMENTS:
             break
@@ -404,6 +414,8 @@ async def create_team(setup_id: str, org_id: str, requested_by: str | None, plan
                 await s.flush()
             if d["agent_title"] and not agent.title:
                 agent.title = d["agent_title"]
+            if d.get("objective") and not agent.objective:
+                agent.objective = d["objective"]
             created["agents"].append(agent.id)
             for g in d["goals"]:
                 if g["name"].lower() in goal_names:
@@ -416,6 +428,7 @@ async def create_team(setup_id: str, org_id: str, requested_by: str | None, plan
                     category=g["category"], use_case=g["use_case"], context=context, channels=g["channels"],
                     budget_total=Decimal(str(g["budget_usd"])), cycle_hours=g["cycle_hours"],
                     origin="setup", suggested_reason=g["why"], first_deliverable=g.get("first_week", ""),
+                    key_results=g.get("key_results") or default_key_results(g["primary_metric"], g["target_value"]),
                     budget_basis={**g["budget_basis"], "chosen_usd": g["budget_usd"]},
                     playbook={"steps": g["steps"], "source": "setup"} if g["steps"] else None,
                 )

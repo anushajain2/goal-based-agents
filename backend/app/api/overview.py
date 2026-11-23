@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.serializers import activity_json
 from app.db import get_session
 from app.models import Activity, Agent, AgentRun, Campaign, LedgerEntry, UserRequest, utcnow
-from app.org import Member, current_member, departments_without_people, routed_to_me
+from app.org import Member, current_member, routed_to_me
 
 router = APIRouter(prefix="/api", tags=["overview"])
 
@@ -79,7 +79,7 @@ async def overview(department_id: str | None = None, s: AsyncSession = Depends(g
     pending = (
         await s.execute(select(func.count()).select_from(UserRequest)
                         .where(UserRequest.campaign_id.in_(mine), UserRequest.status == "pending",
-                               routed_to_me(me, await departments_without_people(s, me.org_id))))
+                               await routed_to_me(s, me)))
     ).scalar_one()
     next_check = min((c.next_cycle_at for c in active if c.next_cycle_at), default=None)
 
