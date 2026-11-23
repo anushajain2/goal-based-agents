@@ -244,6 +244,8 @@ class LeadReview(Base):
     summary: Mapped[str] = mapped_column(Text, default="")
     # [{type, goal_id, title, reasoning, request_id, ...}] - each became a proposal in Needs you
     proposals: Mapped[list] = mapped_column(JSONType, default=list)
+    # What it looked at: {"looked_at": ["Searched: ...", "Looked into \"goal\"", ...], "sources": [{url, title}]}
+    research: Mapped[dict] = mapped_column(JSONType, default=dict, server_default="{}")
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     cost_usd: Mapped[Decimal] = mapped_column(Money, default=Decimal("0"))
     locked_by: Mapped[str | None] = mapped_column(String(100), nullable=True)

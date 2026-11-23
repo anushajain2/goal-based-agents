@@ -11,7 +11,7 @@ from app.config import get_settings
 from app.db import session_scope
 from app.main import app
 from app.models import Campaign, Department, LeadReview, utcnow
-from tests.fakes import FakeAnthropic
+from tests.fakes import FakeAnthropic, text, tool_use
 from tests.helpers import agent_in, org_of, sign_in, sign_in_with_org
 
 
@@ -31,13 +31,18 @@ async def goal(c, agent_id: str, name: str, launch: bool = True) -> str:
     return r.json()["id"]
 
 
-def lead_answer(proposals):
-    def answer(kw):
-        props = kw["output_config"]["format"]["schema"]["properties"]
-        if "proposals" not in props:
-            return {"violates": False, "rule": "", "explanation": ""}
-        return {"health": "mixed", "summary": "Signups beat the target; the webinar goal is stuck.", "proposals": proposals}
-    return answer
+def lead_script(proposals, look_at: str = ""):
+    """First turn: search the web and look into a goal. Second turn: submit the review."""
+    def script(kw):
+        if len(kw["messages"]) == 1:
+            return [text("Checking the market and the signups goal first."),
+                    {"type": "server_tool_use", "id": "srv_1", "name": "web_search", "input": {"query": "dispatcher newsletter benchmarks"}},
+                    {"type": "web_search_tool_result", "tool_use_id": "srv_1", "content": [
+                        {"type": "web_search_result", "url": "https://news.test/logistics", "title": "Logistics newsletters in 2026"}]},
+                    tool_use("goal_details", goal_id=look_at)]
+        return [tool_use("submit_review", health="mixed", summary="Signups beat the target; the webinar goal is stuck.",
+                         proposals=proposals)]
+    return script
 
 
 async def test_the_first_person_on_a_team_gets_its_requests():
@@ -75,18 +80,23 @@ async def test_lead_reviews_the_team_and_proposes_changes(monkeypatch):
         assert (await c.post(f"/api/departments/{team['id']}/lead/review")).status_code == 409  # one at a time
 
         proposals = [
-            {"type": "target", "goal_id": signups, "reasoning": "17 of 15 in week one.", "target": 30, "period": "week", "new_goal": None},
-            {"type": "pause", "goal_id": "not-a-goal", "reasoning": "x", "target": None, "period": None, "new_goal": None},
-            {"type": "pause", "goal_id": webinars, "reasoning": "0 registrations after 2 weeks.", "target": None, "period": None, "new_goal": None},
+            {"type": "target", "goal_id": signups, "reasoning": "17 of 15 in week one.", "target": 30, "period": "week", "new_goal": None, "new_agent": None},
+            {"type": "pause", "goal_id": "not-a-goal", "reasoning": "x", "target": None, "period": None, "new_goal": None, "new_agent": None},
+            {"type": "pause", "goal_id": webinars, "reasoning": "0 registrations after 2 weeks.", "target": None, "period": None, "new_goal": None, "new_agent": None},
             {"type": "new_goal", "goal_id": "", "reasoning": "Churned customers are a cheap win.", "target": None, "period": None,
              "new_goal": {"name": "Win back churned customers", "goal_description": "Re-engage customers who cancelled",
                           "primary_metric": "customers won back", "done_when": "Customer re-subscribes",
                           "target_value": 3, "target_period": "month", "first_week": "A list of 40 churned customers",
-                          "key_results": ["3 won back"], "agent_id": "unknown"}},
-            {"type": "resume", "goal_id": signups, "reasoning": "already running: dropped", "target": None, "period": None, "new_goal": None},
+                          "key_results": ["3 won back"], "agent_id": "unknown"}, "new_agent": None},
+            {"type": "resume", "goal_id": signups, "reasoning": "already running: dropped", "target": None, "period": None, "new_goal": None, "new_agent": None},
         ]
-        fake = FakeAnthropic(lambda kw: [], reviewer=lead_answer(proposals))
+        fake = FakeAnthropic(lead_script(proposals, look_at=signups))
         await run_review(r.json()["id"], MeteredClaude(client=fake))
+        first = fake.calls[0]
+        names = [t["name"] for t in first["tools"]]
+        assert names == ["web_search", "web_fetch", "goal_details", "submit_review"]  # no database or GitHub connected
+        looked = fake.calls[1]["messages"][-1]["content"][0]
+        assert looked["type"] == "tool_result" and "Get newsletter signups" in looked["content"]
 
         team = dept_of(await org_of(c), "Marketing")
         last = team["lead"]["last"]
@@ -96,6 +106,8 @@ async def test_lead_reviews_the_team_and_proposes_changes(monkeypatch):
         assert "Signups beat the target" in last["summary"]
         assert "Marketing Lead" in fake.calls[0]["system"] or "Marketing team" in fake.calls[0]["system"]
         assert "Get newsletter signups" in fake.calls[0]["messages"][0]["content"]
+        assert last["research"]["sources"] == [{"url": "https://news.test/logistics", "title": "Logistics newsletters in 2026"}]
+        assert last["research"]["looked_at"] == ["Searched: dispatcher newsletter benchmarks", 'Looked into "Get newsletter signups"']
 
         reqs = {r["title"]: r for r in (await c.get("/api/requests")).json() if r["kind"] == "proposal"}
         assert set(reqs) == {"Raise the target to 30 signups a week", 'Pause "Fill webinars"',
@@ -143,3 +155,36 @@ async def test_reviews_run_on_schedule_within_a_monthly_limit(monkeypatch):
         assert r.status_code == 400 and "limit" in r.json()["detail"]
         await c.patch(f"/api/departments/{team['id']}/lead", json={"enabled": False})
         assert dept_of(await org_of(c), "Marketing")["lead"]["enabled"] is False
+
+
+async def test_lead_can_suggest_hiring_an_ai_employee(monkeypatch):
+    monkeypatch.setattr(get_settings(), "anthropic_api_key", "test-key")
+    async with client() as owner, client() as maya:
+        await sign_in_with_org(owner, "founder@acme.test", departments=("marketing",))
+        org = await org_of(owner)
+        team = dept_of(org, "Marketing")
+        await owner.post("/api/invitations", json={"email": "maya@acme.test", "department_ids": [team["id"]]})
+        await sign_in(maya, "maya@acme.test")
+        await org_of(maya)
+        await goal(owner, agent_in(org, "Marketing"), "Get newsletter signups")
+        r = await owner.post(f"/api/departments/{team['id']}/lead/review")
+        hire = {"type": "new_agent", "goal_id": "", "reasoning": "Nobody asks happy customers for reviews.", "target": None,
+                "period": None, "new_agent": {"name": "Reviews Agent", "title": "Customer reviews", "objective": "Get proof buyers trust"},
+                "new_goal": {"name": "Collect reviews from happy customers", "goal_description": "Ask for G2 reviews",
+                             "primary_metric": "reviews", "done_when": "Review live", "target_value": 3, "target_period": "week",
+                             "first_week": "10 review requests drafted", "key_results": [], "agent_id": ""}}
+        await run_review(r.json()["id"], MeteredClaude(client=FakeAnthropic(lead_script([hire, dict(hire)]))))
+        # Not in goal lists until approved; in Maya's Needs you, since she's who the team asks.
+        assert "Collect reviews from happy customers" not in [g["name"] for g in (await owner.get("/api/campaigns")).json()]
+        reqs = [x for x in (await maya.get("/api/requests")).json() if x["kind"] == "proposal"]
+        assert [x["title"] for x in reqs] == ["Hire Reviews Agent to collect reviews from happy customers"]  # one hire per review
+        assert reqs[0]["routed_to_me"] and reqs[0]["can_decide"]
+        assert reqs[0]["agent_name"] == "Marketing Lead" and reqs[0]["agent_title"] == "AI team lead"
+        assert not [x for x in (await owner.get("/api/requests")).json() if x["kind"] == "proposal"]  # Maya's, not the owner's
+        r = await maya.post(f"/api/requests/{reqs[0]['id']}/decide", json={"decision": "approve"})
+        assert r.status_code == 200, r.text
+        agents = dept_of(await org_of(owner), "Marketing")["agents"]
+        hired = next(a for a in agents if a["name"] == "Reviews Agent")
+        assert hired["title"] == "Customer reviews" and hired["objective"] == "Get proof buyers trust"
+        g = next(g for g in (await owner.get("/api/campaigns")).json() if g["name"] == "Collect reviews from happy customers")
+        assert g["status"] == "active" and g["agent"]["id"] == hired["id"] and g["target"]["status"] == "active"

@@ -268,7 +268,8 @@ function SuggestedTeam({ info, onAdding }: { info: SetupInfo; onAdding: () => vo
       <section>
         <h2 className="text-lg font-bold">Your team</h2>
         <p className="mb-3 text-sm text-muted">
-          Each team has its people, an AI team lead that keeps improving the team&apos;s goals, and AI employees. Each AI employee asks one person; until you add people, that&apos;s you.
+          Each team has AI employees and an AI team lead that keeps reviewing how they do, the market and your numbers, and suggests
+          updated goals or new AI employees to take live. You approve every change; until you add people, everything comes to you.
           Click any goal to see what it does; change the team whenever you like.
         </p>
         <div className="mb-3"><TeamSize profile={info.org.profile} canAdd={info.can_run && info.can_research} onAdding={onAdding} /></div>

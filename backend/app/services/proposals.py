@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Campaign, CampaignStatus, utcnow
+from app.models import Agent, Campaign, CampaignStatus, Department, utcnow
 from app.services import targets
 
 
@@ -27,6 +27,18 @@ async def apply_change(s: AsyncSession, c: Campaign, change: dict, reasoning: st
         if c.status == CampaignStatus.active.value:
             c.status = CampaignStatus.paused.value
         return "goal paused"
+    if kind == "new_agent":
+        spec = change.get("agent") or {}
+        dept = await s.get(Department, change.get("department_id") or "-")
+        if not dept or dept.org_id != c.org_id:
+            raise ValueError("That team no longer exists.")
+        if not c.agent_id:
+            agent = Agent(org_id=c.org_id, department_id=dept.id, name=(spec.get("name") or "New Agent")[:120],
+                          title=(spec.get("title") or "")[:160], objective=spec.get("objective") or "")
+            s.add(agent)
+            await s.flush()
+            c.agent_id = agent.id
+        kind = "new_goal"
     if kind in ("resume", "new_goal"):
         if c.status in (CampaignStatus.draft.value, CampaignStatus.paused.value):
             c.status = CampaignStatus.active.value

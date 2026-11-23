@@ -115,7 +115,9 @@ async def meta():
 async def list_campaigns(agent_id: str | None = None, department_id: str | None = None,
                          s: AsyncSession = Depends(get_session),
                   me: Member = Depends(current_member)):
-    q = select(Campaign).where(Campaign.org_id == me.org_id)
+    # A team lead's suggested hire has no AI employee until someone approves it: it lives in Needs you.
+    q = select(Campaign).where(Campaign.org_id == me.org_id,
+                               ~((Campaign.agent_id.is_(None)) & (Campaign.origin == "lead") & (Campaign.status == "draft")))
     if agent_id:
         q = q.where(Campaign.agent_id == agent_id)
     if department_id:

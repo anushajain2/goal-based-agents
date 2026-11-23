@@ -18,7 +18,7 @@ export const KIND_BADGE: Record<UserRequest["kind"], { label: string; tone: "amb
   proposal: { label: "Suggestion", tone: "green", icon: <TrendingUp size={12} /> },
 };
 
-const PROPOSAL_YES: Record<string, string> = { target: "Approve new target", pause: "Pause it", resume: "Restart it", new_goal: "Start this goal" };
+const PROPOSAL_YES: Record<string, string> = { target: "Approve new target", pause: "Pause it", resume: "Restart it", new_goal: "Start this goal", new_agent: "Hire & start" };
 
 /**
  * One thing an AI employee needs from a person: an approval, an answer, a sign-in or an app
@@ -114,7 +114,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
         <div className={cx("space-y-2 rounded-lg border border-line p-3 text-sm", !detail && "mt-3")}>
           {req.preview.current?.target != null && req.preview.current.period && (
             <div className="flex flex-wrap items-baseline gap-x-2">
-              <span className="w-12 shrink-0 text-xs font-semibold uppercase text-muted">{req.preview.change.type === "new_goal" ? "Target" : "Now"}</span>
+              <span className="w-12 shrink-0 text-xs font-semibold uppercase text-muted">{req.preview.change.type === "new_goal" || req.preview.change.type === "new_agent" ? "Target" : "Now"}</span>
               <span>{num(req.preview.current.target)} {req.campaign_metric || "results"} {PER_PERIOD[req.preview.current.period]}
                 {req.preview.current.progress != null && <span className="text-muted"> · {num(req.preview.current.progress)} so far</span>}</span>
             </div>
@@ -129,7 +129,17 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
               <span>{req.campaign_metric || "results"} {PER_PERIOD[req.preview.change.period]}</span>
             </div>
           )}
-          {req.preview.change.type === "new_goal" && (
+          {req.preview.change.type === "new_agent" && req.preview.change.agent && (
+            <div className="flex items-start gap-2.5 rounded-md bg-violet-50/60 p-2.5">
+              <AgentAvatar name={req.preview.change.agent.name} size={30} />
+              <div className="min-w-0">
+                <div className="font-semibold">{req.preview.change.agent.name} <span className="font-normal text-muted">· new AI employee{req.preview.change.agent.title ? ` · ${req.preview.change.agent.title}` : ""}</span></div>
+                {req.preview.change.agent.objective && <div className="text-[12.5px] text-gray-700"><b className="text-violet-700">Objective:</b> {req.preview.change.agent.objective}</div>}
+                <div className="text-[12.5px] text-gray-700"><b>First goal:</b> {req.campaign_name}</div>
+              </div>
+            </div>
+          )}
+          {(req.preview.change.type === "new_goal" || req.preview.change.type === "new_agent") && (
             <p>Starts with a first-week budget of <b>{usd(req.preview.budget_usd ?? 0)}</b>. <Link href={`/goals/${req.campaign_id}`} className="inline-flex items-center gap-0.5 font-semibold text-brand-700 hover:underline">See the plan <ArrowRight size={12} /></Link></p>
           )}
           {req.preview.change.type === "pause" && <p className="text-muted">Pausing stops its work and spending; restart any time.</p>}

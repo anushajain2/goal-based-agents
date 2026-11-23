@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from fastapi import Depends, HTTPException
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import current_user
@@ -322,19 +322,30 @@ async def routed_to_me(s: AsyncSession, member: Member):
 
     agents = await managed_agents(s, member)
     ids = [a for a in agents if a]
-    clause = Campaign.agent_id.in_(ids or ["-"])
-    if None in agents:
-        clause = or_(clause, Campaign.agent_id.is_(None))
-    return UserRequest.campaign_id.in_(select(Campaign.id).where(Campaign.org_id == member.org_id, clause))
+    staffed = UserRequest.campaign_id.in_(select(Campaign.id).where(Campaign.org_id == member.org_id,
+                                                                    Campaign.agent_id.in_(ids or ["-"])))
+    # Goals without an AI employee (old goals, or a team lead's suggested hire) go by their team:
+    # to the person the team's AI employees ask, else the owners.
+    members = {u for (u,) in (await s.execute(select(Membership.user_id).where(Membership.org_id == member.org_id))).all()}
+    owner = None in agents
+    teams = [d.id for d in (await s.execute(select(Department).where(Department.org_id == member.org_id))).scalars()
+             if (d.head_user_id == member.user.id if d.head_user_id in members else owner)]
+    unstaffed = UserRequest.campaign_id.in_(select(Campaign.id).where(Campaign.org_id == member.org_id,
+                                                                      Campaign.agent_id.is_(None)))
+    by_team = UserRequest.department_id.in_(teams or ["-"])
+    if owner:
+        by_team = or_(by_team, UserRequest.department_id.is_(None))
+    return or_(staffed, and_(unstaffed, by_team))
 
 
-async def can_decide(s: AsyncSession, member: Member, campaign_id: str) -> bool:
+async def can_decide(s: AsyncSession, member: Member, campaign_id: str, department_id: str | None = None) -> bool:
     if member.is_admin:
         return True
     c = await s.get(Campaign, campaign_id)
     if not c or c.org_id != member.org_id:
         return False
-    return member.user.id in {u.id for u in await approvers(s, c.org_id, agent_id=c.agent_id)}
+    # A goal waiting for a new AI employee (suggested by a team lead) goes by its team.
+    return member.user.id in {u.id for u in await approvers(s, c.org_id, department_id, agent_id=c.agent_id)}
 
 
 async def pick_agent(s: AsyncSession, org_id: str, category: str) -> Agent | None:

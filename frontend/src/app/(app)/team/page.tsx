@@ -77,8 +77,8 @@ function TeamPage() {
         <div>
           <h1 className="text-2xl font-bold">Team</h1>
           <p className="text-sm text-muted">
-            Who works with whom. Each team has its people, an AI team lead and AI employees. Every AI employee asks one person on its team, who gets its
-            approvals and questions in Needs you.
+            Who works with whom. Each team has its people, AI employees, and an AI team lead that keeps reviewing the team and suggests updated
+            goals or new AI employees to take live. Every AI employee asks one person on its team, in Needs you.
           </p>
         </div>
         {admin && (

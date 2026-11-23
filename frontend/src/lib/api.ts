@@ -109,7 +109,8 @@ export type UserRequest = {
     options?: string[];
     deliverable_id?: string;
     handoff_to?: string | null;
-    change?: { type: "target" | "pause" | "resume" | "new_goal"; target?: number; period?: Period; by?: "agent" | "lead" };
+    change?: { type: "target" | "pause" | "resume" | "new_goal" | "new_agent"; target?: number; period?: Period; by?: "agent" | "lead";
+      agent?: { name: string; title: string; objective: string } };
     current?: TargetView | null;
     source?: "lead";
     lead?: string;
@@ -181,6 +182,7 @@ export type AgentSummary = {
 export type LeadReviewInfo = {
   id: string; status: "queued" | "running" | "done" | "failed"; health: "" | "on_track" | "mixed" | "off_track"; summary: string;
   proposals: { type: string; goal_id: string; title: string; reasoning: string; request_id: string }[];
+  research?: { looked_at?: string[]; sources?: { url: string; title: string }[] };
   error: string | null; cost_usd: number; created_at: string;
 };
 export type LeadInfo = {

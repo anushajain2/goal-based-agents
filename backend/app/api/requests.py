@@ -72,8 +72,9 @@ async def _enrich(s: AsyncSession, me: Member, rows) -> list[dict]:
             "department_id": r.department_id,
             "department_name": dept_names.get(r.department_id),
             "agent_id": agent_id,
-            "agent_name": agent.name if agent else None,
-            "agent_title": agent.title if agent else None,
+            # A team lead's suggestion without an AI employee yet comes from the lead itself.
+            "agent_name": agent.name if agent else (r.preview or {}).get("lead"),
+            "agent_title": agent.title if agent else ("AI team lead" if (r.preview or {}).get("lead") else None),
             "campaign_metric": rest[0] if rest else None,
             "approvers": [u.name or u.email for u in people],
             "routed_to_me": me.user.id in {u.id for u in people},
@@ -112,7 +113,7 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
     campaign = await s.get(Campaign, req.campaign_id) if req else None
     if not req or not campaign or campaign.org_id != me.org_id:
         raise HTTPException(404, "Request not found")
-    if not await can_decide(s, me, req.campaign_id):
+    if not await can_decide(s, me, req.campaign_id, req.department_id):
         people = ", ".join(u.name or u.email for u in await approvers(s, me.org_id, req.department_id, campaign.agent_id))
         raise HTTPException(403, f"This goes to {people}, who the AI employee reports to (or an admin).")
     if req.status != RequestStatus.pending.value:

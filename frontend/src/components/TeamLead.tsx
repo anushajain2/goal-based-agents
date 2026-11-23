@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowRight, Compass, Loader2, RefreshCw, X } from "lucide-react";
+import { ArrowRight, Compass, Database, Eye, GitBranch, Globe, Loader2, RefreshCw, Target, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { api, DepartmentInfo, LeadReviewInfo, OrgInfo, timeAgo, usd } from "@/lib/api";
+import { api, DepartmentInfo, IntegrationInfo, LeadReviewInfo, OrgInfo, timeAgo, usd, useApi } from "@/lib/api";
 import { Badge, Button, cx, ErrorNote, Select, Toggle } from "./ui";
 
 const HEALTH: Record<string, { label: string; tone: "green" | "amber" | "red" }> = {
@@ -32,7 +32,7 @@ export function LeadCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInf
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13.5px] font-semibold">{lead.name}</span>
-            <span className="block truncate text-[11.5px] text-muted">{lead.enabled ? `AI team lead · reviews ${lead.review_days === 7 ? "weekly" : lead.review_days === 1 ? "daily" : `every ${lead.review_days} days`}` : "AI team lead · off"}</span>
+            <span className="block truncate text-[11.5px] text-muted">{lead.enabled ? "AI team lead · always reviewing" : "AI team lead · off"}</span>
           </span>
         </span>
         {lead.enabled && (
@@ -45,7 +45,7 @@ export function LeadCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInf
                 <span className="text-muted">{timeAgo(last.created_at)}{last.proposals.length ? ` · ${last.proposals.length} suggestion${last.proposals.length === 1 ? "" : "s"}` : " · no changes"}</span>
               </>
             ) : (
-              <span className="text-muted">First review once goals are live</span>
+              <span className="text-muted">Starts reviewing once goals are live</span>
             )}
           </span>
         )}
@@ -103,9 +103,11 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
 
         <div className="space-y-5 px-5 py-4">
           <p className="text-[13.5px] leading-relaxed text-gray-700">
-            Looks at the team&apos;s goals, targets and results {every(lead.review_days)}, then suggests new goals, new targets,
-            or pausing what isn&apos;t working. <b>Nothing changes until you approve it</b> in Needs you.
+            Keeps reviewing the {d.name} team, {every(lead.review_days)} and whenever you ask: how {org.org.name} is doing, the market,
+            your numbers, and how each AI employee performs. Then it suggests what to change: updated targets, new goals,
+            a new AI employee to take live, or pausing what isn&apos;t working. <b>Nothing changes until you approve it</b> in Needs you.
           </p>
+          <LooksAt />
 
           {canManage && lead.enabled && (
             <Button size="sm" variant="primary" disabled={!!busy} onClick={() => run(() => api(`/api/departments/${d.id}/lead/review`, { method: "POST" }))}>
@@ -121,6 +123,19 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
                 {latest.health && <Badge tone={HEALTH[latest.health].tone}>{HEALTH[latest.health].label}</Badge>}
               </div>
               <p className="text-[13.5px] leading-relaxed">{latest.summary}</p>
+              {(latest.research?.looked_at?.length || 0) > 0 && (
+                <details className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-[12.5px]">
+                  <summary className="cursor-pointer font-semibold text-muted">What it looked at ({latest.research!.looked_at!.length})</summary>
+                  <ul className="mt-1.5 space-y-0.5 text-gray-700">{latest.research!.looked_at!.map((x, i) => <li key={i}>· {x}</li>)}</ul>
+                  {(latest.research?.sources?.length || 0) > 0 && (
+                    <ul className="mt-1.5 space-y-0.5">
+                      {latest.research!.sources!.map((src) => (
+                        <li key={src.url} className="truncate"><a href={src.url} target="_blank" rel="noreferrer" className="text-brand-700 hover:underline">{src.title}</a></li>
+                      ))}
+                    </ul>
+                  )}
+                </details>
+              )}
               {latest.proposals.length > 0 ? (
                 <ul className="mt-3 space-y-2">
                   {latest.proposals.map((p) => (
@@ -181,6 +196,32 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** What the lead can look at: always the team's work and the web; the database and GitHub once connected. */
+function LooksAt() {
+  const { data } = useApi<IntegrationInfo[]>("/api/integrations", { live: false });
+  const has = (k: string) => (data || []).some((i) => i.kind === k);
+  const items: [React.ReactNode, string, boolean][] = [
+    [<Target key="t" size={12} />, "Goals & results", true],
+    [<Users key="u" size={12} />, "Each AI employee's work", true],
+    [<Globe key="g" size={12} />, "Web, market & competitors", true],
+    [<Database key="d" size={12} />, "Your database", has("postgres")],
+    [<GitBranch key="b" size={12} />, "GitHub issues", has("github")],
+  ];
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted"><Eye size={12} /> Looks at</div>
+      <ul className="flex flex-wrap gap-1.5">
+        {items.map(([icon, label, on]) => (
+          <li key={label} className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold",
+            on ? "bg-teal-50 text-teal-800" : "bg-gray-50 text-gray-400")} title={on ? undefined : "Connect it in Settings → Code & data"}>
+            {icon} {label}{on ? "" : " (not connected)"}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
