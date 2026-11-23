@@ -110,7 +110,15 @@ sharper goals beat many. No two goals should overlap.
 channels. Each must be something an AI employee can mostly achieve itself in about 30 days, \
 with a done_when that can be checked ("Meeting held on calendar with a Head of Ops at a 50-500 \
 person logistics company"), a short primary_metric ("meetings held") and a realistic target.
-- cycle_hours is how often it works on the goal: 3 to 12 for active outreach, 24 for slower work.
+- first_week says what the company will concretely have after the first week of work, in one \
+sentence a busy founder would be glad to read, e.g. "A list of 40 procurement leads at EPC \
+contractors with verified emails, and a personal first email drafted for each, waiting for your \
+OK". It must be realistic for one week. Goals start with a one-week budget so people can see \
+this before committing more.
+- start_here is true for the 2 or 3 goals in total (across all functions) that would show value \
+fastest and matter most right now, false for the rest.
+- cycle_hours is how often it works on the goal: usually 12 or 24; 6 only when it must answer \
+replies quickly.
 - duration_days is how long the goal should run: usually 30, 14 for quick wins, up to 60.
 - paid_spend_usd is money the goal must spend beyond its own AI usage (ad spend, paid listings, \
 data purchases): 0 unless the goal clearly needs it. The budget is calculated from these.
@@ -160,8 +168,10 @@ def plan_schema() -> dict:
             "steps": {"type": "array", "items": step_schema()},
             "channels": string_list,
             "why": {"type": "string"},
+            "first_week": {"type": "string"},
+            "start_here": {"type": "boolean"},
         },
-        "required": ["name", "goal_description", "done_when", "primary_metric", "target_value", "category",
+        "required": ["first_week", "start_here", "name", "goal_description", "done_when", "primary_metric", "target_value", "category",
                      "use_case", "cycle_hours", "duration_days", "paid_spend_usd", "steps", "channels", "why"],
         "additionalProperties": False,
     }
@@ -328,6 +338,8 @@ def tidy_plan(plan: dict) -> dict:
                 "steps": tidy_steps(g.get("steps")),
                 "channels": [str(c)[:60] for c in (g.get("channels") or [])][:8],
                 "why": (g.get("why") or "").strip(),
+                "first_week": (g.get("first_week") or "").strip(),
+                "start_here": bool(g.get("start_here")),
             })
             seen_goals.add(title.lower())
             total += 1
@@ -338,6 +350,13 @@ def tidy_plan(plan: dict) -> dict:
                             "why": (d.get("why") or "").strip(), "goals": goals})
         if len(departments) >= MAX_DEPARTMENTS:
             break
+    # Two or three goals to start with: the planner's picks, else the first goal of the top functions.
+    goals = [g for d in departments for g in d["goals"]]
+    picked = [g for g in goals if g["start_here"]][:3]
+    if not picked:
+        picked = [d["goals"][0] for d in departments[:2]]
+    for g in goals:
+        g["start_here"] = any(g is p for p in picked)
     profile = plan.get("profile") or {}
     return {"profile": profile, "departments": departments}
 
@@ -396,7 +415,7 @@ async def create_team(setup_id: str, org_id: str, requested_by: str | None, plan
                     primary_metric=g["primary_metric"], target_value=g["target_value"], done_when=g["done_when"],
                     category=g["category"], use_case=g["use_case"], context=context, channels=g["channels"],
                     budget_total=Decimal(str(g["budget_usd"])), cycle_hours=g["cycle_hours"],
-                    origin="setup", suggested_reason=g["why"],
+                    origin="setup", suggested_reason=g["why"], first_deliverable=g.get("first_week", ""),
                     budget_basis={**g["budget_basis"], "chosen_usd": g["budget_usd"]},
                     playbook={"steps": g["steps"], "source": "setup"} if g["steps"] else None,
                 )
@@ -460,7 +479,7 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
             per, basis, n = await estimate.session_cost(s, org_id)
         for d in plan["departments"]:  # budget = sessions x cost per session + paid spend
             for g in d["goals"]:
-                g["budget_basis"] = estimate.compute(per, g["cycle_hours"], g["duration_days"], g["paid_spend_usd"], basis, n)
+                g["budget_basis"] = estimate.starter(per, g["cycle_hours"], g["duration_days"], g["paid_spend_usd"], basis, n)
                 g["budget_usd"] = g["budget_basis"]["suggested_usd"]
         async with session_scope() as s:
             (await s.get(OrgSetup, setup_id)).plan = plan

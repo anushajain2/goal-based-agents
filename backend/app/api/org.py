@@ -31,6 +31,7 @@ from app.org import (
     DEPARTMENT_PRESETS,
     PRESET_NAMES,
     Member,
+    set_head,
     add_department,
     approvers,
     create_organization,
@@ -156,6 +157,31 @@ async def rerun_setup(body: SetupIn, s: AsyncSession = Depends(get_session), me:
     return _setup_json(setup)
 
 
+@router.post("/org/setup/starter-budgets")
+async def use_starter_budgets(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    """Suggested goals made before one-week starter budgets existed: switch the ones not started yet."""
+    require_admin(me)
+    from decimal import Decimal
+
+    from app.services import estimate
+
+    per, kind, n = await estimate.session_cost(s, me.org_id)
+    changed, before, after = 0, 0.0, 0.0
+    for c in (await s.execute(select(Campaign).where(Campaign.org_id == me.org_id, Campaign.origin == "setup",
+                                                     Campaign.status == "draft"))).scalars():
+        old = c.budget_basis or {}
+        if old.get("starter"):
+            continue
+        basis = estimate.starter(per, c.cycle_hours, old.get("days") or estimate.DEFAULT_DAYS,
+                                 old.get("paid_spend_usd") or 0, kind, n)
+        before += float(c.budget_total)
+        c.budget_total = Decimal(str(basis["suggested_usd"]))
+        c.budget_basis = {**basis, "chosen_usd": basis["suggested_usd"]}
+        after += basis["suggested_usd"]
+        changed += 1
+    return {"changed": changed, "before_usd": before, "after_usd": after}
+
+
 @router.post("/org/setup/basic")
 async def basic_team(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
     """Research failed or was skipped: start with a few standard departments instead."""
@@ -231,6 +257,7 @@ async def get_org(s: AsyncSession = Depends(get_session), me: Member = Depends(c
     if me.is_admin:
         invitations = [
             {"id": i.id, "email": i.email, "role": i.role, "department_ids": i.department_ids,
+             "head_department_ids": i.head_department_ids or [],
              "created_at": i.created_at.isoformat()}
             for i in (await s.execute(select(Invitation).where(Invitation.org_id == me.org_id,
                                                                 Invitation.accepted_at.is_(None)))).scalars()
@@ -242,6 +269,7 @@ async def get_org(s: AsyncSession = Depends(get_session), me: Member = Depends(c
         "departments": [
             {
                 "id": d.id, "name": d.name, "kind": d.kind,
+                "head": _user(users[d.head_user_id]) if d.head_user_id in users else None,
                 "people": [_user(users[u]) for u in by_dept.get(d.id, []) if u in users],
                 "agents": [
                     {"id": a.id, "name": a.name, "title": a.title, **stats.get(a.id, empty)}
@@ -288,12 +316,29 @@ async def create_department(body: DepartmentIn, s: AsyncSession = Depends(get_se
     return {"id": d.id, "name": d.name}
 
 
+class DepartmentPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    head_user_id: str | None = None  # send null to clear
+
+
 @router.patch("/departments/{department_id}")
-async def rename_department(department_id: str, body: DepartmentIn, s: AsyncSession = Depends(get_session),
+async def update_department(department_id: str, body: DepartmentPatch, s: AsyncSession = Depends(get_session),
                             me: Member = Depends(current_member)):
     require_admin(me)
     d = await _department(s, me, department_id)
-    d.name = body.name.strip()
+    changes = body.model_dump(exclude_unset=True)
+    if changes.get("name"):
+        d.name = changes["name"].strip()
+    if "head_user_id" in changes:
+        head = changes["head_user_id"]
+        if head:
+            in_org = (await s.execute(select(Membership.id).where(Membership.org_id == me.org_id,
+                                                                  Membership.user_id == head))).first()
+            if not in_org:
+                raise HTTPException(400, "The head must be a member of the organization. Invite them first.")
+            await set_head(s, d, head)
+        else:
+            d.head_user_id = None
     return {"ok": True}
 
 
@@ -460,6 +505,7 @@ class InviteIn(BaseModel):
     email: str = Field(min_length=3, max_length=320, pattern=EMAIL_PATTERN)
     role: str = Field(default="member", pattern="^(admin|member)$")
     department_ids: list[str] = Field(default_factory=list)
+    head_of: list[str] = Field(default_factory=list)  # departments they will lead
 
 
 @router.post("/invitations")
@@ -469,11 +515,13 @@ async def invite(body: InviteIn, s: AsyncSession = Depends(get_session), me: Mem
     existing = (await s.execute(select(User).where(User.email == email))).scalar_one_or_none()
     if existing and (await s.execute(select(Membership).where(Membership.user_id == existing.id))).scalar_one_or_none():
         raise HTTPException(409, "This person already belongs to an organization.")
+    wanted = list(dict.fromkeys([*body.department_ids, *body.head_of]))
     valid = list((await s.execute(select(Department.id).where(Department.org_id == me.org_id,
-                                                              Department.id.in_(body.department_ids or ["-"])))).scalars())
+                                                              Department.id.in_(wanted or ["-"])))).scalars())
     await s.execute(delete(Invitation).where(Invitation.org_id == me.org_id, Invitation.email == email,
                                              Invitation.accepted_at.is_(None)))
-    inv = Invitation(org_id=me.org_id, email=email, role=body.role, department_ids=valid, invited_by=me.user.id)
+    inv = Invitation(org_id=me.org_id, email=email, role=body.role, department_ids=valid, invited_by=me.user.id,
+                     head_department_ids=[d for d in body.head_of if d in valid])
     s.add(inv)
     await s.flush()
     from app.services.mailer import send_invitation

@@ -177,9 +177,24 @@ async def _accept_invitation(s: AsyncSession, user: User) -> Membership | None:
     )
     for dept_id in valid:
         s.add(DepartmentMember(department_id=dept_id, user_id=user.id))
+    await s.flush()
+    for dept_id in set(inv.head_department_ids or []) & valid:
+        dept = await s.get(Department, dept_id)
+        if not dept.head_user_id:  # someone may have been made head while the invite was pending
+            await set_head(s, dept, user.id)
     inv.accepted_at = utcnow()
     await s.flush()
     return membership
+
+
+async def set_head(s: AsyncSession, dept: Department, user_id: str) -> None:
+    """Make someone the department's head; heads are in the department, so they approve its work."""
+    dept.head_user_id = user_id
+    exists = (await s.execute(select(DepartmentMember.id).where(DepartmentMember.department_id == dept.id,
+                                                                DepartmentMember.user_id == user_id))).first()
+    if not exists:
+        s.add(DepartmentMember(department_id=dept.id, user_id=user_id))
+        await s.flush()
 
 
 # --- the request context ---------------------------------------------------------------------

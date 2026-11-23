@@ -195,8 +195,13 @@ async def delete_campaign(campaign_id: str, s: AsyncSession = Depends(get_sessio
 
 async def _set_budget_basis(s: AsyncSession, c: Campaign) -> None:
     """Keep the "how this budget compares to the estimate" note in step with the settings."""
-    paid = float((c.budget_basis or {}).get("paid_spend_usd") or 0)
-    basis = await estimate.estimate(s, c.org_id, c.cycle_hours, estimate.days_until(c.end_date), paid)
+    old = c.budget_basis or {}
+    paid = float(old.get("paid_spend_usd") or 0)
+    if old.get("starter"):  # suggested goals start with a one-week budget; keep it that way
+        per, kind, n = await estimate.session_cost(s, c.org_id)
+        basis = estimate.starter(per, c.cycle_hours, old.get("full_days") or estimate.DEFAULT_DAYS, 0, kind, n)
+    else:
+        basis = await estimate.estimate(s, c.org_id, c.cycle_hours, estimate.days_until(c.end_date), paid)
     c.budget_basis = {**basis, "chosen_usd": float(c.budget_total)}
 
 

@@ -214,6 +214,9 @@ class Department(Base):
     # Library category this department covers (sales, marketing, research...), used to suggest
     # which AI employee should take a new goal. Empty for custom departments.
     kind: Mapped[str] = mapped_column(String(40), default="")
+    # The person who leads this department (shown at the top of it on the org chart). Approvals
+    # go to everyone in the department; with nobody in it, to the organization's admins.
+    head_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
 
@@ -250,6 +253,7 @@ class Invitation(Base):
     email: Mapped[str] = mapped_column(String(320), index=True)
     role: Mapped[str] = mapped_column(String(20), default=Role.member.value)
     department_ids: Mapped[list] = mapped_column(JSONType, default=list)
+    head_department_ids: Mapped[list] = mapped_column(JSONType, default=list)  # departments they will lead
     invited_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
     accepted_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
@@ -283,6 +287,7 @@ class Campaign(Base):
     context: Mapped[str] = mapped_column(Text, default="")  # product, audience, voice, links
     origin: Mapped[str] = mapped_column(String(20), default="")  # "setup" = suggested by setup research
     suggested_reason: Mapped[str] = mapped_column(Text, default="")  # why setup suggested this goal
+    first_deliverable: Mapped[str] = mapped_column(Text, default="")  # what people get in the first week
     # How the budget was worked out (services/estimate.py): sessions x cost per session + paid spend.
     budget_basis: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # The plan shown to people before they start: steps, each with the kind of action it

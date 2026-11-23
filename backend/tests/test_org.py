@@ -225,3 +225,32 @@ async def test_roles_and_last_owner():
         assert (await owner.patch(f"/api/members/{me['id']}", json={"role": "member"})).status_code == 400
         assert (await owner.patch(f"/api/members/{ann_user['id']}", json={"role": "member"})).status_code == 200
         assert (await org_of(ann))["me"]["is_admin"] is False
+
+
+async def test_department_heads():
+    async with client() as owner, client() as member:
+        await sign_in_with_org(owner, "boss@acme.test")
+        org = await org_of(owner)
+        sales = next(d for d in org["departments"] if d["name"] == "Sales")
+        assert sales["head"] is None
+        # Invite someone to lead Sales: they join it, and lead it, when they sign in.
+        r = await owner.post("/api/invitations", json={"email": "lead@acme.test", "head_of": [sales["id"]]})
+        assert r.status_code == 200
+        pending = (await org_of(owner))["invitations"][0]
+        assert pending["head_department_ids"] == [sales["id"]] and pending["department_ids"] == [sales["id"]]
+        await sign_in(member, "lead@acme.test")
+        org = await org_of(member)
+        sales = next(d for d in org["departments"] if d["name"] == "Sales")
+        assert sales["head"]["email"] == "lead@acme.test"
+        assert "lead@acme.test" in [p["email"] for p in sales["people"]]  # so they approve its work
+
+        # Owners can change or clear the head; heads must be in the organization.
+        boss = next(m for m in org["members"] if m["email"] == "boss@acme.test")
+        assert (await owner.patch(f"/api/departments/{sales['id']}", json={"head_user_id": "nobody"})).status_code == 400
+        assert (await member.patch(f"/api/departments/{sales['id']}", json={"head_user_id": boss["id"]})).status_code == 403
+        await owner.patch(f"/api/departments/{sales['id']}", json={"head_user_id": boss["id"]})
+        assert next(d for d in (await org_of(owner))["departments"] if d["id"] == sales["id"])["head"]["id"] == boss["id"]
+        await owner.patch(f"/api/departments/{sales['id']}", json={"head_user_id": None})
+        assert next(d for d in (await org_of(owner))["departments"] if d["id"] == sales["id"])["head"] is None
+        await owner.patch(f"/api/departments/{sales['id']}", json={"name": "Revenue"})
+        assert any(d["name"] == "Revenue" for d in (await org_of(owner))["departments"])

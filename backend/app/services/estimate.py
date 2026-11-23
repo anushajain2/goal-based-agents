@@ -77,3 +77,18 @@ async def pace(s: AsyncSession, campaign: Campaign, remaining: Decimal) -> dict 
     sessions_left = int(Decimal(str(remaining)) // Decimal(str(per)))
     return {"per_session_usd": per, "sessions_measured": n, "sessions_left": sessions_left,
             "days_left": round(sessions_left * campaign.cycle_hours / 24, 1)}
+
+
+STARTER_DAYS = 7
+
+
+def starter(per_session: float, cycle_hours: float, full_days: float, paid_spend: float = 0.0,
+            basis: str = "typical", history_sessions: int = 0) -> dict:
+    """A first week's budget, so people can see results before committing to the whole goal.
+    Keeps the estimate for the whole goal alongside, for when they decide to continue."""
+    full = compute(per_session, cycle_hours, full_days, paid_spend, basis, history_sessions)
+    week_share = min(1.0, STARTER_DAYS / max(full["days"], 1))
+    first = compute(per_session, cycle_hours, min(STARTER_DAYS, full["days"]), paid_spend * week_share,
+                    basis, history_sessions)
+    return {**first, "starter": True, "full_days": full["days"], "full_sessions": full["sessions"],
+            "full_usd": full["suggested_usd"]}
