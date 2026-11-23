@@ -126,6 +126,7 @@ function GoalPage() {
         <div className="flex flex-wrap items-start gap-3 rounded-xl border border-brand-500/30 bg-brand-50/60 px-4 py-3 text-sm">
           <Sparkles size={16} className="mt-0.5 shrink-0 text-brand-600" />
           <div className="min-w-0 flex-1">
+            {c.first_deliverable && <div className="mb-1"><b>In your first week you get:</b> {c.first_deliverable}</div>}
             <b>Suggested by setup research.</b> {c.suggested_reason}
             <div className="text-xs text-muted">Check the target, budget and brief in Settings, then start it. Nothing is spent until you do.</div>
           </div>
@@ -160,6 +161,19 @@ function GoalPage() {
           <div className="mt-1 text-xs text-muted">
             AI {usd(c.budget.ai_usage)} · other {usd(c.budget.other_spend)}{c.budget.daily_cap ? ` · today ${usd(c.budget.today)}/${usd(c.budget.daily_cap)}` : ""}
           </div>
+          {c.budget_basis?.starter && c.can_manage !== false && c.status !== "completed" && (
+            <button disabled={busy} onClick={async () => {
+              setBusy(true);
+              try {
+                await api(`/api/campaigns/${c.id}`, { method: "PATCH", json: { budget_total: c.budget.total + (c.budget_basis?.suggested_usd || 5) } });
+                await reload();
+              } finally {
+                setBusy(false);
+              }
+            }} className="mt-1.5 block text-xs font-semibold text-brand-600 hover:underline">
+              + Add another week ({usd(c.budget_basis.suggested_usd)})
+            </button>
+          )}
           {c.budget_basis && (
             <details className="mt-1.5 text-xs">
               <summary className="cursor-pointer font-semibold text-brand-600">How was this set?</summary>

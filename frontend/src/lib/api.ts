@@ -29,6 +29,7 @@ export type Campaign = {
   client_name: string;
   origin: string; // "setup" = suggested by setup research
   suggested_reason: string;
+  first_deliverable: string;
   budget_basis: BudgetBasis | null;
   has_playbook: boolean;
   playbook?: Playbook | null; // full goal only
@@ -149,10 +150,11 @@ export type Grant = {
 
 export type Person = { id: string; name: string; email: string };
 export type AgentSummary = { id: string; name: string; title: string; goals: number; active_goals: number; spent: number; working: boolean; needs_you: number };
-export type DepartmentInfo = { id: string; name: string; kind: string; people: Person[]; agents: AgentSummary[] };
+export type DepartmentInfo = { id: string; name: string; kind: string; head: Person | null; people: Person[]; agents: AgentSummary[] };
 export type BudgetBasis = {
   per_session_usd: number; sessions: number; cycle_hours: number; days: number; ai_usd: number; paid_spend_usd: number;
   suggested_usd: number; basis: "typical" | "history"; history_sessions: number; chosen_usd?: number;
+  starter?: boolean; full_days?: number; full_sessions?: number; full_usd?: number; // one-week starter budgets
 };
 export type Mode = "auto" | "ask" | "never";
 export type PlanStep = { text: string; action_type: string; tool: string };
@@ -192,7 +194,7 @@ export type CompanyProfile = {
 export type SetupStep = { key: string; label: string; status: "pending" | "running" | "done" | "failed" | "skipped"; detail: string };
 export type PlannedGoal = {
   name: string; goal_description: string; done_when: string; primary_metric: string; target_value: number | null; budget_usd: number;
-  why: string; category: string; steps?: PlanStep[]; budget_basis?: BudgetBasis;
+  why: string; category: string; steps?: PlanStep[]; budget_basis?: BudgetBasis; first_week?: string; start_here?: boolean;
 };
 export type SetupInfo = {
   org: { id: string; name: string; website: string; description: string; profile: CompanyProfile | null };
@@ -208,7 +210,7 @@ export type OrgInfo = {
   me: Person & { role: "owner" | "admin" | "member"; department_ids: string[]; is_admin: boolean };
   departments: DepartmentInfo[];
   members: (Person & { role: "owner" | "admin" | "member"; department_ids: string[] })[];
-  invitations: { id: string; email: string; role: string; department_ids: string[]; created_at: string }[];
+  invitations: { id: string; email: string; role: string; department_ids: string[]; head_department_ids: string[]; created_at: string }[];
 };
 
 /** Library category key -> the kind of department that usually handles it. */

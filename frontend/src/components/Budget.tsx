@@ -18,13 +18,16 @@ export function BudgetBreakdown({ basis, total, pace, compact }: {
   return (
     <div className="space-y-1 text-[12.5px] leading-relaxed text-gray-700">
       <div>
-        <b>{basis.sessions} work sessions</b> ({every(basis.cycle_hours)} for {Math.round(basis.days)} days) × {per} = {usd(basis.ai_usd)}
+        {basis.starter && "First week: "}<b>{basis.sessions} work sessions</b> ({every(basis.cycle_hours)} for {Math.round(basis.days)} days) × {per} = {usd(basis.ai_usd)}
       </div>
       {basis.paid_spend_usd > 0 && <div>+ {usd(basis.paid_spend_usd)} it may spend on ads or purchases</div>}
       <div>
         = <b>{usd(basis.suggested_usd)}</b> suggested{basis.suggested_usd > basis.ai_usd + basis.paid_spend_usd + 0.01 ? " (rounded up)" : ""}
         {total !== undefined && Math.abs(total - basis.suggested_usd) >= 0.5 && <> · you set <b>{usd(total)}</b></>}
       </div>
+      {basis.starter && basis.full_usd ? (
+        <div>The whole goal ({Math.round(basis.full_days || 30)} days) would take about {usd(basis.full_usd)}. Add more once you&apos;ve seen results.</div>
+      ) : null}
       {pace && (
         <div className="text-brand-700">
           So far it costs ~{usd(pace.per_session_usd)} a session, so the rest covers about {pace.sessions_left} more sessions (~{pace.days_left} days).

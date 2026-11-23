@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api, Campaign, Readiness, ToolNeed, usd } from "@/lib/api";
 import { BudgetBreakdown } from "./Budget";
-import { Assurance, PlanSteps, usePermissions } from "./GoalPlan";
+import { Assurance, PlanSteps, StepList, teamName, usePermissions } from "./GoalPlan";
 import { AgentAvatar } from "./team";
 import { Button, cx, ErrorNote } from "./ui";
 
@@ -208,6 +208,7 @@ function ToolRow({ n, composio, multi, onChanged }: { n: Need; composio: boolean
 function GoalReview({ goal, single }: { goal: Campaign; single: boolean }) {
   const { perms, note, error, busy, change } = usePermissions(goal.id);
   const [book, setBook] = useState(goal.playbook || null);
+  const [customize, setCustomize] = useState(false);
   useEffect(() => {
     if (!book) api<Campaign>(`/api/campaigns/${goal.id}`).then((g) => setBook(g.playbook || null)).catch(() => null);
   }, [goal.id, book]);
@@ -223,15 +224,22 @@ function GoalReview({ goal, single }: { goal: Campaign; single: boolean }) {
       {perms && <Assurance perms={perms} agent={agent} compact={!single} />}
       {book && perms && (
         <div>
-          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">Step by step · change anything</div>
-          <PlanSteps steps={book.steps} perms={perms} editable={perms.can_edit} onChange={change} busy={busy} />
+          <div className="mb-2.5 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted">Step by step</span>
+            {perms.can_edit && <button onClick={() => setCustomize(!customize)} className="text-sm font-semibold text-brand-600 hover:underline">{customize ? "Done" : "Customize"}</button>}
+          </div>
+          {customize
+            ? <PlanSteps steps={book.steps} perms={perms} editable onChange={change} busy={busy} />
+            : <StepList steps={book.steps} modeOf={(k) => perms.action_types.find((p) => p.key === k)?.mode ?? "ask"} team={teamName(perms)} />}
         </div>
       )}
       {note && <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">{note}</p>}
       {error && <ErrorNote>{error}</ErrorNote>}
       <div className="rounded-lg border border-line bg-white px-3 py-2.5">
-        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Budget: {usd(goal.budget.total)}, a hard limit</div>
-        {goal.budget_basis ? <BudgetBreakdown basis={goal.budget_basis} total={goal.budget.total} compact /> : <p className="text-xs text-muted">When it runs out, work pauses.</p>}
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Budget: {usd(goal.budget.total)}{goal.budget_basis?.starter ? " for the first week" : ""}, a hard limit</div>
+        {goal.budget_basis?.starter
+          ? <p className="text-[12.5px] text-gray-700">About {goal.budget_basis.sessions} work sessions. When it&apos;s used up, work pauses and you decide whether to add more (the whole goal would take about {usd(goal.budget_basis.full_usd || 0)}).</p>
+          : goal.budget_basis ? <BudgetBreakdown basis={goal.budget_basis} total={goal.budget.total} compact /> : <p className="text-xs text-muted">When it runs out, work pauses.</p>}
       </div>
     </div>
   );

@@ -1,19 +1,17 @@
 "use client";
 
-import { ArrowRight, Check, ChevronDown, CircleAlert, Flag, Loader2, Minus, Play, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, CircleAlert, Loader2, Minus, Play, RefreshCw, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CompanyProfileCard } from "@/components/CompanyProfile";
-import { ModeBadge } from "@/components/GoalPlan";
+import { GoalPanel } from "@/components/GoalPanel";
+import { OrgChart } from "@/components/OrgChart";
 import { StartGoal } from "@/components/StartGoal";
 import { AgentAvatar } from "@/components/team";
 import { Badge, Button, Card, cx, ErrorNote, Field, Input, Textarea } from "@/components/ui";
-import { api, Campaign, SetupInfo, SetupStep, usd, useApi } from "@/lib/api";
-
-// Kinds of action that never change anything outside Autopilot, so they run without asking.
-const AUTO_KINDS = new Set(["research", "read_data", "create_draft"]);
+import { api, Campaign, CompanyProfile, OrgInfo, SetupInfo, SetupStep, usd, useApi } from "@/lib/api";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -56,22 +54,22 @@ export default function SetupPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="mx-auto max-w-6xl space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">
-            {working ? `Getting to know ${name}…` : status === "done" ? `Your AI team for ${name}` : `Setting up ${name} didn't finish`}
+            {working ? `Getting to know ${name}…` : status === "done" ? "Meet your AI team" : `Setting up ${name} didn't finish`}
           </h1>
           <p className="text-sm text-muted">
             {working
               ? "This usually takes 1 to 3 minutes. You can leave this page: it keeps going and the results will be here."
               : status === "done"
-                ? "Here's what we learned, and the AI employees and goals we suggest. Nothing runs until you start a goal."
+                ? `Built for ${name} from your website and public information. Nothing runs, and nothing is spent, until you start a goal.`
                 : "You can try again, or start with a basic team and set it up yourself."}
           </p>
         </div>
         {status === "done" && (
-          <Link href="/team?welcome=1" className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600">
+          <Link href="/team?welcome=1" className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-line bg-white px-4 text-sm font-semibold hover:bg-gray-50">
             Go to my team <ArrowRight size={15} />
           </Link>
         )}
@@ -110,10 +108,27 @@ export default function SetupPage() {
 
       {status === "done" && info.setup.plan && (
         <>
-          <CompanyProfileCard profile={info.org.profile || info.setup.plan.profile} name={name} />
+          <Learned profile={info.org.profile || info.setup.plan.profile} name={name} />
           <SuggestedTeam info={info} />
         </>
       )}
+    </div>
+  );
+}
+
+function Learned({ profile, name }: { profile: CompanyProfile; name: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-xl border border-line bg-white">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 px-4 py-3 text-left">
+        <Sparkles size={16} className="mt-0.5 shrink-0 text-brand-600" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-bold uppercase tracking-wide text-muted">What we learned about {name}</span>
+          <span className="block text-[13.5px] leading-snug">{profile.summary}</span>
+        </span>
+        <ChevronDown size={16} className={cx("mt-1 shrink-0 text-muted transition", open && "rotate-180")} />
+      </button>
+      {open && <div className="border-t border-line p-2"><CompanyProfileCard profile={profile} name={name} /></div>}
     </div>
   );
 }
@@ -160,7 +175,8 @@ function StepIcon({ status }: { status: SetupStep["status"] }) {
 
 function SuggestedTeam({ info }: { info: SetupInfo }) {
   const { data: goals, reload } = useApi<Campaign[]>("/api/campaigns");
-  const [busy, setBusy] = useState<string | null>(null);
+  const { data: org, reload: reloadOrg } = useApi<OrgInfo>("/api/org");
+  const [panel, setPanel] = useState<Campaign | null>(null);
   const [starting, setStarting] = useState<Campaign[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const plan = info.setup!.plan!;
@@ -169,106 +185,80 @@ function SuggestedTeam({ info }: { info: SetupInfo }) {
     const created = new Set(createdIds || []);
     return (goals || []).filter((g) => created.has(g.id));
   }, [goals, createdIds]);
-  const drafts = mine.filter((g) => g.status === "draft" && g.can_manage !== false);
-  const draftBudget = drafts.reduce((t, g) => t + g.budget.total, 0);
+  const picksNames = new Set(plan.departments.flatMap((d) => d.goals.filter((g) => g.start_here).map((g) => g.name)));
+  // Older setups have no picks: suggest the first goal of the top two functions.
+  if (picksNames.size === 0) plan.departments.slice(0, 2).forEach((d) => d.goals[0] && picksNames.add(d.goals[0].name));
+  const picks = mine.filter((g) => picksNames.has(g.name) && g.status === "draft" && g.can_manage !== false);
+  const picksBudget = picks.reduce((t, g) => t + g.budget.total, 0);
+  const oldBudgets = mine.filter((g) => g.status === "draft" && !g.budget_basis?.starter);
 
-  async function act(key: string, fn: () => Promise<unknown>) {
-    setBusy(key);
+  async function starterBudgets() {
     setErr(null);
     try {
-      await fn();
+      await api("/api/org/setup/starter-budgets", { method: "POST" });
       await reload();
     } catch (e) {
       setErr((e as Error).message);
-    } finally {
-      setBusy(null);
     }
   }
+  const refresh = () => { reload(); reloadOrg(); };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold">Your AI employees and their first goals</h2>
-          <p className="text-sm text-muted">
-            A few goals per function, picked for where {info.org.name} is right now. Start the ones you want; remove the rest. Each goal&apos;s
-            budget is a hard limit, and nothing is spent until you start it.
-          </p>
-        </div>
-        {drafts.length > 1 && (
-          <Button variant="primary" disabled={!!busy} onClick={() => setStarting(drafts)}>
-            <Play size={15} /> Start all {drafts.length} ({usd(draftBudget)})
-          </Button>
-        )}
-      </div>
+    <div className="space-y-6">
       {err && <ErrorNote>{err}</ErrorNote>}
-      {starting && <StartGoal goals={starting} onClose={() => setStarting(null)} onStarted={() => { setStarting(null); reload(); }} />}
+      {oldBudgets.length > 0 && info.can_run && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+          <span className="min-w-0 flex-1">
+            Start small: give these goals a one-week budget first ({usd(oldBudgets.reduce((t, g) => t + g.budget.total, 0))} now), and add more once you see results.
+          </span>
+          <Button size="sm" variant="primary" onClick={starterBudgets}>Use one-week budgets</Button>
+        </div>
+      )}
 
-      {plan.departments.map((d) => {
-        const deptGoals = mine.filter((g) => g.department?.name.toLowerCase() === d.name.toLowerCase() || d.goals.some((p) => p.name === g.name));
-        const agent = deptGoals[0]?.agent;
-        return (
-          <Card key={d.name}>
-            <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
-              <AgentAvatar name={agent?.name || `${d.name} Agent`} size={40} />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  {agent ? <Link href={`/team/agents/${agent.id}`} className="text-[15px] font-bold hover:underline">{agent.name}</Link> : <span className="text-[15px] font-bold">{d.name} Agent</span>}
-                  <Badge>{d.name}</Badge>
-                  {d.agent_title && <span className="text-xs text-muted">{d.agent_title}</span>}
-                </div>
-                {d.why && <p className="text-[13px] text-gray-700">{d.why}</p>}
-              </div>
+      {picks.length > 0 && (
+        <section>
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold">Start here</h2>
+              <p className="text-sm text-muted">The {picks.length === 1 ? "goal" : `${picks.length} goals`} most likely to show results fastest. Each runs for a week on a small budget.</p>
             </div>
-            <ul className="divide-y divide-line">
-              {d.goals.map((p) => {
-                const g = deptGoals.find((x) => x.name === p.name) || mine.find((x) => x.name === p.name);
-                return (
-                  <li key={p.name} className="grid gap-3 px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto]">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {g ? <Link href={`/goals/${g.id}`} className="font-semibold hover:text-brand-600 hover:underline">{p.name}</Link> : <span className="font-semibold text-muted line-through">{p.name}</span>}
-                        {g && g.status !== "draft" && <Badge tone="green">Started</Badge>}
-                      </div>
-                      <p className="mt-0.5 text-[13px] text-gray-700">{p.goal_description}</p>
-                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-                        {p.done_when && <span className="inline-flex items-center gap-1"><Flag size={11} /> Counts when: {p.done_when}</span>}
-                        <span>Target: {p.target_value ? `${p.target_value} ${p.primary_metric}` : p.primary_metric}</span>
-                        <span>Budget {usd(p.budget_usd)}{p.budget_basis ? ` (${p.budget_basis.sessions} sessions × ~${usd(p.budget_basis.per_session_usd)}${p.budget_basis.paid_spend_usd ? ` + ${usd(p.budget_basis.paid_spend_usd)} spend` : ""})` : ""}</span>
-                      </div>
-                      {p.why && <p className="mt-1.5 flex gap-1.5 text-xs text-brand-700"><Sparkles size={12} className="mt-0.5 shrink-0" /> {p.why}</p>}
-                      {(p.steps?.length || 0) > 0 && (
-                        <details className="mt-2 text-xs">
-                          <summary className="cursor-pointer font-semibold text-muted">What it will do ({p.steps!.length} steps)</summary>
-                          <ol className="mt-1.5 space-y-1">
-                            {p.steps!.map((st, i) => (
-                              <li key={i} className="flex flex-wrap items-center gap-2">
-                                <span className="text-muted">{i + 1}.</span>
-                                <span className="min-w-0 flex-1 text-gray-700">{st.text}</span>
-                                <ModeBadge mode={AUTO_KINDS.has(st.action_type) ? "auto" : "ask"} team={d.name} />
-                              </li>
-                            ))}
-                          </ol>
-                        </details>
-                      )}
-                    </div>
-                    {g && g.status === "draft" && g.can_manage !== false && (
-                      <div className="flex items-start gap-2">
-                        <Button size="sm" variant="primary" disabled={!!busy} onClick={() => setStarting([g])}>
-                          <Play size={13} /> Start
-                        </Button>
-                        <Button size="sm" variant="ghost" disabled={!!busy} title="Remove this suggestion" onClick={() => confirm(`Remove "${g.name}"?`) && act(g.id, () => api(`/api/campaigns/${g.id}`, { method: "DELETE" }))}>
-                          <Trash2 size={13} />
-                        </Button>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-        );
-      })}
+            {picks.length > 1 && (
+              <Button variant="primary" onClick={() => setStarting(picks)}><Play size={15} /> Start {picks.length === 2 ? "both" : `these ${picks.length}`} · {usd(picksBudget)} for the week</Button>
+            )}
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {picks.map((g) => (
+              <div key={g.id} className="flex flex-col rounded-xl border border-line bg-white p-4 shadow-sm">
+                <div className="mb-2 flex items-center gap-2">
+                  {g.agent && <AgentAvatar name={g.agent.name} size={26} />}
+                  <span className="text-xs font-semibold text-muted">{g.agent?.name}</span>
+                </div>
+                <div className="text-[15px] font-bold leading-snug">{g.name}</div>
+                <div className="mt-2 flex-1 rounded-lg bg-brand-50 px-3 py-2">
+                  <div className="text-[10.5px] font-bold uppercase tracking-wide text-brand-700">{g.first_deliverable ? "In your first week you get" : "The goal"}</div>
+                  <div className="mt-0.5 text-[13px] leading-snug">{g.first_deliverable || g.goal_description}</div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant="primary" onClick={() => setStarting([g])}><Play size={13} /> Start · {usd(g.budget.total)}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setPanel(g)}>How it works</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section>
+        <h2 className="text-lg font-bold">Your team</h2>
+        <p className="mb-3 text-sm text-muted">
+          AI employees work in departments and report to the department&apos;s head, who approves their work. No heads yet? Approvals come to you.
+          Click any goal to see what it does; change the team whenever you like.
+        </p>
+        {org && <OrgChart org={org} goals={mine} onGoalClick={setPanel} onChanged={refresh} />}
+      </section>
+
+      {panel && <GoalPanel goal={panel} onClose={() => setPanel(null)} onStart={(g) => { setPanel(null); setStarting([g]); }} onRemoved={() => { setPanel(null); refresh(); }} />}
+      {starting && <StartGoal goals={starting} onClose={() => setStarting(null)} onStarted={() => { setStarting(null); refresh(); }} />}
     </div>
   );
 }

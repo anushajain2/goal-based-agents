@@ -6,9 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 import { CompanyProfileCard } from "@/components/CompanyProfile";
+import { GoalPanel } from "@/components/GoalPanel";
+import { OrgChart } from "@/components/OrgChart";
+import { StartGoal } from "@/components/StartGoal";
 import { AgentAvatar, PersonAvatar } from "@/components/team";
 import { Badge, Button, Card, cx, ErrorNote, Input } from "@/components/ui";
-import { api, DepartmentInfo, OrgInfo, usd, useApi } from "@/lib/api";
+import { api, Campaign, DepartmentInfo, OrgInfo, usd, useApi } from "@/lib/api";
 
 export default function Page() {
   return (
@@ -21,6 +24,10 @@ export default function Page() {
 function TeamPage() {
   const params = useSearchParams();
   const { data: org, reload, error } = useApi<OrgInfo>("/api/org");
+  const { data: goals, reload: reloadGoals } = useApi<Campaign[]>("/api/campaigns");
+  const [view, setView] = useState<"chart" | "list">("chart");
+  const [panel, setPanel] = useState<Campaign | null>(null);
+  const [starting, setStarting] = useState<Campaign[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [newDept, setNewDept] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -66,8 +73,8 @@ function TeamPage() {
         <div>
           <h1 className="text-2xl font-bold">Team</h1>
           <p className="text-sm text-muted">
-            Your departments, the AI employees working in them, and the people who approve their work. When an AI employee needs a yes, it asks
-            the people in its department.
+            Who reports to whom. AI employees work in departments under a department head, and ask the people in their department before
+            anything goes out.
           </p>
         </div>
         {admin && (
@@ -97,6 +104,26 @@ function TeamPage() {
         </Card>
       )}
 
+          <div className="inline-flex overflow-hidden rounded-md border border-line text-xs font-semibold">
+        {(["chart", "list"] as const).map((v) => (
+          <button key={v} onClick={() => setView(v)} className={cx("px-3 py-1.5", view === v ? "bg-ink text-white" : "bg-white text-muted hover:text-ink")}>
+            {v === "chart" ? "Org chart" : "Details"}
+          </button>
+        ))}
+      </div>
+
+      {view === "chart" ? (
+        <Card className="p-5">
+          <OrgChart org={org} goals={goals || []} onGoalClick={setPanel} onChanged={() => { reload(); reloadGoals(); }} />
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {org.departments.map((d) => (
+            <DepartmentCard key={d.id} d={d} org={org} onChange={(fn) => act(fn)} />
+          ))}
+        </div>
+      )}
+
       {org.org.profile ? (
         <CompanyProfileCard
           profile={org.org.profile}
@@ -111,11 +138,8 @@ function TeamPage() {
         </Link>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {org.departments.map((d) => (
-          <DepartmentCard key={d.id} d={d} org={org} onChange={(fn) => act(fn)} />
-        ))}
-      </div>
+      {panel && <GoalPanel goal={panel} onClose={() => setPanel(null)} onStart={(g) => { setPanel(null); setStarting([g]); }} onRemoved={() => { setPanel(null); reloadGoals(); }} />}
+      {starting && <StartGoal goals={starting} onClose={() => setStarting(null)} onStarted={() => { setStarting(null); reloadGoals(); reload(); }} />}
     </div>
   );
 }

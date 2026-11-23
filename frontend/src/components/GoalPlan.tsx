@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, ChevronDown, Hand, Loader2, Lock, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { Ban, ChevronDown, Hand, Loader2, Lock, ShieldCheck, Zap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { api, Campaign, Mode, Permission, Permissions, PlanStep, Playbook, TOOL_LABELS, usd } from "@/lib/api";
@@ -244,39 +244,79 @@ export function GoalPlan({ goal, defaultOpen = true }: { goal: Campaign; default
       </button>
       {open && (
         <div className="space-y-4 border-t border-line p-4">
-          {perms && <Assurance perms={perms} agent={agent} />}
           <div>
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-[13px] font-bold uppercase tracking-wide text-muted">The plan</h3>
-              {book?.source === "setup" && <span className="flex items-center gap-1 text-xs text-muted"><Sparkles size={12} /> From setup research</span>}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-[12px] font-bold uppercase tracking-wide text-muted">Step by step</h3>
+              {perms?.can_edit && goal.can_manage !== false && book && (
+                <button onClick={() => setShowAll(!showAll)} className="text-sm font-semibold text-brand-600 hover:underline">
+                  {showAll ? "Done" : "Customize"}
+                </button>
+              )}
             </div>
             {!book && !planError && <p className="flex items-center gap-2 text-sm text-muted"><Loader2 size={14} className="animate-spin" /> Working out the steps…</p>}
             {planError && <ErrorNote>{planError}</ErrorNote>}
-            {book && perms && <PlanSteps steps={book.steps} perms={perms} editable={perms.can_edit && goal.can_manage !== false} onChange={change} busy={busy} />}
-            {book && perms?.can_edit && (
-              <p className="mt-2 text-xs text-muted">Changing a step changes every step of the same kind (for example, all &quot;send&quot; steps).</p>
+            {book && perms && !showAll && <StepList steps={book.steps} modeOf={(k) => perms.action_types.find((p) => p.key === k)?.mode ?? "ask"} team={teamName(perms)} />}
+            {book && perms && showAll && (
+              <div className="space-y-3">
+                <PlanSteps steps={book.steps} perms={perms} editable onChange={change} busy={busy} />
+                <p className="text-xs text-muted">Changing a step changes every step of the same kind (for example, all &quot;send&quot; steps).</p>
+              </div>
             )}
           </div>
+          {perms && (
+            <p className="flex items-start gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] text-emerald-900">
+              <Lock size={14} className="mt-0.5 shrink-0" />
+              <span>
+                <b>Nothing goes out without a yes.</b> Before {agent} sends, posts, spends or changes anything, it asks {teamName(perms)} and shows
+                exactly what it wants to do. This is enforced by Autopilot, not left to the AI.
+                {perms.action_types.some((p) => p.default === "ask" && p.mode === "auto") && (
+                  <span className="mt-1 block text-amber-800">
+                    Except what you set to on its own: {perms.action_types.filter((p) => p.default === "ask" && p.mode === "auto").map((p) => p.label.toLowerCase()).join(", ")}.
+                  </span>
+                )}
+              </span>
+            </p>
+          )}
           {note && <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">{note}</p>}
           {error && <ErrorNote>{error}</ErrorNote>}
-          {perms && (
-            <div>
-              <button onClick={() => setShowAll(!showAll)} className="flex items-center gap-1 text-sm font-semibold text-brand-600">
-                <ChevronDown size={15} className={cx("transition", showAll && "rotate-180")} /> {showAll ? "Hide" : "See"} every kind of action it could take
-              </button>
-              {showAll && (
-                <div className="mt-3 space-y-3">
-                  <PermissionsEditor perms={perms} onChange={change} busy={busy} />
-                  <details className="rounded-md bg-gray-50 px-3 py-2 text-xs">
-                    <summary className="cursor-pointer font-semibold text-muted">Rules that always apply ({perms.built_in_rules.length})</summary>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">{perms.built_in_rules.map((r) => <li key={r}>{r}</li>)}</ul>
-                  </details>
-                </div>
-              )}
+          {perms && showAll && (
+            <div className="space-y-3">
+              <h3 className="text-[12px] font-bold uppercase tracking-wide text-muted">Every kind of action it could take</h3>
+              <PermissionsEditor perms={perms} onChange={change} busy={busy} />
+              <details className="rounded-md bg-gray-50 px-3 py-2 text-xs">
+                <summary className="cursor-pointer font-semibold text-muted">Rules that always apply ({perms.built_in_rules.length})</summary>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">{perms.built_in_rules.map((r) => <li key={r}>{r}</li>)}</ul>
+              </details>
             </div>
           )}
         </div>
       )}
     </section>
+  );
+}
+
+/** The plan as a simple timeline: each step either happens on its own or waits for a person's OK. */
+export function StepList({ steps, modeOf, team }: { steps: PlanStep[]; modeOf: (actionType: string) => Mode; team?: string }) {
+  return (
+    <ol className="relative space-y-3 before:absolute before:bottom-3 before:left-[13px] before:top-3 before:border-l-2 before:border-gray-200">
+      {steps.map((st, i) => {
+        const mode = modeOf(st.action_type);
+        return (
+          <li key={i} className="relative flex items-start gap-3">
+            <span className={cx("z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full ring-4 ring-white",
+              mode === "auto" ? "bg-emerald-100 text-emerald-700" : mode === "ask" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-400")}>
+              {MODE_ICON[mode]}
+            </span>
+            <div className="min-w-0 flex-1 pt-0.5">
+              <div className={cx("text-[13.5px] leading-snug", mode === "never" && "text-gray-400 line-through")}>{st.text}</div>
+              <div className={cx("text-[11.5px] font-semibold", mode === "auto" ? "text-emerald-700" : mode === "ask" ? "text-amber-700" : "text-gray-400")}>
+                {mode === "auto" ? "Automatic" : mode === "ask" ? `Waits for ${team ? team.replace(/^the /, "") : "your"} OK` : "Turned off"}
+                {TOOL_LABELS[st.tool] ? <span className="font-normal text-muted"> · {TOOL_LABELS[st.tool]}</span> : null}
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }

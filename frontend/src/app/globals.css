@@ -28,3 +28,55 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* Org chart: lines from a person to the departments that report to them. */
+.org-children {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding-top: 22px;
+}
+.org-children::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 22px;
+  border-left: 2px solid #c9ced6;
+}
+.org-child {
+  position: relative;
+  padding-top: 22px;
+}
+.org-child::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 22px;
+  border-left: 2px solid #c9ced6;
+}
+.org-child::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -8px;
+  right: -8px;
+  border-top: 2px solid #c9ced6;
+}
+.org-child:first-child::after {
+  left: 50%;
+}
+.org-child:last-child::after {
+  right: 50%;
+}
+.org-child:only-child::after {
+  display: none;
+}
+.org-stem {
+  margin: 0 auto;
+  height: 16px;
+  width: 0;
+  border-left: 2px solid #c9ced6;
+}
