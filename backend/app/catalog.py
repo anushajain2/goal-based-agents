@@ -15,6 +15,7 @@ class Tool:
     app: str | None  # Composio toolkit slug
     site: str | None  # website to sign in to in Agent Chrome
     login_url: str | None = None
+    kind: str = "app"  # "app" (connector or site), "github" or "postgres" (connected in Settings)
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -47,6 +48,15 @@ TOOLS: dict[str, Tool] = {t.key: t for t in [
     Tool("producthunt", "Product Hunt", None, "producthunt.com", "https://www.producthunt.com/login"),
     Tool("wordpress", "WordPress", "wordpress", None, None),
     Tool("webflow", "Webflow", "webflow", "webflow.com", "https://webflow.com/dashboard/login"),
+    # Product and engineering
+    Tool("github", "GitHub", None, None, kind="github"),
+    Tool("database", "Your database", None, None, kind="postgres"),
+    Tool("googleanalytics", "Google Analytics", "google_analytics", "analytics.google.com", "https://analytics.google.com"),
+    Tool("mixpanel", "Mixpanel", "mixpanel", "mixpanel.com", "https://mixpanel.com/login"),
+    Tool("amplitude", "Amplitude", "amplitude", "app.amplitude.com", "https://app.amplitude.com/login"),
+    Tool("posthog", "PostHog", "posthog", "app.posthog.com", "https://app.posthog.com/login"),
+    Tool("linear", "Linear", "linear", "linear.app", "https://linear.app/login"),
+    Tool("jira", "Jira", "jira", "atlassian.net", "https://id.atlassian.com/login"),
 ]}
 
 # Channel names people pick in the goal wizard -> tools.

@@ -23,6 +23,8 @@ from app.agent.llm import MeteredClaude
 from app.browser import chrome
 from app.browser.controller import BrowserError, get_controller, is_commit
 from app.connectors.composio_hub import get_hub
+from app.connectors.database import QueryError, run_read_only
+from app.connectors.github import GitHub, GitHubError
 from app.connectors.mcp_client import McpClient, McpError
 from app.db import session_scope
 from app.models import (
@@ -30,6 +32,8 @@ from app.models import (
     BrowserAuthorization,
     Campaign,
     Department,
+    Deliverable,
+    Integration,
     LedgerKind,
     McpServer,
     MetricSnapshot,
@@ -43,6 +47,7 @@ from app.services import activity, ledger, policy
 from app.services.events import notify
 from app.services.mailer import send_approval_needed
 from app.services.rule_check import check_action
+from app.services.handoff import KIND_WORDS, hand_off
 from app.services.secrets_box import unseal
 
 log = logging.getLogger(__name__)
@@ -140,6 +145,12 @@ class ToolExecutor:
         elif kind == "mcp_action":
             args = {**stored["arguments"], **edited}
             outcome = await self._execute_mcp(stored, args, approved=True, edited=bool(edited))
+        elif kind == "github_pr":
+            if "body" in edited:
+                stored = {**stored, "body": edited["body"]}
+            outcome = await self._open_pr(stored, stored["files"], approved=True)
+        elif kind == "github_merge":
+            outcome = await self._merge_pr(stored, approved=True)
         elif kind == "browser_action":
             content = edited.get("content", stored.get("content"))
             outcome = await self._issue_authorization(stored, request.id, content=content, edited="content" in edited)
@@ -197,13 +208,14 @@ class ToolExecutor:
     async def _create_request(
         self, *, kind: RequestKind, tool_use_id: str, title: str, rationale: str = "",
         action_type: str | None = None, scope: str | None = None, preview: dict | None = None,
-        spend_usd: Decimal | None = None,
+        spend_usd: Decimal | None = None, blocking: bool = True,
     ) -> str:
         async with session_scope() as s:
             campaign = await s.get(Campaign, self.campaign_id)
             department_id = await goal_department(s, campaign)
             req = UserRequest(
-                campaign_id=self.campaign_id, run_id=self.run_id, tool_use_id=tool_use_id, kind=kind.value,
+                campaign_id=self.campaign_id, run_id=self.run_id if blocking else None,
+                tool_use_id=tool_use_id if blocking else None, kind=kind.value,
                 action_type=action_type, scope=scope, title=title[:300], rationale=rationale,
                 preview=preview or {}, est_spend_usd=spend_usd, department_id=department_id,
             )
@@ -648,6 +660,175 @@ class ToolExecutor:
                                status="info", details={"strategy": campaign.strategy})
             await notify(s, self.campaign_id, "campaign")
         return Outcome("Strategy updated.")
+
+    # ------------------------------------------------------------------ hand-ins and hand-offs
+
+    async def t_submit_work(self, inp: dict, _id: str) -> Outcome:
+        kind = inp.get("kind") if inp.get("kind") in ("prd", "analysis", "report") else "report"
+        title, content = (inp.get("title") or "").strip()[:300], (inp.get("content") or "").strip()
+        if not title or not content:
+            return Outcome("Give the work a title and its full content.", is_error=True)
+        word = KIND_WORDS[kind]
+        summary = (inp.get("summary") or "").strip()[:1000]
+        async with session_scope() as s:
+            c = await s.get(Campaign, self.campaign_id)
+            agent = await s.get(Agent, c.agent_id) if c.agent_id else None
+            target = await s.get(Agent, agent.handoff_to_agent_id) if agent and agent.handoff_to_agent_id else None
+            if target and kind != "prd":
+                target = None  # only PRDs are handed on; analyses and reports go to people
+            d = Deliverable(org_id=c.org_id, campaign_id=c.id, agent_id=agent.id if agent else None, kind=kind,
+                            title=title, content=content, summary=summary)
+            s.add(d)
+            await s.flush()
+            deliverable_id = d.id
+            if target and not agent.handoff_review:
+                goal = await hand_off(s, d, agent, target, who="nobody: set to hand off directly")
+                await activity.log(s, c.id, "action", f"Wrote a {word}: {title}", run_id=self.run_id,
+                                   details={"deliverable_id": d.id, "handed_to_goal": goal.id})
+                return Outcome(f"Done: {target.name} got it as a new goal and starts on it now.")
+            target_name = target.name if target else None
+        await self._log("action", f"Wrote a {word}: {title}", details={"deliverable_id": deliverable_id})
+        await self._create_request(
+            kind=RequestKind.review, tool_use_id=_id, blocking=False,
+            title=f"Review {word}: {title}", rationale=summary,
+            preview={"deliverable_id": deliverable_id, "kind": kind, "handoff_to": target_name,
+                     "fields": {"content": content}, "editable": ["content"]},
+        )
+        return Outcome("Sent for review" + (f"; once approved it goes to {target_name}" if target_name else "")
+                       + ". You'll see the decision in the work log. Carry on with other work.")
+
+    # ------------------------------------------------------------------ GitHub (code)
+
+    async def _integration(self, kind: str) -> Integration | None:
+        async with session_scope() as s:
+            org_id = (await s.get(Campaign, self.campaign_id)).org_id
+            return (await s.execute(select(Integration).where(Integration.org_id == org_id, Integration.kind == kind)
+                                    .order_by(Integration.created_at).limit(1))).scalar_one_or_none()
+
+    async def _github(self) -> GitHub | None:
+        i = await self._integration("github")
+        token = unseal(i.secret_encrypted) if i else None
+        return GitHub(token, i.config["repo"]) if i and token else None
+
+    async def _read_github(self, title: str, fn) -> Outcome:
+        gh = await self._github()
+        if not gh:
+            return Outcome("No GitHub repository is connected. Ask the person you report to to connect one.", is_error=True)
+        outcome, reason = await self._gate(action_type="read_data", title=title, app="github", payload={})
+        if outcome == "block":
+            return Outcome(f"Blocked by the user's guardrails: {reason}", is_error=True)
+        try:
+            data = await fn(gh)
+        except GitHubError as e:
+            return Outcome(str(e), is_error=True)
+        await self._step(title[:300], channel="github")
+        return Outcome(data if isinstance(data, str) else _json(data, 30000))
+
+    async def t_github_list_files(self, inp: dict, _id: str) -> Outcome:
+        return await self._read_github("Looked through the code", lambda gh: gh.list_files(prefix=inp.get("prefix", "")))
+
+    async def t_github_read_file(self, inp: dict, _id: str) -> Outcome:
+        return await self._read_github(f"Read {inp.get('path')}", lambda gh: gh.read_file(inp["path"], inp.get("ref")))
+
+    async def t_github_search_code(self, inp: dict, _id: str) -> Outcome:
+        return await self._read_github(f'Searched the code for "{inp.get("query")}"', lambda gh: gh.search_code(inp["query"]))
+
+    async def t_github_list_issues(self, inp: dict, _id: str) -> Outcome:
+        return await self._read_github("Read GitHub issues", lambda gh: gh.list_issues(inp.get("state", "open")))
+
+    async def t_github_open_pull_request(self, inp: dict, tool_use_id: str) -> Outcome | Pending:
+        gh = await self._github()
+        if not gh:
+            return Outcome("No GitHub repository is connected.", is_error=True)
+        files = [f for f in inp.get("files") or [] if f.get("path") and isinstance(f.get("content"), str)]
+        if not files or not inp.get("title"):
+            return Outcome("Give a title and the files to change, each with its full new content.", is_error=True)
+        stored = {"kind": "github_pr", "title": inp["title"][:200], "body": inp.get("body", ""),
+                  "branch": inp.get("branch") or inp["title"], "files": files}
+        outcome, reason = await self._gate(action_type="propose_code", title=f"Open pull request: {stored['title']}",
+                                           app="github", payload={"title": stored["title"], "files": [f["path"] for f in files]})
+        if outcome == "block":
+            return Outcome(f"Blocked by the user's guardrails: {reason}", is_error=True)
+        if outcome == "ask":
+            request_id = await self._create_request(
+                kind=RequestKind.action, tool_use_id=tool_use_id, title=f"Open a pull request: {stored['title']}",
+                rationale=reason, action_type="propose_code", scope="github",
+                preview={"app": "github", "action_name": "Open pull request", "editable": ["body"],
+                         "fields": {"body": stored["body"], "files": [f["path"] for f in files]}},
+            )
+            return Pending(request_id, stored)
+        return await self._open_pr(stored, files, approved=False)
+
+    async def _open_pr(self, stored: dict, files: list[dict], *, approved: bool) -> Outcome:
+        gh = await self._github()
+        if not gh:
+            return Outcome("The GitHub connection was removed.", is_error=True)
+        try:
+            pr = await gh.open_pull_request(branch=stored["branch"], title=stored["title"], body=stored["body"], files=files)
+        except GitHubError as e:
+            await self._log("action", f"Couldn't open pull request: {stored['title']}", status="failed", channel="github",
+                            details={"error": str(e)})
+            return Outcome(str(e), is_error=True)
+        await self._log("action", f"Opened pull request #{pr['number']}: {stored['title']}", action_type="propose_code",
+                        channel="github", details={**pr, "files": [f["path"] for f in files], "approved_by_user": approved})
+        return Outcome(_json(pr) + "\nNext: ask an engineer to merge it with github_merge_pull_request.")
+
+    async def t_github_merge_pull_request(self, inp: dict, tool_use_id: str) -> Outcome | Pending:
+        gh = await self._github()
+        if not gh:
+            return Outcome("No GitHub repository is connected.", is_error=True)
+        try:
+            pr = await gh.pull_request(int(inp["number"]))
+        except (GitHubError, ValueError, KeyError) as e:
+            return Outcome(str(e), is_error=True)
+        summary = inp.get("summary") or pr.get("title") or ""
+        stored = {"kind": "github_merge", "number": pr["number"], "title": pr.get("title") or "", "url": pr.get("url")}
+        outcome, reason = await self._gate(action_type="merge_code", title=f"Merge pull request #{pr['number']}",
+                                           app="github", payload=stored)
+        if outcome == "block":
+            return Outcome(f"Blocked by the user's guardrails: {reason}", is_error=True)
+        if outcome == "ask":
+            request_id = await self._create_request(
+                kind=RequestKind.action, tool_use_id=tool_use_id,
+                title=f"Merge pull request #{pr['number']}: {pr.get('title')}",
+                rationale=summary, action_type="merge_code", scope="github",
+                preview={"app": "github", "action_name": "Merge pull request", "url": pr.get("url"),
+                         "details": f"{pr.get('changed_files')} files changed (+{pr.get('additions')} / -{pr.get('deletions')}). "
+                                    f"Review the code on GitHub before approving: {pr.get('url')}",
+                         "fields": {}},
+            )
+            return Pending(request_id, stored)
+        return await self._merge_pr(stored, approved=False)
+
+    async def _merge_pr(self, stored: dict, *, approved: bool) -> Outcome:
+        gh = await self._github()
+        if not gh:
+            return Outcome("The GitHub connection was removed.", is_error=True)
+        try:
+            result = await gh.merge_pull_request(stored["number"])
+        except GitHubError as e:
+            return Outcome(str(e), is_error=True)
+        await self._log("action", f"Merged pull request #{stored['number']}: {stored['title']}", action_type="merge_code",
+                        channel="github", details={**result, "approved_by_user": approved})
+        return Outcome(_json(result))
+
+    # ------------------------------------------------------------------ database (read-only)
+
+    async def t_db_query(self, inp: dict, _id: str) -> Outcome:
+        i = await self._integration("postgres")
+        url = unseal(i.secret_encrypted) if i else None
+        if not url:
+            return Outcome("No database is connected.", is_error=True)
+        outcome, reason = await self._gate(action_type="read_data", title="Query the database", app="database", payload={})
+        if outcome == "block":
+            return Outcome(f"Blocked by the user's guardrails: {reason}", is_error=True)
+        try:
+            result = await run_read_only(url, inp.get("sql", ""))
+        except QueryError as e:
+            return Outcome(str(e), is_error=True)
+        await self._step(f"Queried the database: {inp.get('purpose') or 'analysis'}"[:300], channel="database",
+                         details={"sql": inp.get("sql"), "rows": result["row_count"]})
+        return Outcome(_json(result, 30000))
 
     async def t_ask_user(self, inp: dict, tool_use_id: str) -> Outcome | Pending:
         question = (inp.get("question") or "").strip()

@@ -19,6 +19,7 @@ from app.models import (
     Agent,
     AgentRun,
     Campaign,
+    Deliverable,
     Department,
     PermissionGrant,
     RequestKind,
@@ -31,6 +32,7 @@ from app.models import (
 from app.org import Member, approvers, can_decide, current_member, routed_to_me
 from app.services import activity
 from app.services.events import notify
+from app.services.handoff import hand_off
 from app.services.policy import ACTION_TYPES
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
@@ -164,13 +166,30 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
         for c in (await s.execute(affected)).scalars():
             c.guardrail_version += 1
 
+    handoff_note = ""
+    if req.kind == RequestKind.review.value:
+        d = await s.get(Deliverable, (req.preview or {}).get("deliverable_id") or "-")
+        if d and d.org_id == me.org_id:
+            if req.edited_fields and "content" in req.edited_fields:
+                d.content = req.edited_fields["content"]
+            if not approved:
+                d.status = "changes_requested"
+            else:
+                d.status = "approved"
+                source = await s.get(Agent, d.agent_id) if d.agent_id else None
+                target = await s.get(Agent, source.handoff_to_agent_id) if source and source.handoff_to_agent_id else None
+                if target and d.kind == "prd":
+                    await hand_off(s, d, source, target, who)
+                    handoff_note = f" and handed to {target.name}"
+
     verb = {"action": "Approved" if approved else "Declined",
             "login": "Signed in" if approved else "Declined sign-in",
             "connect": "Connected" if approved else "Declined to connect",
-            "question": "Answered" if approved else "Skipped the question"}[req.kind]
+            "question": "Answered" if approved else "Skipped the question",
+            "review": "Approved" if approved else "Asked for changes to"}[req.kind]
     edited = " (edited)" if req.edited_fields else ""
     await activity.log(
-        s, req.campaign_id, "decision", f"{verb}{edited} by {who}: {req.title}{grant_note}", run_id=req.run_id,
+        s, req.campaign_id, "decision", f"{verb}{edited} by {who}: {req.title}{grant_note}{handoff_note}", run_id=req.run_id,
         status="approved" if approved else "rejected", action_type=req.action_type, channel=req.scope,
         details={"request_id": req.id, "note": body.note, "edited_fields": req.edited_fields, "decided_by": who},
     )

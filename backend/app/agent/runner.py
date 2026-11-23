@@ -30,6 +30,7 @@ from app.models import (
     Agent,
     AgentRun,
     Campaign,
+    Integration,
     McpServer,
     CampaignStatus,
     Department,
@@ -112,6 +113,7 @@ class CycleRunner:
             pending = run.pending
             uses_apps = run.uses_apps
             uses_mcp = run.uses_mcp
+            tool_sets = list(run.tool_sets or [])
             model_calls = run.model_calls
             nudges = run.nudges
             seen_version = run.guardrail_version_seen
@@ -141,6 +143,8 @@ class CycleRunner:
             uses_apps = self.hub.enabled
             async with session_scope() as s:
                 uses_mcp = bool((await s.execute(select(McpServer.id).where(McpServer.org_id == owner_id).limit(1))).first())
+                kinds = {k for (k,) in (await s.execute(select(Integration.kind).where(Integration.org_id == owner_id))).all()}
+                tool_sets = sorted({"github": "github", "postgres": "database"}[k] for k in kinds if k in ("github", "postgres"))
             brief, seen_version = await self._brief(campaign_id, run_id, uses_apps, owner_id)
             await self._log(campaign_id, run_id, "cycle", "Started a work session", status="info")
             try:
@@ -155,10 +159,10 @@ class CycleRunner:
                 brief += "\n\n## The strategist's plan for this session\n" + plan.as_text()
                 await self._record_plan(campaign_id, run_id, plan)
             messages = [{"role": "user", "content": brief}]
-            await self._save(run_id, messages=messages, uses_apps=uses_apps, uses_mcp=uses_mcp,
+            await self._save(run_id, messages=messages, uses_apps=uses_apps, uses_mcp=uses_mcp, tool_sets=tool_sets,
                              guardrail_version_seen=seen_version)
 
-        tools = all_tools(uses_apps, uses_mcp)
+        tools = all_tools(uses_apps, uses_mcp, tool_sets)
 
         while True:
             async with session_scope() as s:
@@ -361,6 +365,11 @@ class CycleRunner:
             servers = (await s.execute(select(McpServer).where(McpServer.org_id == campaign.org_id)
                                        .order_by(McpServer.created_at))).scalars().all() if campaign.org_id else []
             brief += prompts.plan_and_tools(campaign.playbook, servers)
+            integrations = (await s.execute(select(Integration).where(Integration.org_id == campaign.org_id))).scalars().all() \
+                if campaign.org_id else []
+            handoff_to = await s.get(Agent, agent.handoff_to_agent_id) if agent and agent.handoff_to_agent_id else None
+            brief += prompts.code_data_and_handoffs(integrations, handoff_to.name if handoff_to else None,
+                                                    agent.handoff_review if agent else True)
             return brief, campaign.guardrail_version
 
     async def _cycle_ai_cost(self, s, run_id: str) -> Decimal:

@@ -73,6 +73,8 @@ ACTION_TYPES: dict[str, ActionType] = {
         ActionType("modify_account", "Change account settings", "Edit profiles, bios, settings or listings.", "ask", 5),
         ActionType("delete_content", "Delete content", "Delete or remove posts, files or records.", "ask", 6),
         ActionType("spend_money", "Spend money", "Run ads, buy things or make any payment.", "ask", 7),
+        ActionType("propose_code", "Propose code", "Open a pull request on a new branch. Nothing ships until it's merged.", "auto", 2),
+        ActionType("merge_code", "Merge code", "Merge a pull request into the main code.", "ask", 6),
         ActionType("other_write", "Other changes", "Any other action that changes something.", "ask", 5),
     ]
 }

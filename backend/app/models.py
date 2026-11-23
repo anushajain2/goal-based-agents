@@ -61,6 +61,7 @@ class RequestKind(str, enum.Enum):
     login = "login"  # "Please sign in to X in Agent Chrome"
     connect = "connect"  # "Please connect your HubSpot account" (Composio OAuth link)
     question = "question"  # "Which customers should I ask for a case study?" - needs an answer
+    review = "review"  # "Here's a PRD - approve it (and hand it to Engineering)?" - work to review
 
 
 class RequestStatus(str, enum.Enum):
@@ -246,6 +247,47 @@ class Agent(Base):
     # Who it reports to: its requests go to this person. Empty = the department's head, or, with
     # no head, the organization's owner (see org.approvers).
     reports_to_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # Hand-off: finished work (e.g. PRDs) goes to this AI employee as a new goal, after the person
+    # it reports to approves it (handoff_review) or straight away.
+    handoff_to_agent_id: Mapped[str | None] = mapped_column(
+        ForeignKey("agents.id", ondelete="SET NULL", use_alter=True, name="fk_agents_handoff_to_agent_id"), nullable=True)
+    handoff_review: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class Integration(Base):
+    """Code and data an organization connects: a GitHub repository or a read-only database.
+    Secrets (tokens, connection URLs) are encrypted with the app's secret."""
+
+    __tablename__ = "integrations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))  # "github" | "postgres"
+    name: Mapped[str] = mapped_column(String(200))  # "acme/app", "Production replica"
+    config: Mapped[dict] = mapped_column(JSONType, default=dict)  # non-secret details
+    secret_encrypted: Mapped[str] = mapped_column(Text)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class Deliverable(Base):
+    """Work an AI employee hands in: a PRD, an analysis, a report."""
+
+    __tablename__ = "deliverables"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    agent_id: Mapped[str | None] = mapped_column(ForeignKey("agents.id", ondelete="SET NULL"), nullable=True, index=True)
+    kind: Mapped[str] = mapped_column(String(20))  # prd | analysis | report
+    title: Mapped[str] = mapped_column(String(300))
+    content: Mapped[str] = mapped_column(Text)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    # submitted -> approved | changes_requested; handed_off when it became another AI employee's goal
+    status: Mapped[str] = mapped_column(String(30), default="submitted")
+    handed_to_campaign_id: Mapped[str | None] = mapped_column(ForeignKey("campaigns.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
 
@@ -402,6 +444,7 @@ class AgentRun(Base):
     # Fixed at the start of a run so the tool list never changes mid-conversation.
     uses_apps: Mapped[bool] = mapped_column(Boolean, default=False)
     uses_mcp: Mapped[bool] = mapped_column(Boolean, default=False)
+    tool_sets: Mapped[list] = mapped_column(JSONType, default=list)  # e.g. ["github", "database"], fixed per run
     nudges: Mapped[int] = mapped_column(Integer, default=0)
     model_calls: Mapped[int] = mapped_column(Integer, default=0)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)

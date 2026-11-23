@@ -23,8 +23,10 @@ from app.connectors.composio_hub import get_hub
 from app.db import get_session
 from app.models import (
     Campaign,
+    Deliverable,
     Department,
     ExclusionRule,
+    Integration,
     McpServer,
     PermissionGrant,
     RequestKind,
@@ -166,10 +168,14 @@ async def readiness(campaign_id: str, s: AsyncSession = Depends(get_session), me
         except Exception:  # Composio unreachable: show everything as not connected
             connected = set()
     sites = await signed_in_sites(s, c.org_id)
+    linked = {k for (k,) in (await s.execute(select(Integration.kind).where(Integration.org_id == c.org_id))).all()}
     tools = []
     for t in tools_needed(c):
-        status = ("connected" if t["app"] and t["app"] in connected
-                  else "signed_in" if t["site"] and domain_of(t["site"]) in sites else "missing")
+        if t["kind"] in ("github", "postgres"):
+            status = "connected" if t["kind"] in linked else "missing"
+        else:
+            status = ("connected" if t["app"] and t["app"] in connected
+                      else "signed_in" if t["site"] and domain_of(t["site"]) in sites else "missing")
         tools.append({**t, "status": status, "can_connect_app": bool(hub.enabled and t["app"])})
     servers = (await s.execute(select(McpServer).where(McpServer.org_id == c.org_id)
                                .order_by(McpServer.created_at))).scalars().all()
@@ -202,3 +208,18 @@ async def mark_signed_in(body: SiteIn, s: AsyncSession = Depends(get_session), m
     else:
         s.add(SiteSignIn(org_id=me.org_id, site=site, user_id=me.user.id))
     return {"site": site}
+
+
+@router.get("/deliverables")
+async def list_deliverables(agent_id: str | None = None, campaign_id: str | None = None, limit: int = 50,
+                            s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    """PRDs, analyses and reports AI employees handed in."""
+    q = select(Deliverable).where(Deliverable.org_id == me.org_id)
+    if agent_id:
+        q = q.where(Deliverable.agent_id == agent_id)
+    if campaign_id:
+        q = q.where(Deliverable.campaign_id == campaign_id)
+    rows = (await s.execute(q.order_by(Deliverable.created_at.desc()).limit(min(limit, 200)))).scalars()
+    return [{"id": d.id, "kind": d.kind, "title": d.title, "summary": d.summary, "content": d.content, "status": d.status,
+             "campaign_id": d.campaign_id, "agent_id": d.agent_id, "handed_to_campaign_id": d.handed_to_campaign_id,
+             "created_at": d.created_at.isoformat()} for d in rows]

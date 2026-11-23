@@ -185,3 +185,22 @@ def plan_and_tools(playbook: dict | None, mcp_servers: list) -> str:
             names = ", ".join(t["name"] for t in (m.tools or [])[:30]) or "(no tools listed)"
             lines.append(f"- {m.name}: {names}")
     return "\n".join(lines)
+
+
+def code_data_and_handoffs(integrations: list, handoff_to: str | None, review: bool) -> str:
+    lines = []
+    repos = [i.name for i in integrations if i.kind == "github"]
+    dbs = [i.name for i in integrations if i.kind == "postgres"]
+    if repos or dbs:
+        lines += ["", "## Code and data you can use"]
+        if repos:
+            lines.append(f"- GitHub repository {repos[0]}: read code and issues; propose changes as pull requests "
+                         "(github_open_pull_request), then ask to merge (an engineer approves).")
+        if dbs:
+            lines.append(f"- Database {dbs[0]} (read-only SQL with db_query): use it to check metrics and explain changes.")
+    lines += ["", "## Handing in work",
+              "Use submit_work for finished PRDs, analyses and reports (Markdown, complete, self-contained)."]
+    if handoff_to:
+        lines.append(f"Approved PRDs go to {handoff_to}, who builds them"
+                     + (" after the person you report to approves." if review else " straight away (no review)."))
+    return "\n".join(lines)

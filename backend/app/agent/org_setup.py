@@ -94,13 +94,22 @@ countable finish line and a budget. They can: research the web; build and enrich
 companies, people and contacts; write and send emails and LinkedIn/X messages; publish posts, \
 articles and replies; take part in communities; apply to directories, programs, awards and \
 podcasts; book meetings onto a calendar; run small ad budgets; fill in forms; and use the \
-company's connected apps (CRM, email, analytics, docs) or a browser. They ask the people in \
-their department before anything public, outgoing or paid. They cannot write or ship product \
-code, sign contracts, make hiring or legal decisions, move money beyond an approved budget, or \
-do physical work.
+company's connected apps (CRM, email, analytics, docs) or a browser. They ask the person \
+they report to before anything public, outgoing or paid. They cannot write or ship product \
+code without review, sign contracts, make hiring or legal decisions, move money beyond an approved \
+budget, or do physical work.
+
+For software products they can also do product and engineering work, once the company connects \
+its tools: a Product AI employee watches product analytics, a read-only database, the market and \
+competitors; explains sudden metric changes; and writes and prioritises PRDs. An Engineering AI \
+employee reads the code on GitHub, implements small, well-scoped changes (often from approved \
+PRDs or open issues) as pull requests, and asks an engineer to review and merge.
 
 Choose functions and goals that fit THIS company at its CURRENT stage:
-- 3 to {max_departments} functions, most important first. A two-person pre-seed startup does \
+- 3 to {max_departments} functions, most important first. For a software company, include Product \
+(and Engineering, if they build in-house) unless growth work clearly matters far more right now; \
+their goals look like "Weekly metrics and competitor brief", "Explain the drop in activation", \
+"3 prioritised PRDs for the top user problems", "Ship 3 small fixes from open issues as PRs". A two-person pre-seed startup does \
 not need Finance or Operations agents; a funded company hiring salespeople needs pipeline; an \
 agency needs client acquisition and delivery support. Skip a function if there's nothing \
 valuable an AI employee could do there yet.
@@ -400,6 +409,7 @@ async def create_team(setup_id: str, org_id: str, requested_by: str | None, plan
         goal_names = {n.lower() for (n,) in (await s.execute(
             select(Campaign.name).where(Campaign.org_id == org_id))).all()}
         context = company_context(org, plan.get("profile") or {})
+        by_kind: dict[str, Agent] = {}
         for d in plan["departments"]:
             dept = next((x for x in existing if (d["kind"] and x.kind == d["kind"]) or x.name.lower() == d["name"].lower()), None)
             if dept is None:
@@ -417,6 +427,7 @@ async def create_team(setup_id: str, org_id: str, requested_by: str | None, plan
             if d.get("objective") and not agent.objective:
                 agent.objective = d["objective"]
             created["agents"].append(agent.id)
+            by_kind[d["kind"] or d["name"].lower()] = agent
             for g in d["goals"]:
                 if g["name"].lower() in goal_names:
                     continue
@@ -437,6 +448,13 @@ async def create_team(setup_id: str, org_id: str, requested_by: str | None, plan
                 await activity.log(s, c.id, "system", f"Suggested by setup research for {agent.name}",
                                    details={"why": g["why"]} if g["why"] else None, status="info")
                 created["goals"].append(c.id)
+    # Product hands its PRDs to Engineering, after the person it reports to approves them.
+    async with session_scope() as s:
+        if "product" in by_kind and "engineering" in by_kind:
+            product = await s.get(Agent, by_kind["product"].id)
+            if not product.handoff_to_agent_id:
+                product.handoff_to_agent_id = by_kind["engineering"].id
+                product.handoff_review = True
     await _step(setup_id, "create", "done",
                 f"{len(created['agents'])} AI employees, {len(created['goals'])} goals ready to review")
     return created

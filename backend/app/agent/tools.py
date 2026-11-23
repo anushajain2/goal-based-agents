@@ -75,6 +75,43 @@ APP_TOOLS = [
     ),
 ]
 
+GITHUB_TOOLS = [
+    _tool("github_list_files", "List the files in the connected GitHub repository.",
+          {"prefix": {"type": "string", "description": "Optional folder, e.g. 'src/'."}}),
+    _tool("github_read_file", "Read one file from the repository.",
+          {"path": {"type": "string"}, "ref": {"type": "string", "description": "Optional branch."}}, ["path"]),
+    _tool("github_search_code", "Search the repository's code.", {"query": {"type": "string"}}, ["query"]),
+    _tool("github_list_issues", "List the repository's issues (bugs, requests).",
+          {"state": {"type": "string", "enum": ["open", "closed", "all"]}}),
+    _tool(
+        "github_open_pull_request",
+        "Propose a code change: creates a new branch, commits the files (full new contents), and opens a pull "
+        "request. Nothing reaches the main code until an engineer approves the merge. Keep changes small and "
+        "focused; explain what and why in the body, and how you checked it.",
+        {
+            "title": {"type": "string"},
+            "body": {"type": "string", "description": "What changed and why; link the PRD or issue."},
+            "branch": {"type": "string", "description": "Short branch name, e.g. 'csv-export'."},
+            "files": {"type": "array", "items": {
+                "type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}},
+                "required": ["path", "content"], "additionalProperties": False}},
+        },
+        ["title", "body", "files"],
+    ),
+    _tool("github_merge_pull_request",
+          "Ask to merge a pull request you opened. An engineer reviews it and approves first.",
+          {"number": {"type": "integer"}, "summary": {"type": "string", "description": "Why it's ready to merge."}},
+          ["number", "summary"]),
+]
+
+DATABASE_TOOLS = [
+    _tool("db_query",
+          "Run one read-only SQL query (Postgres) on the organization's database, e.g. to find why a metric "
+          "dropped. Returns up to 200 rows. Writes are refused.",
+          {"sql": {"type": "string"}, "purpose": {"type": "string", "description": "What you're checking, in a few words."}},
+          ["sql", "purpose"]),
+]
+
 MCP_TOOLS = [
     _tool(
         "mcp_list_tools",
@@ -207,6 +244,19 @@ CAMPAIGN_TOOLS = [
         ["message"],
     ),
     _tool(
+        "submit_work",
+        "Hand in a finished piece of work: a PRD, an analysis (e.g. why a metric dropped, competitors, trends) "
+        "or a report. It goes to the person you report to for review; an approved PRD may then go to another "
+        "AI employee to build. Write it in Markdown, complete and self-contained.",
+        {
+            "kind": {"type": "string", "enum": ["prd", "analysis", "report"]},
+            "title": {"type": "string"},
+            "summary": {"type": "string", "description": "Two sentences: the finding or proposal, and why it matters."},
+            "content": {"type": "string", "description": "The full document in Markdown."},
+        },
+        ["kind", "title", "summary", "content"],
+    ),
+    _tool(
         "ask_user",
         "Ask the person you report to a question only they can answer (a fact, a preference, a choice "
         "between options), e.g. 'Which 5 customers are happiest?' Not for permission: actions already ask "
@@ -233,12 +283,16 @@ CAMPAIGN_TOOLS = [
 ]
 
 
-def all_tools(include_apps: bool, include_mcp: bool = False) -> list[dict]:
+def all_tools(include_apps: bool, include_mcp: bool = False, tool_sets: list[str] | tuple = ()) -> list[dict]:
     """Deterministic order (the prompt cache is a prefix match)."""
     tools = list(SERVER_TOOLS)
     if include_apps:
         tools += APP_TOOLS
     if include_mcp:
         tools += MCP_TOOLS
+    if "github" in tool_sets:
+        tools += GITHUB_TOOLS
+    if "database" in tool_sets:
+        tools += DATABASE_TOOLS
     tools += BROWSER_TOOLS + CAMPAIGN_TOOLS
     return tools

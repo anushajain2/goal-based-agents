@@ -39,6 +39,7 @@ DEPARTMENT_PRESETS: list[tuple[str, str]] = [
     ("marketing", "Marketing"),
     ("research", "Customer Research"),
     ("product", "Product"),
+    ("engineering", "Engineering"),
     ("fundraising", "Fundraising"),
     ("hiring", "People & Hiring"),
     ("partnerships", "Partnerships"),

@@ -274,6 +274,7 @@ async def get_org(s: AsyncSession = Depends(get_session), me: Member = Depends(c
                 "agents": [
                     {"id": a.id, "name": a.name, "title": a.title, "objective": a.objective,
                      "reports_to": _user(users[a.reports_to_user_id]) if a.reports_to_user_id in users else None,
+                     "handoff_to_agent_id": a.handoff_to_agent_id, "handoff_review": a.handoff_review,
                      **stats.get(a.id, empty)}
                     for a in agents if a.department_id == d.id
                 ],
@@ -394,6 +395,8 @@ class AgentPatch(BaseModel):
     objective: str | None = Field(default=None, max_length=600)
     department_id: str | None = None
     reports_to_user_id: str | None = None  # send null to report to the department's head again
+    handoff_to_agent_id: str | None = None  # send null to stop handing work on
+    handoff_review: bool | None = None
 
 
 async def _manager(s: AsyncSession, me: Member, user_id: str | None) -> str | None:
@@ -438,6 +441,7 @@ async def get_agent(agent_id: str, s: AsyncSession = Depends(get_session), me: M
     return {
         "id": a.id, "name": a.name, "title": a.title, "objective": a.objective,
         "reports_to_user_id": a.reports_to_user_id,
+        "handoff_to_agent_id": a.handoff_to_agent_id, "handoff_review": a.handoff_review,
         "department": {"id": d.id, "name": d.name},
         "approvers": [_user(u) for u in await approvers(s, me.org_id, d.id, a.id)],
         "can_manage": me.in_department(d.id),
@@ -467,6 +471,15 @@ async def update_agent(agent_id: str, body: AgentPatch, s: AsyncSession = Depend
         a.objective = body.objective.strip()
     if "reports_to_user_id" in changes:
         a.reports_to_user_id = await _manager(s, me, body.reports_to_user_id)
+    if "handoff_to_agent_id" in changes:
+        target = body.handoff_to_agent_id
+        if target:
+            t = await _agent(s, me, target)
+            if t.id == a.id:
+                raise HTTPException(400, "An AI employee can't hand work to itself.")
+        a.handoff_to_agent_id = target or None
+    if body.handoff_review is not None:
+        a.handoff_review = body.handoff_review
     return {"ok": True}
 
 
