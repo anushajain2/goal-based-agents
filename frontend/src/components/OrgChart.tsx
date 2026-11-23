@@ -1,6 +1,6 @@
 "use client";
 
-import { Hand, Mail, Plus, UserPlus, X } from "lucide-react";
+import { ArrowRight, Hand, Mail, Plus, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -96,6 +96,7 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
   const owner = org.members.find((m) => m.role === "owner");
   const lead = d.head || owner;
   const leadName = (p?: Person | null) => (!p ? "the owner" : p.id === org.me.id ? "you" : p.name || p.email);
+  const agentName = (id: string) => org.departments.flatMap((x) => x.agents).find((x) => x.id === id)?.name || "another AI employee";
 
   return (
     <div>
@@ -124,6 +125,11 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
                 </span>
                 {a.objective && <span className="mt-1.5 line-clamp-2 block text-[11.5px] leading-snug text-gray-700"><b className="text-violet-700">Objective:</b> {a.objective}</span>}
                 {a.reports_to && <span className="mt-1 block text-[11px] font-semibold text-violet-700">Reports to {leadName(a.reports_to)}</span>}
+                {a.handoff_to_agent_id && (
+                  <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-brand-700">
+                    <ArrowRight size={11} /> PRDs go to {agentName(a.handoff_to_agent_id)}{a.handoff_review ? `, ${leadName(a.reports_to || lead) === "you" ? "you approve" : leadName(a.reports_to || lead) + " approves"} first` : ""}
+                  </span>
+                )}
               </Link>
               {goals && (
                 <div className="space-y-1.5 border-t border-violet-100 px-2 py-2">

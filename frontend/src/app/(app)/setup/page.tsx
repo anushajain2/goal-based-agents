@@ -205,7 +205,7 @@ function TeamLaunch({ info, goals, org, onStart }: { info: SetupInfo; goals: Cam
           <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
             <li className="rounded-lg bg-white/10 px-3 py-2"><b className="block text-lg">{usd(total)}</b>{starter ? "for the whole team's first week" : "in total"}</li>
             <li className="rounded-lg bg-white/10 px-3 py-2"><b className="block text-lg">Hard limit</b>work pauses when it&apos;s used up</li>
-            <li className="rounded-lg bg-white/10 px-3 py-2"><b className="block text-lg">Your OK first</b>on every message, post and payment</li>
+            <li className="rounded-lg bg-white/10 px-3 py-2"><b className="block text-lg">Your OK first</b>on every message, post, payment and merge</li>
           </ul>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto">

@@ -78,7 +78,7 @@ export type UserRequest = {
   id: string;
   campaign_id: string;
   campaign_name: string | null;
-  kind: "action" | "login" | "connect" | "question";
+  kind: "action" | "login" | "connect" | "question" | "review";
   status: string;
   action_type: string | null;
   action_label: string | null;
@@ -97,6 +97,8 @@ export type UserRequest = {
     screenshot?: string | null;
     question?: string;
     options?: string[];
+    deliverable_id?: string;
+    handoff_to?: string | null;
   };
   est_spend_usd: number | null;
   decision_note: string | null;
@@ -157,6 +159,7 @@ export type Grant = {
 export type Person = { id: string; name: string; email: string };
 export type AgentSummary = {
   id: string; name: string; title: string; objective: string; reports_to: Person | null;
+  handoff_to_agent_id: string | null; handoff_review: boolean;
   goals: number; active_goals: number; spent: number; working: boolean; needs_you: number;
 };
 export type DepartmentInfo = { id: string; name: string; kind: string; head: Person | null; people: Person[]; agents: AgentSummary[] };
@@ -176,7 +179,14 @@ export type Permissions = { action_types: Permission[]; department: string | nul
 export type ToolNeed = {
   key: string; label: string; app: string | null; site: string | null; login_url: string | null;
   steps: number[]; required: boolean; status: "connected" | "signed_in" | "missing"; can_connect_app: boolean;
+  kind: "app" | "github" | "postgres";
 };
+export type Deliverable = {
+  id: string; kind: "prd" | "analysis" | "report"; title: string; summary: string; content: string;
+  status: "submitted" | "approved" | "changes_requested" | "handed_off"; campaign_id: string; agent_id: string | null;
+  handed_to_campaign_id: string | null; created_at: string;
+};
+export type IntegrationInfo = { id: string; kind: "github" | "postgres"; name: string; config: Record<string, unknown>; error: string | null };
 export type Readiness = {
   tools: ToolNeed[]; composio_enabled: boolean; mcp_servers: { id: string; name: string; tools: number; error: string | null }[];
   permissions: Permission[]; department: string | null; approvers: string[]; playbook: Playbook | null;
@@ -188,7 +198,8 @@ export type McpServerInfo = {
 
 /** Plain names for the tools in a plan (keys from the backend catalog). */
 export const TOOL_LABELS: Record<string, string> = {
-  web: "Web", none: "", gmail: "Gmail", outlook: "Outlook", googlecalendar: "Google Calendar", calendly: "Calendly",
+  web: "Web", none: "", database: "Database", googleanalytics: "Google Analytics", mixpanel: "Mixpanel", amplitude: "Amplitude",
+  posthog: "PostHog", linear: "Linear", jira: "Jira", github: "GitHub", gmail: "Gmail", outlook: "Outlook", googlecalendar: "Google Calendar", calendly: "Calendly",
   linkedin: "LinkedIn", twitter: "X", instagram: "Instagram", facebook: "Facebook", reddit: "Reddit", youtube: "YouTube",
   hubspot: "HubSpot", salesforce: "Salesforce", pipedrive: "Pipedrive", apollo: "Apollo", slack: "Slack", notion: "Notion",
   googlesheets: "Google Sheets", googledocs: "Google Docs", mailchimp: "Mailchimp", shopify: "Shopify", stripe: "Stripe",

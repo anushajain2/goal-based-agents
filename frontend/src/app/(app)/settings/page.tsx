@@ -3,6 +3,7 @@
 import { Building2, Chrome, ExternalLink, Globe, KeyRound, Mail, Plug, Plus, RefreshCw, Server, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 
+import { CodeAndData } from "@/components/Connections";
 import { ListEditor } from "@/components/Guardrails";
 import { PersonAvatar } from "@/components/team";
 import { Badge, Button, Card, CardHeader, Dot, ErrorNote, Input, Select } from "@/components/ui";
@@ -29,6 +30,7 @@ export default function SettingsPage() {
       <People />
       <Staffing />
       <AppConnections />
+      <CodeAndData />
       <McpServers />
       <AgentChrome />
       <Permissions />

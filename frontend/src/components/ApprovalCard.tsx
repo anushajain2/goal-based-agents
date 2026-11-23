@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ExternalLink, HelpCircle, KeyRound, Link2, Lock, MessageSquare, ShieldQuestion, Users, X } from "lucide-react";
+import { Check, ExternalLink, FileText, HelpCircle, KeyRound, Link2, Lock, MessageSquare, ShieldQuestion, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -13,6 +13,7 @@ export const KIND_BADGE: Record<UserRequest["kind"], { label: string; tone: "amb
   question: { label: "Question", tone: "blue", icon: <HelpCircle size={12} /> },
   login: { label: "Sign-in", tone: "violet", icon: <KeyRound size={12} /> },
   connect: { label: "Connect an app", tone: "blue", icon: <Link2 size={12} /> },
+  review: { label: "Review", tone: "green", icon: <FileText size={12} /> },
 };
 
 /**
@@ -102,9 +103,14 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
         <p className={cx("text-sm text-muted", !detail && "mt-1")}>{req.kind === "question" ? <><b className="text-gray-700">Why it asks:</b> {req.rationale}</> : req.rationale}</p>
       )}
 
-      {req.kind === "action" && (
+      {req.kind === "review" && req.preview.handoff_to && !decided && (
+        <p className={cx("inline-flex items-center gap-1.5 rounded-md bg-violet-50 px-2 py-1 text-xs font-medium text-violet-800", !detail && "mt-2")}>
+          Approving sends it to {req.preview.handoff_to}, who starts building it.
+        </p>
+      )}
+      {(req.kind === "action" || req.kind === "review") && (
         <div className={cx("space-y-3", !detail && "mt-3")}>
-          {!decided && canDecide && (
+          {req.kind === "action" && !decided && canDecide && (
             <p className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800">
               <Lock size={12} /> Nothing has been sent or changed yet. It only happens if you approve.
             </p>
@@ -112,7 +118,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
           {editable.map((key) => (
             <div key={key}>
               <div className="mb-1 flex items-center justify-between text-xs font-semibold text-muted">
-                <span>{key === "content" ? "Exact content" : key}</span>
+                <span>{req.kind === "review" ? "The document" : key === "content" ? "Exact content" : key}</span>
                 {canDecide && !decided && <span>You can edit this before approving</span>}
               </div>
               <Textarea disabled={!canDecide || decided} value={edits[key]} onChange={(e) => setEdits({ ...edits, [key]: e.target.value })} rows={rowsFor(edits[key], detail)} />
@@ -176,7 +182,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
 
       {decided ? (
         <div className={cx("rounded-md bg-gray-50 px-3 py-2 text-sm", !detail && "mt-3")}>
-          <b>{req.status === "approved" ? (req.kind === "question" ? "Answered" : "Approved") : req.kind === "question" ? "Skipped" : "Declined"}</b>
+          <b>{req.status === "approved" ? (req.kind === "question" ? "Answered" : "Approved") : req.kind === "question" ? "Skipped" : req.kind === "review" ? "Changes requested" : "Declined"}</b>
           {req.decided_by_name ? ` by ${req.decided_by_name}` : ""}
           {req.decision_note && <p className="mt-1 text-gray-700">&ldquo;{req.decision_note}&rdquo;</p>}
         </div>
@@ -200,13 +206,13 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
             <div className={cx("space-y-2", !detail && "mt-4")}>
               <Input autoFocus placeholder={`Tell ${agent} why (it will adjust)`} value={note} onChange={(e) => setNote(e.target.value)} />
               <div className="flex gap-2">
-                <Button variant="danger" disabled={busy} onClick={() => decide("reject")}><X size={15} /> Decline</Button>
+                <Button variant="danger" disabled={busy} onClick={() => decide("reject")}><X size={15} /> {req.kind === "review" ? "Send back" : "Decline"}</Button>
                 <Button variant="ghost" onClick={() => setRejecting(false)}>Cancel</Button>
               </div>
             </div>
           ) : (
             <div className={cx("space-y-3", !detail && "mt-4")}>
-              {req.kind === "action" && (commenting ? (
+              {(req.kind === "action" || req.kind === "review") && (commenting ? (
                 <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={`Comment for ${agent} (optional), e.g. "Go ahead, and mention our pricing page"`} />
               ) : (
                 <button onClick={() => setCommenting(true)} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"><MessageSquare size={12} /> Add a comment</button>
@@ -214,9 +220,13 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
               <div className="flex flex-wrap items-center gap-2">
                 <Button variant="primary" disabled={busy} onClick={() => decide("approve", req.kind === "action" && remember)}>
                   <Check size={15} />
-                  {req.kind === "login" ? "I've signed in" : req.kind === "connect" ? "I've connected it" : remember ? "Approve & don't ask again" : "Approve"}
+                  {req.kind === "login" ? "I've signed in" : req.kind === "connect" ? "I've connected it"
+                    : req.kind === "review" ? (req.preview.handoff_to ? `Approve & send to ${req.preview.handoff_to}` : "Approve")
+                    : remember ? "Approve & don't ask again" : "Approve"}
                 </Button>
-                <Button variant="secondary" disabled={busy} onClick={() => setRejecting(true)}>{req.kind === "action" ? "Don't do this" : "Not now"}</Button>
+                <Button variant="secondary" disabled={busy} onClick={() => setRejecting(true)}>
+                  {req.kind === "action" ? "Don't do this" : req.kind === "review" ? "Ask for changes" : "Not now"}
+                </Button>
                 {req.kind === "action" && (
                   <label className="ml-1 flex cursor-pointer items-center gap-2 text-sm">
                     <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 accent-brand-500" />

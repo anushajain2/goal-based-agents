@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Hand, Pencil, Target } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, Hand, Pencil, Target } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -9,10 +9,11 @@ import { GoalProgress, GoalStatus } from "@/components/goal";
 import { AgentAvatar, PersonAvatar } from "@/components/team";
 import { Button, Card, CardHeader, cx, Empty, ErrorNote, Input, Select } from "@/components/ui";
 import { ViewToggle, WorkLog } from "@/components/WorkLog";
-import { ActivityItem, api, Campaign, num, OrgInfo, Person, usd, useApi } from "@/lib/api";
+import { ActivityItem, api, Campaign, Deliverable, num, OrgInfo, Person, usd, useApi } from "@/lib/api";
 
 type AgentInfo = {
   id: string; name: string; title: string; objective: string; reports_to_user_id: string | null;
+  handoff_to_agent_id: string | null; handoff_review: boolean;
   department: { id: string; name: string }; approvers: Person[]; can_manage: boolean; can_edit: boolean; goals: number; actions: number;
 };
 
@@ -100,6 +101,8 @@ export default function AgentPage() {
       {err && <ErrorNote>{err}</ErrorNote>}
 
       <Okrs agent={agent} goals={goals || []} onSaved={reload} />
+      {org && <HandOffs agent={agent} org={org} onSaved={reload} />}
+      <Documents agentId={agent.id} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Status" value={working ? "Working" : waiting ? "Needs a yes" : "Idle"} />
@@ -187,6 +190,98 @@ function Okrs({ agent, goals, onSaved }: { agent: AgentInfo; goals: Campaign[]; 
                 </li>
               ))}
             </ul>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+
+/** Where its finished work goes: to the person it reports to, and on to another AI employee. */
+function HandOffs({ agent, org, onSaved }: { agent: AgentInfo; org: OrgInfo; onSaved: () => void }) {
+  const others = org.departments.flatMap((d) => d.agents.map((a) => ({ ...a, dept: d.name }))).filter((a) => a.id !== agent.id);
+  const manager = agent.approvers[0];
+  const who = manager ? (manager.id === org.me.id ? "you" : manager.name || manager.email) : "the owner";
+  const [err, setErr] = useState<string | null>(null);
+  async function patch(json: Record<string, unknown>) {
+    setErr(null);
+    try {
+      await api(`/api/agents/${agent.id}`, { method: "PATCH", json });
+      onSaved();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+  return (
+    <Card className="p-5">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-muted">Where its work goes</div>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+        <span className="rounded-full bg-violet-50 px-3 py-1 font-semibold text-violet-800">{agent.name}</span>
+        <ArrowRight size={15} className="text-muted" />
+        {agent.handoff_review || !agent.handoff_to_agent_id ? (
+          <>
+            <span className="rounded-full bg-amber-50 px-3 py-1 font-semibold text-amber-800">{who === "you" ? "You review" : `${who} reviews`}</span>
+            {agent.handoff_to_agent_id && <ArrowRight size={15} className="text-muted" />}
+          </>
+        ) : null}
+        {agent.handoff_to_agent_id && (
+          <span className="rounded-full bg-brand-50 px-3 py-1 font-semibold text-brand-700">{others.find((a) => a.id === agent.handoff_to_agent_id)?.name} builds it</span>
+        )}
+      </div>
+      {agent.can_edit && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+          <label className="flex items-center gap-1.5">PRDs go on to
+            <select className="rounded-md border border-line bg-white px-2 py-1 font-semibold" value={agent.handoff_to_agent_id || ""}
+              onChange={(e) => patch({ handoff_to_agent_id: e.target.value || null })}>
+              <option value="">nobody (just {who})</option>
+              {others.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.dept})</option>)}
+            </select>
+          </label>
+          {agent.handoff_to_agent_id && (
+            <label className="flex items-center gap-1.5">
+              <input type="checkbox" className="h-3.5 w-3.5 accent-brand-500" checked={agent.handoff_review} onChange={(e) => patch({ handoff_review: e.target.checked })} />
+              {who === "you" ? "You approve first" : `${who} approves first`}
+            </label>
+          )}
+        </div>
+      )}
+      {err && <p className="mt-2 text-xs text-red-600">{err}</p>}
+    </Card>
+  );
+}
+
+const DOC_STATUS: Record<Deliverable["status"], { label: string; tone: string }> = {
+  submitted: { label: "Waiting for review", tone: "bg-amber-50 text-amber-800" },
+  approved: { label: "Approved", tone: "bg-emerald-50 text-emerald-800" },
+  changes_requested: { label: "Changes asked", tone: "bg-gray-100 text-gray-600" },
+  handed_off: { label: "Being built", tone: "bg-brand-50 text-brand-700" },
+};
+
+/** PRDs, analyses and reports it handed in. */
+function Documents({ agentId }: { agentId: string }) {
+  const { data } = useApi<Deliverable[]>(`/api/deliverables?agent_id=${agentId}`);
+  const [open, setOpen] = useState<string | null>(null);
+  if (!data || data.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader title="Documents" subtitle="PRDs, analyses and reports it handed in" />
+      <ul className="divide-y divide-line">
+        {data.map((d) => (
+          <li key={d.id}>
+            <button onClick={() => setOpen(open === d.id ? null : d.id)} className="flex w-full flex-wrap items-center gap-2 px-4 py-3 text-left hover:bg-gray-50">
+              <FileText size={15} className="text-muted" />
+              <span className="text-[11px] font-bold uppercase text-muted">{d.kind === "prd" ? "PRD" : d.kind}</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{d.title}</span>
+              <span className={cx("rounded-full px-2 py-0.5 text-[11px] font-semibold", DOC_STATUS[d.status].tone)}>{DOC_STATUS[d.status].label}</span>
+              {d.handed_to_campaign_id && <Link href={`/goals/${d.handed_to_campaign_id}`} onClick={(e) => e.stopPropagation()} className="text-xs font-semibold text-brand-600 hover:underline">See the build</Link>}
+            </button>
+            {open === d.id && (
+              <div className="border-t border-line bg-gray-50 px-4 py-3">
+                {d.summary && <p className="mb-2 text-sm font-medium">{d.summary}</p>}
+                <pre className="max-h-96 overflow-auto whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-gray-800">{d.content}</pre>
+              </div>
+            )}
           </li>
         ))}
       </ul>
