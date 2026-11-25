@@ -13,7 +13,11 @@ Q1, Q2, Q3 = "route planning software for logistics", "acme routing reviews", "b
 
 
 def pick(kw):
-    return {"checks": ["search_rank", "ai_answers", "review_volume", "not_a_check"],
+    return {"checks": [{"key": "review_gap", "score": 4, "why": "Few G2 reviews", "expect": "12 vs 240 reviews"},
+                       {"key": "search_rank", "score": 5, "why": "Crowded search market", "expect": "Not on page 1"},
+                       {"key": "proof_gap", "score": 2, "why": "Has case studies", "expect": "Probably fine"},  # too weak to run
+                       {"key": "ai_answers", "score": 5, "why": "", "expect": ""},
+                       {"key": "not_a_check", "score": 5, "why": "", "expect": ""}],
             "queries": [{"query": Q1, "intent": "Ops lead comparing tools"},
                         {"query": Q2, "intent": "has the company's name: dropped"},
                         {"query": Q3, "intent": "Buyer in the EU"}],
@@ -62,7 +66,7 @@ def findings(kw):
          "evidence": "Rank 3 for 'route planning software for logistics'; not in the top 2 for the EU search.",
          "impact": "Most buyers click the first results.", "estimate": "", "assumption": "", "confidence": "high",
          "source_urls": ["https://www.routeco.test/routing"], "goal_id": "", "new_goal": None, "milestones": seo},
-        {"check": "review_volume", "team_kind": "sales", "title": "No comparison pages", "evidence": "None found.",
+        {"check": "review_gap", "team_kind": "sales", "title": "No comparison pages", "evidence": "None found.",
          "impact": "Switchers find competitors.", "estimate": "", "assumption": "", "confidence": "high",
          "source_urls": [], "goal_id": demos, "new_goal": None, "milestones": []},
         {"check": "", "team_kind": "marketing", "title": "Page titles", "evidence": "12 pages share one title.",
@@ -76,11 +80,12 @@ def findings(kw):
 
 async def test_checks_suit_the_type_of_company():
     shop = {c.key for c in checks.for_company("ecommerce")}
-    assert {"marketplaces", "product_pages", "abandoned_checkouts"} <= shop
-    assert "changelog" not in shop  # a software thing
-    assert "b2b_platforms" in {c.key for c in checks.for_company("general")}
-    assert all(c.method != "tool" for c in checks.runnable("startup"))
-    assert len(checks.CHECKS) >= 50
+    assert {"product_pages", "delivery_promise", "abandoned_checkouts"} <= shop
+    assert "security_trust" not in shop  # a B2B thing
+    assert "tenders" in {c.key for c in checks.for_company("general")}
+    assert all(c.method not in ("tool", "measure") for c in checks.runnable("startup"))
+    # Every check Claude can choose is concrete: its number, how it's checked, the fix, an example.
+    assert all(c.metric and len(c.steps) >= 2 and c.fix and c.example for c in checks.runnable(None))
 
 
 async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_site):
@@ -106,7 +111,9 @@ async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_
         assert [a["rank"] for a in vis["ai"]] == [None, 2]
         search_call = next(x for x in fake.calls if x.get("system") == SEARCH_SYSTEM)
         assert Q2 not in search_call["messages"][0]["content"]
-        assert [x["key"] for x in opp["checks"]] == ["search_rank", "ai_answers", "review_volume"]
+        # Claude scored the checks; the strongest ran (highest first), the weak one didn't.
+        assert [(x["key"], x["score"]) for x in opp["checks"]] == [("search_rank", 5), ("ai_answers", 5), ("review_gap", 4)]
+        assert opp["checks"][2]["expect"] == "12 vs 240 reviews"
 
         seo, compare, titles, pricing = opp["findings"]
         goals = {g["id"]: g for g in (await c.get("/api/campaigns")).json()}
@@ -123,7 +130,7 @@ async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_
         assert goals[compare["goal_id"]]["name"] == "Book 15 demos with Heads of Ops"
         # Cheap work isn't split into steps.
         assert len(titles["milestones"]) == 1
-        # No Finance team: nothing invented.
+        # No Finance team and no close one (Operations, Founder's office): nothing invented.
         assert pricing["goal_id"] is None and not any(g["name"] == "Publish pricing" for g in goals.values())
         # Connect to unlock, per team; a check becomes a goal for its team, once.
         unlock = {u["team_kind"]: u for u in opp["unlock"]}
@@ -170,7 +177,9 @@ async def test_with_google_set_up_the_scan_uses_real_rankings_by_country(with_ke
     monkeypatch.setattr(http, "transport", httpx.MockTransport(handler))
 
     def pick_de_nl(kw):
-        return {"checks": ["search_rank", "ai_answers"], "queries": [{"query": QA, "intent": "Ops lead"}],
+        return {"checks": [{"key": "search_rank", "score": 5, "why": "", "expect": ""},
+                           {"key": "ai_answers", "score": 4, "why": "", "expect": ""}],
+                "queries": [{"query": QA, "intent": "Ops lead"}],
                 "competitors": [{"name": "Routeco", "domain": "routeco.test"}],
                 "markets": [{"country": "Germany", "gl": "DE", "hl": "de"}, {"country": "Netherlands", "gl": "nl", "hl": "nl"}],
                 "local": {"query": "", "cities": []}}
@@ -194,17 +203,34 @@ async def test_with_google_set_up_the_scan_uses_real_rankings_by_country(with_ke
         assert "Mobile speed: you 38/100" in structure["messages"][0]["content"]
 
 
-def test_each_scan_has_a_budget_and_room_for_other_teams():
+def test_the_five_shown_are_the_strongest_and_include_another_team_only_if_strong():
     from app.agent.opportunities import SHOW, balanced
 
-    for pack in checks.PRIORITY:
-        for size in ("tiny", "small", "mid", "large"):
-            short = checks.shortlist(pack, size)
-            assert len(short) <= checks.SHORTLIST
-            assert sum(c.team not in checks.GTM for c in short) >= 1
-    assert "employer_reviews" not in {c.key for c in checks.shortlist("agency", "tiny")}
-    assert "security_page" in {c.key for c in checks.shortlist("startup", "large")[:6]}
-    gtm = [{"team_kind": "marketing", "title": str(i)} for i in range(6)]
-    picked = balanced(gtm + [{"team_kind": "engineering", "title": "slow site"}])
-    assert len(picked) == SHOW and picked[-1]["title"] == "slow site"
-    assert balanced(gtm)[:SHOW] == gtm[:SHOW]  # nothing else found: the best five
+    gtm = [{"team_kind": "marketing", "title": str(i), "pull": 4} for i in range(6)]
+    strong = {"team_kind": "it", "title": "email lands in spam", "pull": 4}
+    weak = {"team_kind": "legal", "title": "no imprint", "pull": 2}
+    picked = balanced(gtm + [weak, strong])
+    assert len(picked) == SHOW and picked[-1] is strong
+    assert balanced(gtm + [weak]) == gtm[:SHOW]  # a weak one isn't added for variety
+    ranked = balanced([{"team_kind": "sales", "title": "a", "pull": 2}, {"team_kind": "sales", "title": "b", "pull": 5}])
+    assert [f["title"] for f in ranked] == ["b", "a"]
+
+
+async def test_a_fix_goes_to_the_closest_team_when_its_own_is_missing(with_key, fake_site):
+    from app.agent.opportunities import create_goal
+    from tests.helpers import org_of
+
+    async with client() as c:
+        setup_id = await start_setup(c)
+        await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(script, org_planner=lambda kw: {
+            **PLAN, "departments": [{"kind": "engineering", "name": "Engineering", "why": "", "agents": [
+                {"role": "", "name": "Eng Agent", "title": "", "objective": "", "goals": [goal("Ship fixes")]}]}]})))
+        org = await org_of(c)
+        g = {k: v for k, v in goal("Add a DMARC record").items()}
+        from app.agent.org_setup import _tidy_goal
+        spec = _tidy_goal(g)
+        spec["budget_basis"], spec["budget_usd"] = {"suggested_usd": 5}, 5
+        goal_id = await create_goal(org["org"]["id"], None, "it", spec)
+        assert goal_id  # no IT team: Engineering takes it
+        made = next(x for x in (await c.get("/api/campaigns")).json() if x["id"] == goal_id)
+        assert made["agent"]["name"] == "Eng Agent"

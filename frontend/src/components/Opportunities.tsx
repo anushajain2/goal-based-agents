@@ -75,6 +75,15 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
         )}
       </div>
       {err && <ErrorNote>{err}</ErrorNote>}
+      {(found.checks || []).some((c) => c.why) && (
+        <div className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
+          <span className="text-muted">What we checked, and why:</span>
+          {found.checks!.map((c) => (
+            <span key={c.key} title={c.why ? `${c.why}${c.expect ? ` · Expected: ${c.expect}` : ""}` : undefined}
+              className="cursor-help rounded-full border border-line bg-white px-2.5 py-0.5 font-medium text-stone-700">{c.title}</span>
+          ))}
+        </div>
+      )}
 
       {found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) && <Findable v={found.visibility} name={orgName} />}
       {(found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} />}
@@ -90,6 +99,15 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
                 <span className="text-[11.5px] font-medium text-muted">{CONFIDENCE[f.confidence]}</span>
               </div>
               <h3 className="mt-3 text-[16px] font-semibold leading-snug tracking-[-0.01em]">{f.title}</h3>
+              {f.metric_name && f.metric_now && (
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-canvas px-3 py-2 text-[13px] ring-1 ring-inset ring-line">
+                  <span className="font-medium text-stone-600">{f.metric_name}</span>
+                  <span className="ml-auto inline-flex items-center gap-2">
+                    <span className="text-muted">Now</span><b className="tabular text-[15px] text-red-700">{f.metric_now}</b>
+                    {f.metric_goal && <><ArrowRight size={13} className="text-stone-400" /><span className="text-muted">Goal</span><b className="tabular text-[15px] text-emerald-700">{f.metric_goal}</b></>}
+                  </span>
+                </div>
+              )}
               <p className="mt-1.5 text-[13.5px] leading-relaxed text-stone-700">{f.evidence}</p>
               <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{f.impact}</p>
               {f.estimate && (
@@ -122,7 +140,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
                   </div>
                 ) : (
                   <div className="flex items-center justify-between gap-2 border-t border-line pt-3 text-[13px]">
-                    <span className="text-muted">Needs a {teamName(f.team_kind, org)} team</span>
+                    <span className="text-muted">Needs {/^[aeiou]/i.test(teamName(f.team_kind, org)) ? "an" : "a"} {teamName(f.team_kind, org)} team</span>
                     <Link href="/team" className="font-semibold text-brand-700 hover:underline">Add it</Link>
                   </div>
                 )}

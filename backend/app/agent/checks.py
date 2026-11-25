@@ -27,126 +27,168 @@ class Check:
     key: str
     team: str  # department kind that fixes it
     title: str
-    how: str  # what's looked at
-    method: str = "web"  # search | ai | web | tool
-    packs: tuple[str, ...] = ALL
+    how: str  # what's looked at, in one line
+    method: str = "web"  # search | ai | web | tool | measure
+    packs: tuple[str, ...] = ALL  # types of company it can apply to (a hint; Claude decides)
     tool: str | None = None  # for method "tool": the catalog tool it needs
     # For "tool" checks: the goal its team's AI employee works on once the tool is connected.
     goal: str = ""
     goal_how: str = ""
+    # What makes a check worth running: the number it produces (and the AI employee then moves),
+    # exactly how it's checked, what the AI employee does about it, and the kind of headline it gives.
+    metric: str = ""
+    steps: tuple[str, ...] = ()
+    fix: str = ""
+    example: str = ""
 
 
+def W(key, team, title, how, metric, steps, fix, example, packs=ALL, method="web") -> Check:
+    return Check(key, team, title, how, method, packs, metric=metric, steps=tuple(steps), fix=fix, example=example)
+
+
+# Checks run by reading public information. Each must end in a number the company would want to
+# move and an AI employee can move. Claude picks the few most likely to show a big gap.
 CHECKS: list[Check] = [
-    # --- Being found: search and AI answers --------------------------------------------------------
-    Check("search_rank", "marketing", "Where you rank for what customers search",
-          "Searches a customer would type (not your name) and where you rank against competitors", "search"),
-    Check("ai_answers", "marketing", "Whether AI assistants recommend you",
-          "Ask an AI assistant those same questions and see who it recommends", "ai"),
-    Check("comparison_searches", "sales", "'Alternative to' and 'X vs Y' searches",
-          "Searches for competitor alternatives and comparisons, and whether you have pages for them", "search", SOFTWARE),
-    Check("local_listing", "marketing", "Maps and local listings",
-          "Google Business-style listing, reviews and photos against nearby competitors", "web",
-          ("services", "general", "ecommerce")),
-    Check("directories", "marketing", "Directories buyers use",
-          "G2, Capterra, Clutch, Thomasnet, Europages, Yelp and industry directories where competitors are listed"),
-    Check("app_marketplaces", "partnerships", "App marketplaces",
-          "HubSpot, Salesforce, Shopify, Slack and other marketplaces where competitors are listed", "web", SOFTWARE),
-    Check("content_gaps", "marketing", "Topics competitors cover and you don't",
-          "Guides, use cases and questions competitors have pages for"),
-    Check("technical_seo", "engineering", "Website basics search engines need",
-          "Page titles and descriptions, sitemap, robots.txt, broken or duplicate pages"),
-
-    # --- Content and social ------------------------------------------------------------------------
-    Check("social_cadence", "marketing", "How often you post, and the traction",
-          "LinkedIn, X and Instagram posting frequency and engagement against competitors"),
-    Check("blog_freshness", "marketing", "Blog and news going stale", "Date of the latest blog or news post"),
-    Check("newsletter", "marketing", "No way to stay in touch", "Newsletter or email signup on the site"),
-    Check("video", "marketing", "Video", "Demo, tutorial and customer videos against competitors",
-          "web", ("startup", "solo_saas", "ecommerce", "general")),
-    Check("leadership_voice", "marketing", "Company voice in the industry",
-          "Talks, podcasts, guest articles and posts from the company's leaders (company-level)",
-          "web", ("startup", "agency", "services")),
-    Check("press", "pr", "Press and announcements",
-          "Last press mention, and launches or milestones nobody announced"),
-    Check("awards", "pr", "Industry awards", "Awards and rankings competitors won or entered",
-          "web", ("agency", "services", "general")),
-    Check("community", "community", "Where your customers gather",
-          "Communities, groups and events your customers use where you're absent", "web", SOFTWARE + ("ecommerce",)),
-
-    # --- Turning visitors into customers -----------------------------------------------------------
-    Check("cta_clarity", "sales", "How easy it is to buy or book",
-          "A clear buy, demo or quote action on the home page; steps and form fields to get there"),
-    Check("pricing_clarity", "sales", "Pricing or quote clarity",
-          "A pricing page or a clear way to get a quote, against competitors"),
-    Check("trust_signals", "marketing", "Proof on the website",
-          "Customer logos, testimonials, certifications and numbers shown on the site"),
-    Check("case_studies", "marketing", "Customer stories", "Case studies against your number of customers and competitors",
-          "web", B2B),
-    Check("languages", "marketing", "Languages for the markets you sell in",
-          "Website languages against the countries you serve or hire in"),
-    Check("website_freshness", "engineering", "Visible website problems",
-          "Broken pages, old copyright years, stale dates, missing basics like a status page"),
-
-    # --- Reputation ---------------------------------------------------------------------------------
-    Check("review_volume", "support", "Reviews where buyers look",
-          "Review counts and ratings on the platforms buyers use, against competitors"),
-    Check("unanswered_reviews", "support", "Reviews nobody answered", "Recent negative reviews without a reply"),
-    Check("review_themes", "product", "What reviews keep complaining about", "Recurring themes across public reviews"),
-    Check("employer_reviews", "hiring", "Employer reviews",
-          "Glassdoor or Kununu rating and recurring themes (company-level, never about individuals)",
-          "web", ("startup", "agency", "services", "ecommerce", "general")),
-
-    # --- Selling -------------------------------------------------------------------------------------
-    Check("trigger_events", "sales", "Prospects with a reason to buy now",
-          "Companies in your market that just raised, hired for a relevant role or expanded", "web", B2B),
-    Check("tenders", "sales", "Public tenders you could bid on",
-          "Open public tenders and RFPs that match what you offer", "web", ("services", "agency", "general")),
-    Check("trade_shows", "marketing", "Events competitors exhibit at",
-          "Upcoming trade shows and conferences in your industry", "web", ("startup", "general", "services")),
-    Check("partner_channels", "partnerships", "Partners and resellers",
-          "Integrations, resellers and referral partners competitors work with", "web", B2B),
-    Check("referral_program", "success", "Referral or affiliate program",
-          "Whether customers are rewarded for referrals, against competitors", "web", ("ecommerce", "solo_saas", "startup")),
-
-    # --- Product -------------------------------------------------------------------------------------
-    Check("changelog", "product", "Showing what's new", "Release notes or changelog and how often it's updated", "web", SOFTWARE),
-    Check("feature_gaps", "product", "Features competitors advertise",
-          "Features on competitors' sites and pricing pages that you don't show", "web", SOFTWARE + ("ecommerce",)),
-    Check("integrations", "product", "Integrations buyers expect", "Integrations competitors list that you don't", "web", SOFTWARE),
-    Check("help_center", "support", "Help centre and docs", "Whether customers can help themselves, and how current it is",
-          "web", SOFTWARE + ("ecommerce",)),
-    Check("security_page", "it", "Security and compliance page",
-          "SOC 2, ISO 27001 and GDPR information for buyers' security reviews", "web", SOFTWARE + ("services",)),
-
-    # --- People --------------------------------------------------------------------------------------
-    Check("open_roles", "hiring", "Roles open too long", "How long job posts have been up"),
-    Check("job_ads", "hiring", "Job ads that put candidates off", "Pay, clarity about the role and the product, inclusive wording"),
-    Check("missing_functions", "hiring", "Functions a company your size usually has",
-          "From the careers and team pages: functions you're missing or hiring for late (never about individuals)"),
-    Check("careers_page", "hiring", "Careers page", "Whether there is one, and what it says about working there"),
-
-    # --- Money and compliance ------------------------------------------------------------------------
-    Check("price_position", "finance", "Price against competitors", "Public prices compared, when both are public"),
-    Check("payment_options", "finance", "How customers can pay", "Payment methods, financing and invoicing terms against competitors",
-          "web", ("ecommerce", "services")),
-    Check("grants", "finance", "Grants and incentives you may qualify for",
-          "Public grants, subsidies and R&D tax credits for your industry and country", "web", ("startup", "general", "solo_saas")),
-    Check("legal_basics", "legal", "Legal basics on the website",
-          "Privacy policy, cookie consent, terms, imprint (EU) and accessibility statement"),
-    Check("certifications", "operations", "Certifications competitors show",
-          "ISO 9001 and industry certifications buyers ask for", "web", ("general", "services")),
-    Check("b2b_platforms", "sales", "B2B buying platforms",
-          "Procurement and sourcing platforms (Thomasnet, Europages, Alibaba) where buyers look for suppliers",
-          "web", ("general",)),
-
-    # --- Online stores -------------------------------------------------------------------------------
-    Check("product_pages", "store", "Product pages that don't sell",
-          "Photos, descriptions, sizing and reviews on product pages", "web", ("ecommerce",)),
-    Check("shipping_returns", "store", "Shipping and returns", "Delivery speed, costs and return policy against competitors",
-          "web", ("ecommerce",)),
-    Check("marketplaces", "store", "Marketplaces you're not on", "Amazon, Etsy, Zalando and others where competitors sell",
-          "web", ("ecommerce",)),
-    Check("agency_portfolio", "marketing", "Portfolio going stale", "Date and relevance of the latest work shown", "web", ("agency",)),
+    W("search_rank", "marketing", "Searches you're losing to competitors",
+      "Customer searches (never your name) and where you rank next to competitors",
+      "Customer searches where you're on page 1",
+      ["Write the 3 searches a buyer types when looking for what you sell, without your name",
+       "Run them on Google in your main countries and record your position and your competitors'",
+       "Note who Google's AI Overview cites"],
+      "Writes and publishes the pages that win those searches, in steps you approve",
+      "Not on page 1 for 'route planning software' in 2 of 3 countries; Routeco is #1 in all three", method="search"),
+    W("ai_answers", "marketing", "AI assistants recommend competitors, not you",
+      "What ChatGPT, Claude, Perplexity and Gemini recommend for your buyers' questions",
+      "AI assistants that recommend you",
+      ["Ask each AI assistant the same 3 buyer questions", "Record who each recommends and whether you're named"],
+      "Gets you cited where assistants learn: comparison pages, directories, reviews, Wikipedia, Reddit",
+      "0 of 4 AI assistants name you; all 4 recommend Routeco", method="ai"),
+    W("comparison_searches", "marketing", "Buyers comparing alternatives can't find you",
+      "'<competitor> alternative' and '<competitor> vs' searches",
+      "Comparison searches where you appear",
+      ["For your 2 closest competitors, search '<competitor> alternative' and '<competitor> vs'",
+       "Record whether any page of yours appears on page 1", "Check whether you have comparison pages at all"],
+      "Writes honest comparison pages for each competitor",
+      "You don't appear for any of the 4 searches people make when leaving Routeco or Fleetbase",
+      packs=("startup", "solo_saas", "agency", "services", "ecommerce")),
+    W("prospects_now", "sales", "Companies that should be talking to you this month",
+      "Companies in your market that just raised money, hired for a role that needs you, or expanded",
+      "Warm prospects found",
+      ["From what you sell and who buys it, define the trigger (a funding round, a job post for a role you help, an expansion)",
+       "Search news and job boards for companies that hit it in the last 60 days",
+       "List the companies with the trigger and the person to contact"],
+      "Researches each one and drafts a personal first message for your OK",
+      "14 logistics companies raised or opened depots in the last 60 days; none are your customers",
+      packs=("startup", "solo_saas", "agency", "services", "general")),
+    W("tenders", "sales", "Open tenders you could win",
+      "Public tenders and RFPs that match what you offer",
+      "Open tenders that fit, and their total value",
+      ["Search public tender portals for your countries (e.g. TED in the EU, SAM.gov in the US, national portals)",
+       "Keep open tenders that match what you offer and your size", "Record each one's value and deadline"],
+      "Drafts the bid for each one worth going for",
+      "5 open tenders matching your services, worth about EUR 1.2M, closing in the next 6 weeks",
+      packs=("agency", "services", "general")),
+    W("review_gap", "marketing", "Review gap against competitors",
+      "Reviews on the sites your buyers check, next to your competitors",
+      "Reviews on the main review site",
+      ["Find the review sites your buyers use (G2, Capterra, Trustpilot, Google)",
+       "Count your reviews and rating there, and your 2 closest competitors'"],
+      "Asks your happiest customers for reviews at the right moment",
+      "12 reviews on G2 at 4.1; Routeco has 240 at 4.6"),
+    W("unanswered_reviews", "support", "Bad reviews nobody answered",
+      "Recent negative reviews and whether anyone replied",
+      "Negative reviews answered",
+      ["Collect your reviews of 3 stars or less from the last 12 months on the main review sites",
+       "Check each one for a reply from the company"],
+      "Drafts a reply to each, and keeps answering new ones within a day",
+      "7 of your 9 negative reviews this year have no reply; the oldest is 8 months old"),
+    W("complaint_themes", "product", "What customers keep complaining about",
+      "Recurring themes across your public reviews",
+      "Share of reviews mentioning the top complaint",
+      ["Read your public reviews from the last 12 months", "Group the complaints into themes and count each"],
+      "Turns the top complaint into a fix plan, help articles and replies",
+      "11 of 30 reviews mention slow onboarding; it's the #1 reason for low ratings"),
+    W("proof_gap", "marketing", "Customer proof gap",
+      "Case studies and testimonials, next to your number of customers and your competitors",
+      "Published customer stories",
+      ["Count the customer stories, testimonials and logos on your site",
+       "Compare with how many customers you say you have and what your 2 closest competitors show"],
+      "Interviews happy customers and writes the stories, for their OK",
+      "2 customer stories for 14 customers; Routeco shows 23"),
+    W("posting_gap", "marketing", "You've gone quiet on LinkedIn",
+      "Company posts in the last 90 days and the engagement they got, next to competitors",
+      "Company posts in the last 90 days",
+      ["Find your company's posts from the last 90 days and the reactions on each",
+       "Do the same for your 2 closest competitors"],
+      "Drafts 2 posts a week in your voice, for your OK",
+      "4 posts in 90 days, most under 10 reactions; Routeco posted 36"),
+    W("listings_gap", "marketing", "Missing where buyers look",
+      "Directories, marketplaces and app stores where your competitors are listed",
+      "Places where competitors are listed and you're not",
+      ["Find the 4-5 directories or marketplaces where buyers in your category look (G2, Clutch, Thomasnet, "
+       "app marketplaces, Amazon...)", "Check where your 2 closest competitors are listed, and whether you are"],
+      "Creates and fills in each listing",
+      "Routeco and Fleetbase are on Capterra, G2 and the HubSpot marketplace; you're on none"),
+    W("buying_friction", "sales", "Buying from you is harder than from competitors",
+      "Steps and form fields from your home page to a demo, quote or purchase",
+      "Steps and form fields to book or buy",
+      ["From your home page, follow the main path to book a demo, get a quote or buy",
+       "Count clicks and form fields, and note whether prices are shown", "Do the same on 2 competitors' sites"],
+      "Writes a shorter path and the copy for it; with website access, ships it",
+      "Booking a demo takes 3 clicks and 11 form fields; Routeco needs 1 click and 4 fields"),
+    W("content_gaps", "marketing", "Questions competitors answer and you don't",
+      "Guides and use-case pages competitors have that you don't",
+      "Buyer questions your site answers",
+      ["List the guides, use-case and question pages on your 2 closest competitors' sites",
+       "Check which ones you have an equivalent for"],
+      "Writes the missing pages, starting with the ones buyers search most",
+      "Routeco answers 18 buyer questions (cost per stop, EU driving hours...) that your site doesn't"),
+    W("product_pages", "store", "Product pages missing what buyers need",
+      "Photos, reviews, size or spec info and descriptions on your top products",
+      "Top product pages with everything buyers need",
+      ["Open your 5 best-selling products", "Check each for reviews shown, number of photos, size or spec "
+       "guide and description length", "Compare with the same product type at 2 competitors"],
+      "Rewrites descriptions, adds size guides and asks buyers for reviews",
+      "3 of your 5 best sellers show no reviews and one photo; competitors show 6+ photos and 100+ reviews",
+      packs=("ecommerce",)),
+    W("delivery_promise", "store", "Your delivery and returns offer is weaker",
+      "Free-shipping threshold, delivery days and return window, next to competitors",
+      "Delivery and returns terms against competitors",
+      ["Read your shipping and returns pages: free-shipping threshold, delivery time, return window, who pays returns",
+       "Read the same on 2 competitors' sites"],
+      "Models the cost of matching them and rewrites the promise on product and checkout pages",
+      "Free shipping from EUR 80 and 14-day returns; both competitors offer free shipping from EUR 40 and 30-day returns",
+      packs=("ecommerce",)),
+    W("funding_available", "finance", "Funding you're likely leaving on the table",
+      "Grants, subsidies and R&D tax credits for your country, industry and stage",
+      "Funding you likely qualify for",
+      ["From your country, industry, size and what you build, find R&D tax credits and grant programs open now",
+       "Check the main eligibility rules against what's public about you", "Record amounts and deadlines"],
+      "Prepares the application for each one you choose",
+      "Likely eligible for Germany's R&D tax credit (up to 25% of R&D salaries) and 2 open innovation grants",
+      packs=("startup", "solo_saas", "general")),
+    W("hiring_drag", "hiring", "Key roles open for months",
+      "How long your roles have been posted, and what the job ads leave out",
+      "Roles open 60+ days",
+      ["Find your open roles on your careers page and job boards, with the date each was posted",
+       "Check each ad for pay, a clear description of the job and the product"],
+      "Sources and ranks candidates for each role and rewrites the ads",
+      "3 roles open 90+ days, including the Benelux AE; none of the ads mention pay"),
+    W("security_trust", "it", "Enterprise buyers can't check your security",
+      "A security or trust page (SOC 2, ISO 27001, GDPR) next to competitors",
+      "Security answers buyers can find",
+      ["Look for a security or trust page, certifications and a data processing agreement",
+       "Check what your 2 closest competitors publish"],
+      "Writes the trust page and answers to the common security questionnaire",
+      "No security page; Routeco and Fleetbase both publish SOC 2 and a trust centre",
+      packs=("startup", "solo_saas", "services")),
+    W("legal_exposure", "legal", "Legal gaps on your website",
+      "Privacy policy, cookie consent before tracking, terms and accessibility",
+      "Legal basics in place",
+      ["Check for a privacy policy, terms and, in the EU, an imprint",
+       "Check whether ad pixels load before cookie consent", "Check basic accessibility on the home page"],
+      "Drafts the missing pages and the fixes, for your and your lawyer's review",
+      "Your LinkedIn and Meta pixels load before any cookie consent, which EU regulators fine for"),
 
     # --- Measured directly (app/services/presence) --------------------------------------------------
     Check("google_by_country", "marketing", "Google rank in each market",
@@ -232,6 +274,7 @@ def for_company(pack_key: str | None) -> list[Check]:
 
 
 def runnable(pack_key: str | None) -> list[Check]:
+    """The checks Claude can choose from for this type of company (it picks the few worth running)."""
     return [c for c in for_company(pack_key) if c.method not in ("tool", "measure")]
 
 
@@ -239,50 +282,10 @@ def deeper(pack_key: str | None) -> list[Check]:
     return [c for c in for_company(pack_key) if c.method == "tool"]
 
 
-# --- What to run for a company: a budget, not everything -------------------------------------------
+# --- What to run for a company ---------------------------------------------------------------------
 
 # Sales and marketing ("go to market"); everything else counts as another function.
 GTM = {"sales", "marketing", "pr", "community", "partnerships", "store"}
-
-# The checks that usually matter most for each type of company, most important first.
-PRIORITY: dict[str, list[str]] = {
-    "startup": ["search_rank", "ai_answers", "comparison_searches", "social_cadence", "case_studies", "review_volume",
-                "cta_clarity", "trigger_events", "content_gaps", "integrations", "help_center", "security_page", "open_roles",
-                "job_ads", "legal_basics", "grants"],
-    "solo_saas": ["search_rank", "ai_answers", "comparison_searches", "content_gaps", "review_volume", "pricing_clarity",
-                  "app_marketplaces", "changelog", "help_center", "referral_program", "legal_basics", "grants"],
-    "agency": ["search_rank", "ai_answers", "case_studies", "agency_portfolio", "directories", "leadership_voice", "awards",
-               "trust_signals", "tenders", "open_roles", "employer_reviews", "legal_basics"],
-    "services": ["search_rank", "ai_answers", "local_listing", "review_volume", "directories", "case_studies", "trust_signals",
-                 "tenders", "certifications", "unanswered_reviews", "legal_basics", "job_ads", "employer_reviews"],
-    "ecommerce": ["search_rank", "ai_answers", "product_pages", "review_volume", "shipping_returns", "marketplaces",
-                  "social_cadence", "referral_program", "unanswered_reviews", "help_center", "payment_options", "legal_basics"],
-    "general": ["search_rank", "ai_answers", "directories", "b2b_platforms", "local_listing", "review_volume", "trust_signals",
-                "certifications", "trade_shows", "tenders", "legal_basics", "open_roles", "grants"],
-}
-# Small companies don't need these yet; bigger ones get them earlier.
-NOT_YET = {"tiny": {"employer_reviews", "missing_functions", "security_page", "careers_page", "certifications"}}
-SOONER = {"mid": ["security_page", "employer_reviews", "missing_functions"],
-          "large": ["security_page", "employer_reviews", "missing_functions", "legal_basics"]}
-SHORTLIST = 12
-MIN_OTHER = 3  # checks from outside sales and marketing in every shortlist
-
-
-def shortlist(pack_key: str | None, size: str | None) -> list[Check]:
-    """The checks worth considering for this type and size of company, most important first."""
-    fits = {c.key: c for c in runnable(pack_key)}
-    order = list(PRIORITY.get(pack_key or "", PRIORITY["general"]))
-    for k in reversed(SOONER.get(size or "", [])):  # bigger companies: these move up
-        if k in order:
-            order.remove(k)
-        order.insert(4, k)
-    skip = NOT_YET.get(size or "", set())
-    picked = [fits[k] for k in dict.fromkeys(order) if k in fits and k not in skip][:SHORTLIST]
-    others = [c for c in picked if c.team not in GTM]
-    if len(others) < MIN_OTHER:  # always room for the rest of the company
-        extra = [c for k, c in fits.items() if c.team not in GTM and c not in picked and k not in skip][:MIN_OTHER - len(others)]
-        picked = picked[: SHORTLIST - len(extra)] + extra
-    return picked
 
 
 def unlockable(pack_key: str | None) -> list[dict]:

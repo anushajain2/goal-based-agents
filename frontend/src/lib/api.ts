@@ -249,7 +249,7 @@ export type CompanyProfile = {
     findings: Opportunity[]; scanned_at: string;
     deeper?: { check: string; tool: string; label: string; title: string; why: string }[];
     unlock?: { team_kind: string; checks: { key: string; title: string; how: string; tool: string; label: string; goal: string }[] }[];
-    checks?: { key: string; title: string; method: string }[];
+    checks?: { key: string; title: string; method: string; team?: string; why?: string; expect?: string; score?: number }[];
     visibility?: Visibility;
     scorecard?: ScoreRow[];
   };
@@ -277,6 +277,7 @@ export type Opportunity = {
   team_kind: string; title: string; evidence: string; impact: string; estimate: string; assumption: string;
   confidence: "high" | "medium" | "low"; sources: string[]; goal_id: string | null;
   check?: string; milestones?: Milestone[]; total_usd?: number | null;
+  metric_name?: string; metric_now?: string; metric_goal?: string; pull?: number;
 };
 export type LaterFunction = { kind: string; name: string; when: string };
 export const SIZE_LABEL: Record<string, string> = { tiny: "1-10 people", small: "11-50 people", mid: "51-250 people", large: "250+ people" };

@@ -38,11 +38,15 @@ from app.services import estimate, presence
 
 log = logging.getLogger(__name__)
 
-# The budget for one scan: a ranked shortlist for the company's type and size, of which Claude runs
-# the most relevant few, a handful of searches in its main markets, and two competitors to compare.
+# The budget for one scan. Fewer checks, chosen carefully and run deeply: Claude scores every check
+# that fits the company and runs the few most likely to show a big, fixable gap. Measurements
+# (Google, AI assistants, the website scorecard) always run alongside.
 SHOW = 5  # findings shown
-CANDIDATES = 7  # findings asked for, so the best 5 can include another function
-MAX_CHECKS = 6
+CANDIDATES = 7  # findings asked for, ranked by how much the company will want to fix each
+MAX_CHECKS = 4
+MIN_SCORE = 3  # a check Claude scores lower than this (1-5) isn't worth running
+WEB_PER_CHECK = 5  # searches and page reads for each check
+STRONG = 3  # a finding outside sales and marketing makes the five only if it's at least this strong
 MAX_QUERIES = 3
 MAX_COMPETITORS = 2
 MAX_WEB = 8
@@ -52,13 +56,24 @@ MAX_MILESTONE_DAYS = 365
 
 # --- 1. pick ------------------------------------------------------------------------------------
 
-PICK_SYSTEM = """You plan a short health check of a company's market presence and operations. \
-From the list of possible checks, pick the ones most likely to reveal real, fixable gaps for THIS \
-company, given what it sells, who buys it, its stage and its market. Then write the searches a \
-real customer would type when looking for what this company sells. Never include the company's \
-own name or brand in a search: we want to know if customers who don't know them yet find them. \
-Mix a broad search with more specific ones (by use case, industry or location), in the language \
-its customers use. Name its main competitors with their website domains. List the markets where its customers are (up to 3, most important first) with Google's country code and the language people search in there. If it serves customers in particular cities (a clinic, an installer, a restaurant, a local agency or shop), give the search a local customer would type without the city (e.g. "emergency plumber") and up to 3 cities; otherwise leave local empty."""
+PICK_SYSTEM = """You plan a short, sharp health check of a company. The point: find the few \
+gaps that will make its founders say "we need to fix that now" and turn on an AI employee to fix it.
+
+From the candidate checks, score each 1-5 on how likely it is, for THIS company, to show a big, \
+specific, measurable gap next to its competitors that an AI employee can then close. Use what you \
+know about the company: what it sells, who buys it, its stage, its market, and the clues in the \
+research (a quiet blog, few reviews, a role open for months, a crowded search market). A check that \
+would probably come back "fine", or produce a vague result, scores low. Don't pick checks for \
+variety; pick the strongest. Say in a few words why, and the headline you expect.
+
+Then write the searches a real customer would type when looking for what this company sells. Never \
+include the company's own name or brand in a search: we want to know if customers who don't know \
+them yet find them. Mix a broad search with more specific ones (by use case, industry or location), \
+in the language its customers use. Name its 2 closest competitors with their website domains. List \
+the markets where its customers are (up to 3, most important first) with Google's country code and \
+the language people search in there. If it serves customers in particular cities (a clinic, an \
+installer, a restaurant, a local agency or shop), give the search a local customer would type \
+without the city (e.g. "emergency plumber") and up to 3 cities; otherwise leave local empty."""
 
 PICK_TASK = """Company: {name} ({website})
 What they do: {description}
@@ -66,18 +81,22 @@ What they do: {description}
 What research found:
 {research}
 
-Possible checks (key: what it looks at):
+Candidate checks:
 {checks}
 
-Pick up to {max_checks} checks, including at least one for a team outside sales and marketing, write \
-{max_queries} customer searches, name its 2 closest competitors, and list its markets."""
+Score every candidate, write {max_queries} customer searches, name the 2 closest competitors and list the markets."""
 
 
 def pick_schema(keys: list[str]) -> dict:
     return {"type": "json_schema", "schema": {
         "type": "object",
         "properties": {
-            "checks": {"type": "array", "items": {"type": "string", "enum": keys}},
+            "checks": {"type": "array", "items": {
+                "type": "object",
+                "properties": {"key": {"type": "string", "enum": keys},
+                               "score": {"type": "integer", "description": "1-5: how likely a big, fixable, measurable gap"},
+                               "why": {"type": "string"}, "expect": {"type": "string", "description": "The headline you expect"}},
+                "required": ["key", "score", "why", "expect"], "additionalProperties": False}},
             "queries": {"type": "array", "items": {
                 "type": "object",
                 "properties": {"query": {"type": "string"},
@@ -214,43 +233,48 @@ async def ai_answers(claude: MeteredClaude, queries: list[dict], name: str, mine
 
 # --- 3. look ------------------------------------------------------------------------------------
 
-LOOK_SYSTEM = """You are a sharp growth and operations analyst. A company just set up its AI team on \
-Autopilot. Your job: find, concretely, what they're missing out on today, so they can turn on the \
-AI employees that fix it.
+LOOK_SYSTEM = """You are a sharp growth and operations analyst running one check on a company, \
+to show it something it's missing out on, concretely enough that it wants an AI employee to fix it.
 
 Rules:
-- Evidence first. Every point must say exactly what you saw ("last blog post: March 2025", "4.1 \
-stars from 12 G2 reviews; their two main competitors have 180 and 240"). Use web_search and \
-web_fetch to check; don't guess. If you couldn't verify something, leave it out.
-- Public, company-level information only. Never judge, rank or name individual employees. For \
-hiring, talk about roles, functions and how jobs are posted, never about the people already there.
-- Be specific to this company, its stage and its competitors. No generic advice."""
+- Follow the steps. Use web_search and web_fetch to see for yourself; don't guess. Measure the \
+number the check is about for the company and for each competitor named.
+- Evidence first: say exactly what you saw, with numbers, dates and URLs ("12 reviews on G2 at \
+4.1; Routeco has 240 at 4.6"). If you couldn't verify something, say so instead of guessing.
+- Public, company-level information only. Never judge, rank or name individual employees.
+- If the company turns out to be doing well on this, say that plainly: a clear "no gap" is useful."""
 
-LOOK_TASK = """Company: {name}
-Website: {website}
+LOOK_TASK = """Company: {name} ({website})
 What they do: {description}
-Competitors: {competitors}
+Closest competitors: {competitors}
 
 What setup research found:
 {research}
 
-From their website:
-{site}
+The check: {title}
+The number it's about: {metric}
+Steps:
+{steps}
 
-Run these checks (key: what to look at):
-{checks}
-
-Write your notes: for each gap, what you saw, where (URLs), and why it matters."""
+Write your notes. End with a line "RESULT:" giving the number for the company and for each \
+competitor, and the single most striking fact you found."""
 
 
 # --- 4. findings ---------------------------------------------------------------------------------
 
-STRUCTURE_SYSTEM = """You turn an analyst's measurements and notes into findings for a company's \
-dashboard, and tie each finding to the goals an AI employee would work on to fix it.
+STRUCTURE_SYSTEM = """You turn an analyst's measurements and notes into the few findings that \
+will make a company want to turn on an AI employee, and tie each to the goal that fixes it.
+
+What makes a finding worth showing: it's big, specific and surprising; it's measured next to \
+competitors; it ends in a number the company cares about (customers, revenue, reputation, risk, \
+cash); and an AI employee can clearly move that number. Rank by how much they'll want to fix it, \
+and score that 1-5 ("pull"). Drop anything vague, generic or minor, even if it's true.
 
 - Keep only findings backed by evidence. Use the measured search and AI-answer results exactly as \
 given; never change a rank or invent one.
-- Most valuable first. Write plainly and briefly; direct and helpful, not alarming.
+- Each finding has its number: what it's called, where they are now, and a realistic goal (e.g. \
+"negative reviews answered: 2 of 9 now, 9 of 9 goal"; "page-1 searches: 1 of 6 now, 4 of 6 goal").
+- Write plainly and briefly; direct and helpful, not alarming.
 - Money: only give an estimate of what the gap costs them when you can state a reasonable \
 assumption, as a range. Never present a guess as a fact.
 - Fixing it: if an existing goal would fix the gap, link it by id. Otherwise propose the work.
@@ -283,9 +307,9 @@ Goals already set up (id: name · team):
 
 Checks that ran (key: title): {checks}
 
-Return at most {max} findings, most valuable first. Include at least one for a team outside \
-sales and marketing (for example engineering, IT, finance, support, hiring, legal, operations, \
-product) when the measurements or notes show a real gap there."""
+Return at most {max} findings, ranked by pull. If there's a strong one for a team outside sales \
+and marketing (for example email that lands in spam, a slow site, bad reviews nobody answered, \
+funding they qualify for), include it; don't include a weak one just for variety."""
 
 
 def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
@@ -315,12 +339,17 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
             "estimate": {"type": "string", "description": "What the gap costs them, as a range, or ''"},
             "assumption": {"type": "string", "description": "The assumption behind the estimate, or ''"},
             "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+            "metric_name": {"type": "string", "description": "The number, e.g. 'Negative reviews answered'"},
+            "metric_now": {"type": "string", "description": "Where they are, e.g. '2 of 9'"},
+            "metric_goal": {"type": "string", "description": "A realistic goal, e.g. '9 of 9'"},
+            "pull": {"type": "integer", "description": "1-5: how much they'll want to fix it"},
             "source_urls": {"type": "array", "items": {"type": "string"}},
             "goal_id": {"type": "string", "description": "Id of an existing goal that fixes this, or ''"},
             "new_goal": {"anyOf": [goal_schema, {"type": "null"}]},
             "milestones": {"type": "array", "items": milestone},
         },
         "required": ["check", "team_kind", "title", "evidence", "impact", "estimate", "assumption", "confidence",
+                     "metric_name", "metric_now", "metric_goal", "pull",
                      "source_urls", "goal_id", "new_goal", "milestones"],
         "additionalProperties": False,
     }
@@ -396,29 +425,46 @@ def highlights(search: list[dict], ai: list[dict]) -> list[str]:
 
 async def look(claude: MeteredClaude, name: str, website: str, description: str, research: str, site_text: str,
                picked: list[catalog.Check], competitors: list[dict]) -> tuple[str, list[dict], Decimal]:
+    """Each chosen check as its own focused investigation, run in parallel."""
     web_checks = [c for c in picked if c.method == "web"]
     if not web_checks:
         return "", [], Decimal("0")
-    task = LOOK_TASK.format(name=name, website=website or "(none)", description=description or "(not given)",
-                            competitors=", ".join(f"{c['name']} ({c['domain']})" for c in competitors) or "(unknown)",
-                            research=(research or "(none)")[:6000], site=(site_text or "(not available)")[:8000],
-                            checks="\n".join(f"- {c.key}: {c.how}" for c in web_checks))
-    messages: list[dict] = [{"role": "user", "content": task}]
-    tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": MAX_WEB},
-             {"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": MAX_WEB}]
-    texts, sources, cost = [], [], Decimal("0")
-    for _ in range(MAX_CONTINUATIONS + 1):
-        result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", role="worker",
-                                     system=LOOK_SYSTEM, messages=messages, tools=tools, max_tokens=12000,
-                                     max_web_searches=MAX_WEB)
-        cost += result.cost
-        sources += _sources(result.content)
-        texts.append(_texts(result.content))
-        if result.stop_reason != "pause_turn":
-            break
-        messages = [messages[0], {"role": "assistant", "content": result.content}]
-    notes = texts[-1] if texts and texts[-1] else "\n\n".join(t for t in texts if t)
-    return notes, sources, cost
+
+    async def one(c: catalog.Check) -> tuple[str, list[dict], Decimal]:
+        task = LOOK_TASK.format(
+            name=name, website=website or "(none)", description=description or "(not given)",
+            competitors=", ".join(f"{x['name']} ({x['domain']})" for x in competitors) or "(find the closest 2)",
+            research=(research or "(none)")[:4000], title=c.title, metric=c.metric,
+            steps="\n".join(f"{i}. {st}" for i, st in enumerate(c.steps, 1)))
+        messages: list[dict] = [{"role": "user", "content": task}]
+        tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": WEB_PER_CHECK},
+                 {"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": WEB_PER_CHECK}]
+        texts, sources, cost = [], [], Decimal("0")
+        for _ in range(MAX_CONTINUATIONS + 1):
+            result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", role="worker",
+                                         system=LOOK_SYSTEM, messages=messages, tools=tools, max_tokens=6000,
+                                         max_web_searches=WEB_PER_CHECK)
+            cost += result.cost
+            sources += _sources(result.content)
+            texts.append(_texts(result.content))
+            if result.stop_reason != "pause_turn":
+                break
+            messages = [messages[0], {"role": "assistant", "content": result.content}]
+        notes = texts[-1] if texts and texts[-1] else "\n\n".join(t for t in texts if t)
+        return f"## {c.title} ({c.key})\n{notes}", sources, cost
+
+    done = await asyncio.gather(*[one(c) for c in web_checks], return_exceptions=True)
+    notes, sources, cost = [], [], Decimal("0")
+    for c, r in zip(web_checks, done):
+        if isinstance(r, Exception):
+            log.warning("check %s failed: %s", c.key, r)
+            continue
+        notes.append(r[0])
+        sources += r[1]
+        cost += r[2]
+    if not notes and done and all(isinstance(r, Exception) for r in done):
+        raise done[0]
+    return "\n\n".join(notes), sources, cost
 
 
 async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, research: str, site_text: str) -> dict:
@@ -442,22 +488,28 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     cost = Decimal("0")
 
     # 1. Pick the checks for this company, its customers' searches and its competitors.
-    options = catalog.shortlist(pack_key, size)
+    options = catalog.runnable(pack_key)
     result = await claude.create(
         campaign_id=None, run_id=None, purpose="opportunity scan", role="worker", system=PICK_SYSTEM,
         messages=[{"role": "user", "content": PICK_TASK.format(
             name=name, website=website or "(none)", description=description or "(not given)",
-            research=(research or "(none)")[:6000], max_checks=MAX_CHECKS, max_queries=MAX_QUERIES,
-            checks="\n".join(f"- {c.key}: {c.how}" for c in options))}],
+            research=(research or "(none)")[:6000], max_queries=MAX_QUERIES,
+            checks="\n".join(f"- {c.key}: {c.title}. Looks at: {c.how}. Number: {c.metric}. "
+                             f"Example headline: \"{c.example}\"" for c in options))}],
         max_tokens=3000, output_format=pick_schema([c.key for c in options]))
     cost += result.cost
     plan = json.loads(_texts(result.content) or "{}")
     allowed_keys = {c.key for c in options}
-    picked = [catalog.BY_KEY[k] for k in dict.fromkeys(plan.get("checks") or []) if k in allowed_keys][:MAX_CHECKS]
-    if not any(c.team not in catalog.GTM for c in picked):  # always at least one for the rest of the company
-        other = next((c for c in options if c.team not in catalog.GTM), None)
-        if other:
-            picked = picked[: MAX_CHECKS - 1] + [other]
+    chosen, seen = [], set()
+    for x in plan.get("checks") or []:  # one entry per check, in Claude's order
+        if isinstance(x, dict) and x.get("key") in allowed_keys and x["key"] not in seen:
+            seen.add(x["key"])
+            chosen.append(x)
+    chosen = sorted(chosen, key=lambda x: -int(x.get("score") or 0))  # stable: ties keep Claude's order
+    chosen = [x for x in chosen if int(x.get("score") or 0) >= MIN_SCORE][:MAX_CHECKS] or chosen[:2]
+    picked = [catalog.BY_KEY[x["key"]] for x in chosen]
+    reasons = {x["key"]: {"why": str(x.get("why", ""))[:200], "expect": str(x.get("expect", ""))[:200],
+                          "score": int(x.get("score") or 0)} for x in chosen}
     name_words = {w for w in re.findall(r"[a-z0-9]+", name.lower()) if len(w) > 2}
     queries = [q for q in plan.get("queries") or []
                if q.get("query") and not (name_words & set(re.findall(r"[a-z0-9]+", q["query"].lower())))][:MAX_QUERIES]
@@ -563,6 +615,8 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
             "evidence": f["evidence"][:600], "impact": f.get("impact", "")[:400],
             "estimate": f.get("estimate", "")[:120], "assumption": f.get("assumption", "")[:300],
             "confidence": f.get("confidence", "medium"),
+            "metric_name": str(f.get("metric_name", ""))[:80], "metric_now": str(f.get("metric_now", ""))[:40],
+            "metric_goal": str(f.get("metric_goal", ""))[:40], "pull": int(f.get("pull") or 3),
             "sources": [u for u in urls if u in allowed][:4] or urls[:2],  # prefer sources really seen
             "goal_id": goal_id or None,
             "milestones": steps,
@@ -573,7 +627,8 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
         org.profile = {**(org.profile or {}), "opportunities": {
             "findings": findings, "unlock": catalog.unlockable(pack_key), "scanned_at": utcnow().isoformat(),
             "goals_added": created,
-            "checks": [{"key": c.key, "title": c.title, "method": c.method} for c in picked],
+            "checks": [{"key": c.key, "title": c.title, "method": c.method, "team": c.team, **reasons.get(c.key, {})}
+                       for c in picked],
             "visibility": {"domain": mine, "competitors": competitors, "markets": [x["label"] for x in markets],
                            "source": "google" if m.get("google") else "web", "search": search, "ai": ai,
                            "local": m.get("local") or [], "highlights": highlights(search, ai)},
@@ -583,10 +638,13 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
 
 
 def balanced(found: list[dict]) -> list[dict]:
-    """The SHOW most valuable findings, with at least one outside sales and marketing when there is one."""
-    top = found[:SHOW]
+    """The SHOW findings the company will most want to fix. One outside sales and marketing joins the
+    five only if it's strong (pull >= STRONG); a weak one is never added for variety."""
+    ranked = sorted(found, key=lambda f: -int(f.get("pull") or 3))  # stable: Claude's order breaks ties
+    top = ranked[:SHOW]
     if top and all(f.get("team_kind") in catalog.GTM for f in top):
-        other = next((f for f in found[SHOW:] if f.get("team_kind") not in catalog.GTM), None)
+        other = next((f for f in ranked[SHOW:] if f.get("team_kind") not in catalog.GTM
+                      and int(f.get("pull") or 0) >= STRONG), None)
         if other:
             top = top[:-1] + [other]
     return top
@@ -614,6 +672,14 @@ def _milestones(raw: list[dict], per: float, basis: str, n: int, org_setup) -> l
     return out
 
 
+# When a company doesn't have the team a fix belongs to, the closest team that can do the work.
+CLOSEST: dict[str, list[str]] = {
+    "it": ["engineering", "operations"], "legal": ["operations", "exec"], "finance": ["operations", "exec"],
+    "support": ["success"], "success": ["support"], "product": ["engineering"], "hiring": ["exec", "operations"],
+    "store": ["marketing"], "pr": ["marketing"], "community": ["marketing"], "partnerships": ["sales"],
+}
+
+
 async def create_goal(org_id: str, requested_by: str | None, team_kind: str, goal: dict, s=None) -> str | None:
     """A draft goal on the first AI employee of the team that fixes a gap. None when the company
     has no such team (the finding then points at adding the team). Uses `s` when given (a request's
@@ -623,8 +689,12 @@ async def create_goal(org_id: str, requested_by: str | None, team_kind: str, goa
             return await create_goal(org_id, requested_by, team_kind, goal, own)
     from app.agent import org_setup
 
-    dept = (await s.execute(select(Department).where(Department.org_id == org_id, Department.kind == team_kind)
-                            .order_by(Department.created_at).limit(1))).scalar_one_or_none()
+    dept = None
+    for kind in [team_kind] + CLOSEST.get(team_kind, []):  # the right team, else the closest one the company has
+        dept = (await s.execute(select(Department).where(Department.org_id == org_id, Department.kind == kind)
+                                .order_by(Department.created_at).limit(1))).scalar_one_or_none()
+        if dept is not None:
+            break
     if dept is None:
         return None
     agent = (await s.execute(select(Agent).where(Agent.department_id == dept.id)
