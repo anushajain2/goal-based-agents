@@ -232,3 +232,12 @@ def code_data_and_handoffs(integrations: list, handoff_to: str | None, review: b
         lines.append(f"Approved PRDs go to {handoff_to}, who builds them"
                      + (" after the person you report to approves." if review else " straight away (no review)."))
     return "\n".join(lines)
+
+
+# Hosted copies have no Agent Chrome (no screen, nobody to sign in). Appended to SYSTEM_PROMPT there.
+NO_BROWSER = """
+
+No browser in this workspace
+- There are no browser_* tools here. Use app connectors, MCP servers and web research. If a step can \
+only be done on a website with no connector, don't fake it: ask the owner with ask_user \
+to connect the app, or note it in your summary as waiting for the desktop helper."""

@@ -1,0 +1,75 @@
+# Runs on every push and pull request. Render deploys main only after these checks pass
+# (autoDeployTrigger: checksPass in render.yaml).
+name: CI
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: autopilot_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen --extra dev
+      - name: Lint
+        run: uv run ruff check app --select F,E9  # real errors: unused/undefined names, syntax
+      - name: Tests
+        run: uv run pytest -q
+      - name: Migrations apply and roll back on Postgres
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/autopilot_ci?sslmode=disable
+        run: |
+          uv run alembic upgrade head
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Type check
+        run: npm run lint
+      - name: Build
+        run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Backend image builds and starts
+        run: |
+          docker build -t autopilot-backend backend
+          docker run -d --name api -p 8000:8000 -e ENVIRONMENT=development autopilot-backend
+          for i in $(seq 1 30); do curl -fsS localhost:8000/api/health && exit 0; sleep 1; done
+          docker logs api; exit 1

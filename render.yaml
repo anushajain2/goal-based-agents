@@ -1,0 +1,149 @@
+# Render Blueprint: the whole hosted Autopilot in one file.
+#   Dashboard -> New -> Blueprint -> pick this repo. Render creates everything below and asks
+#   for the values marked `sync: false` (they're never stored in git). See docs/DEPLOY.md.
+#
+#   autopilot-web     Next.js app people open (app.yourdomain.com). Calls the API privately.
+#   autopilot-api     FastAPI backend. Runs database migrations before each deploy.
+#   autopilot-worker  Runs the AI employees, setups and team-lead reviews, around the clock.
+#   autopilot-db      Managed Postgres (daily backups; reachable only from these services).
+#
+# Deploys happen when main is pushed and GitHub checks (CI) pass.
+
+envVarGroups:
+  - name: autopilot-backend
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY # signs sign-in sessions; generated once by Render
+        generateValue: true
+      - key: ALLOW_PRIVATE_MCP
+        value: "false"
+      - key: AGENT_CHROME # no screen in the cloud; websites wait for the desktop helper
+        value: "false"
+      - key: FRONTEND_ORIGIN # https://app.yourdomain.com (or the autopilot-web onrender.com URL)
+        sync: false
+      # Claude: required
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # App connectors (Composio): the platform key; organizations can add their own
+      - key: COMPOSIO_API_KEY
+        sync: false
+      # Email for sign-in codes and invites (Resend, Postmark, SES...): required for real users
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM # e.g. Autopilot <login@yourdomain.com>
+        sync: false
+      # Sign in with Google / GitHub (optional; callback URLs in docs/DEPLOY.md)
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      # "What you're missing out on" market checks (optional; each is skipped when unset)
+      - key: SERPAPI_KEY
+        sync: false
+      - key: DATAFORSEO_LOGIN
+        sync: false
+      - key: DATAFORSEO_PASSWORD
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: OPENPAGERANK_KEY
+        sync: false
+      - key: META_AD_LIBRARY_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PERPLEXITY_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      # Error reports (optional)
+      - key: SENTRY_DSN
+        sync: false
+
+services:
+  - type: web
+    name: autopilot-api
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /api/health
+    preDeployCommand: alembic upgrade head
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 30
+    buildFilter:
+      paths: ["backend/**"]
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: autopilot-db
+          property: connectionString
+      - fromGroup: autopilot-backend
+
+  - type: worker
+    name: autopilot-worker
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerCommand: python -m app.worker
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 60 # lets running AI sessions reach a safe point before a deploy
+    buildFilter:
+      paths: ["backend/**"]
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: autopilot-db
+          property: connectionString
+      - key: AUTOPILOT_SHUTDOWN_GRACE_SECONDS
+        value: "45"
+      - key: AUTOPILOT_MAX_CONCURRENT_RUNS
+        value: "3"
+      - fromGroup: autopilot-backend
+
+  - type: web
+    name: autopilot-web
+    runtime: node
+    region: frankfurt
+    plan: starter
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths: ["frontend/**"]
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      # The API's private address; the app proxies /api/* to it (fixed at build time).
+      - key: BACKEND_HOSTPORT
+        fromService:
+          type: web
+          name: autopilot-api
+          property: hostport
+
+databases:
+  - name: autopilot-db
+    databaseName: autopilot
+    user: autopilot
+    region: frankfurt
+    plan: basic-256mb
+    postgresMajorVersion: "17"
+    ipAllowList: [] # no outside connections; only the services above can reach it

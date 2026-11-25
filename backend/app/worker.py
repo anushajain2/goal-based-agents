@@ -15,8 +15,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import signal
 import socket
 from datetime import timedelta
+from pathlib import Path
 
 from sqlalchemy import and_, select, update
 
@@ -25,6 +27,7 @@ from app.agent.runner import CycleRunner
 from app.agent.team_lead import run_review, schedule_due_reviews
 from app.config import get_settings
 from app.db import session_scope
+from app.observability import check_and_init
 from app.models import AgentRun, Campaign, CampaignStatus, LeadReview, OrgSetup, RunStatus, utcnow
 from app.services import activity, targets
 from app.services.events import notify
@@ -36,6 +39,9 @@ log = logging.getLogger("autopilot.worker")
 OPEN_STATUSES = [RunStatus.queued.value, RunStatus.running.value, RunStatus.waiting.value]
 STALE_AFTER = timedelta(minutes=20)
 MAX_CONCURRENT_RUNS = int(os.environ.get("AUTOPILOT_MAX_CONCURRENT_RUNS", "3"))
+# On a deploy the host sends SIGTERM and waits a while before killing us: finish what we can in
+# that time, then hand the rest back so the next worker picks it up at once.
+SHUTDOWN_GRACE_SECONDS = float(os.environ.get("AUTOPILOT_SHUTDOWN_GRACE_SECONDS", "20"))
 
 
 async def schedule_due_cycles() -> int:
@@ -195,15 +201,64 @@ async def _drive(runner: CycleRunner, run_id: str) -> None:
                 run.locked_by = None
 
 
+async def wait_for_schema(timeout_s: float = 900) -> None:
+    """On a deploy the API runs the migrations; a new worker waits for them instead of running
+    new code against the old tables."""
+    from alembic.config import Config
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+
+    from app.db import get_engine
+
+    root = Path(__file__).resolve().parents[1]
+    cfg = Config(str(root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(root / "migrations"))
+    heads = set(ScriptDirectory.from_config(cfg).get_heads())
+    waited = 0.0
+    while True:
+        async with get_engine().connect() as conn:
+            current = set(await conn.run_sync(lambda c: MigrationContext.configure(c).get_current_heads()))
+        if current == heads:
+            return
+        if waited >= timeout_s:
+            raise SystemExit(f"database is at {current or 'nothing'}, code expects {heads}: run alembic upgrade head")
+        if waited == 0:
+            log.info("waiting for database migrations (%s -> %s)", current or "nothing", heads)
+        await asyncio.sleep(5)
+        waited += 5
+
+
+async def release_claims(worker_id: str) -> None:
+    """Put this worker's unfinished work back in the queue (runs resume from their last step)."""
+    async with session_scope() as s:
+        await s.execute(update(AgentRun).where(AgentRun.locked_by == worker_id,
+                                               AgentRun.status == RunStatus.running.value)
+                        .values(status=RunStatus.queued.value, locked_by=None))
+        await s.execute(update(OrgSetup).where(OrgSetup.locked_by == worker_id, OrgSetup.status == "running")
+                        .values(status="queued", locked_by=None, attempts=OrgSetup.attempts - 1))
+        await s.execute(update(LeadReview).where(LeadReview.locked_by == worker_id, LeadReview.status == "running")
+                        .values(status="queued", locked_by=None))
+
+
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    check_and_init("worker")
     settings = get_settings()
+    if settings.production:
+        await wait_for_schema()
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
     runner = CycleRunner()
     tasks: set[asyncio.Task] = set()
     last_rollover = None
+    stopping = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, stopping.set)
+        except (NotImplementedError, RuntimeError):  # Windows
+            pass
     log.info("worker %s started (max %d concurrent runs)", worker_id, MAX_CONCURRENT_RUNS)
-    while True:
+    while not stopping.is_set():
         try:
             await recover_stale_runs()
             await recover_stale_setups()
@@ -240,7 +295,19 @@ async def main() -> None:
                 task.add_done_callback(tasks.discard)
         except Exception:
             log.exception("worker loop error")
-        await asyncio.sleep(settings.worker_poll_seconds)
+        try:
+            await asyncio.wait_for(stopping.wait(), settings.worker_poll_seconds)
+        except TimeoutError:
+            pass
+
+    log.info("worker %s stopping: %d task(s) in progress", worker_id, len(tasks))
+    if tasks:
+        _done, pending = await asyncio.wait(set(tasks), timeout=SHUTDOWN_GRACE_SECONDS)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+    await release_claims(worker_id)
+    log.info("worker %s stopped", worker_id)
 
 
 if __name__ == "__main__":

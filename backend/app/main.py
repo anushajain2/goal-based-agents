@@ -3,6 +3,7 @@
     uvicorn app.main:app --reload --port 8000
 """
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,6 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import auth
 from app.api import campaigns, connections, events, guardrails, integrations, mcp, org, overview, plan, requests
 from app.config import get_settings
+from app.observability import check_and_init
+
+log = logging.getLogger("autopilot")
+check_and_init("api")
 
 
 @asynccontextmanager

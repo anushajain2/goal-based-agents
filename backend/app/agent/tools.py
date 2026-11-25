@@ -303,7 +303,8 @@ CAMPAIGN_TOOLS = [
 ]
 
 
-def all_tools(include_apps: bool, include_mcp: bool = False, tool_sets: list[str] | tuple = ()) -> list[dict]:
+def all_tools(include_apps: bool, include_mcp: bool = False, tool_sets: list[str] | tuple = (),
+              browser: bool = True) -> list[dict]:
     """Deterministic order (the prompt cache is a prefix match)."""
     tools = list(SERVER_TOOLS)
     if include_apps:
@@ -314,5 +315,7 @@ def all_tools(include_apps: bool, include_mcp: bool = False, tool_sets: list[str
         tools += GITHUB_TOOLS
     if "database" in tool_sets:
         tools += DATABASE_TOOLS
-    tools += BROWSER_TOOLS + CAMPAIGN_TOOLS
+    if browser:
+        tools += BROWSER_TOOLS
+    tools += CAMPAIGN_TOOLS
     return tools

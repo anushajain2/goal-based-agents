@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Badge, Button, Card, CardHeader, Dot, ErrorNote, Input } from "@/components/ui";
 import { api, McpServerInfo, OrgInfo, timeAgo, useApi } from "@/lib/api";
 
-type Status = { chrome_path: string | null; agent_chrome_running: boolean; manual_signin_mode: boolean; composio_enabled: boolean };
+type Status = { agent_chrome?: boolean; chrome_path: string | null; agent_chrome_running: boolean; manual_signin_mode: boolean; composio_enabled: boolean };
 type Connections = { sites: { site: string; signed_in_at: string | null }[] };
 
 export function McpServers() {
@@ -113,6 +113,17 @@ export function AgentChrome() {
     } catch (e) {
       setError((e as Error).message);
     }
+  }
+
+  if (status && status.agent_chrome === false) {
+    return (
+      <Card>
+        <CardHeader
+          title={<span className="flex items-center gap-2"><Chrome size={16} /> Websites without an app connection</span>}
+          subtitle="Coming soon: a small desktop helper lets AI employees use sites you're signed in to, in a window on your laptop. Until then they work through connected apps and web research."
+        />
+      </Card>
+    );
   }
 
   return (

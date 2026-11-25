@@ -310,7 +310,7 @@ def scorecard(m: dict) -> list[dict]:
 def summary(m: dict, rows: list[dict]) -> str:
     """The measurements as text for Claude to turn into findings."""
     lines = [f"- {r['label']}: you {r['you']['display']} ({r['you']['status']})"
-             + (f"; competitors: " + ", ".join(f"{o['name']} {o['display']}" for o in r["others"]) if r["others"] else "")
+             + ("; competitors: " + ", ".join(f"{o['name']} {o['display']}" for o in r["others"]) if r["others"] else "")
              for r in rows]
     for g in m.get("google") or []:
         where = f"#{g['rank']}" if g["rank"] else f"not in the top {g['checked']}"

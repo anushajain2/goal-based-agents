@@ -14,7 +14,6 @@ pack (templates, not personalised) until the company is researched.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 
 S = tuple  # a step: (text, action_type, tool)

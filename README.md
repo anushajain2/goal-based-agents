@@ -51,6 +51,11 @@ The first run creates `.env` and installs everything, which takes a few minutes.
 
 To scale up later (many workers, hosting), set `DATABASE_URL` to a Postgres database. The code supports both.
 
+## Host it
+
+[`render.yaml`](render.yaml) sets up the hosted version on Render: the app, the API, an always-on worker and managed
+Postgres. Deploys run automatically when `main` passes CI. Step-by-step guide: [docs/DEPLOY.md](docs/DEPLOY.md).
+
 ### Signing in
 
 There are no passwords. People sign in with **Google** or with a **6-digit code sent to their email**; the first sign-in with a new email creates the account.

@@ -29,7 +29,7 @@ if _url.startswith("sqlite"):
     from pathlib import Path
 
     Path(_url.split("///", 1)[-1]).parent.mkdir(parents=True, exist_ok=True)
-config.set_main_option("sqlalchemy.url", _url)
+config.set_main_option("sqlalchemy.url", _url.replace("%", "%%"))  # configparser escapes
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

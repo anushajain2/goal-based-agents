@@ -36,9 +36,10 @@ async def status(s: AsyncSession = Depends(get_session), me: Member = Depends(cu
         "composio_enabled": hub.enabled,
         "composio_source": hub.source,  # "platform", "org" (its own key) or None
         "github_sign_in": bool(settings.github_client_id and settings.github_client_secret),
-        "chrome_path": chrome.find_chrome(),
-        "agent_chrome_running": await chrome.cdp_ready(),
-        "manual_signin_mode": chrome.manual_mode_active(),
+        "agent_chrome": settings.agent_chrome_enabled,
+        "chrome_path": chrome.find_chrome() if settings.agent_chrome_enabled else None,
+        "agent_chrome_running": await chrome.cdp_ready() if settings.agent_chrome_enabled else False,
+        "manual_signin_mode": chrome.manual_mode_active() if settings.agent_chrome_enabled else False,
         "models": {
             "planner": settings.planner_model,
             "worker": settings.worker_model,
@@ -162,9 +163,19 @@ async def overview(s: AsyncSession = Depends(get_session), me: Member = Depends(
     }
 
 
+NO_BROWSER = ("Signing in to websites needs the Autopilot desktop helper, which isn't available in this "
+              "workspace yet. Connect the app instead where you can.")
+
+
+def _need_browser() -> None:
+    if not get_settings().agent_chrome_enabled:
+        raise HTTPException(409, NO_BROWSER)
+
+
 @router.post("/browser/open")
 async def browser_open(body: UrlIn):
     """Open a page in Agent Chrome (e.g. to sign in to a site ahead of time)."""
+    _need_browser()
     try:
         await chrome.ensure_agent_chrome()
     except chrome.ChromeUnavailable as e:
@@ -178,6 +189,7 @@ async def browser_open(body: UrlIn):
 @router.post("/browser/manual-signin")
 async def manual_signin(body: UrlIn):
     """For sites that refuse sign-ins in a remote-controlled browser (e.g. Google)."""
+    _need_browser()
     url = body.url if "://" in body.url else "https://" + body.url
     try:
         await chrome.start_manual_signin(url)
@@ -188,6 +200,7 @@ async def manual_signin(body: UrlIn):
 
 @router.post("/browser/manual-signin/done")
 async def manual_signin_done():
+    _need_browser()
     await chrome.finish_manual_signin()
     return {"ok": True}
 

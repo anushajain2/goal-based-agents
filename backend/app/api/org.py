@@ -30,7 +30,6 @@ from app.models import (
 )
 from app.org import (
     DEPARTMENT_PRESETS,
-    PRESET_NAMES,
     Member,
     set_head,
     add_department,

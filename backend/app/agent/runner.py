@@ -168,7 +168,9 @@ class CycleRunner:
             await self._save(run_id, messages=messages, uses_apps=uses_apps, uses_mcp=uses_mcp, tool_sets=tool_sets,
                              guardrail_version_seen=seen_version)
 
-        tools = all_tools(uses_apps, uses_mcp, tool_sets)
+        browser = self.settings.agent_chrome_enabled
+        tools = all_tools(uses_apps, uses_mcp, tool_sets, browser=browser)
+        system = prompts.SYSTEM_PROMPT if browser else prompts.SYSTEM_PROMPT + prompts.NO_BROWSER
 
         while True:
             async with session_scope() as s:
@@ -185,7 +187,7 @@ class CycleRunner:
             try:
                 result = await self.claude.create(
                     campaign_id=campaign_id, run_id=run_id, purpose="agent step", role="worker",
-                    system=prompts.SYSTEM_PROMPT, tools=tools, messages=messages,
+                    system=system, tools=tools, messages=messages,
                     max_web_searches=MAX_WEB_SEARCHES_PER_CALL, agent_loop=True,
                 )
             except ledger.BudgetExceeded as e:

@@ -3,6 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -17,6 +18,21 @@ class Settings(BaseSettings):
     # Local default: a SQLite file, nothing to install. For many workers / hosting, point this
     # at Postgres, e.g. postgresql+asyncpg://user:pass@host:5432/autopilot
     database_url: str = f"sqlite+aiosqlite:///{REPO_ROOT / 'data' / 'autopilot.db'}"
+
+    @field_validator("database_url")
+    @classmethod
+    def _async_driver(cls, url: str) -> str:
+        """Hosts (Render, Heroku...) hand out postgres://...?sslmode=require; we need asyncpg."""
+        return normalize_database_url(url)
+
+    # --- Where it runs ----------------------------------------------------------
+    # "development" (your computer) or "production" (hosted for others). Production refuses to
+    # start without a SECRET_KEY and turns off things that only make sense on one computer.
+    environment: str = "development"
+    # Agent Chrome: a visible Chrome on the same computer as the worker. Hosted, there is no
+    # screen and no one to sign in, so it's off (websites wait for the desktop helper).
+    agent_chrome: bool | None = None  # None = on in development, off in production
+    sentry_dsn: str | None = None  # optional error reporting
 
     # --- Claude -------------------------------------------------------------
     anthropic_api_key: str | None = None
@@ -103,6 +119,39 @@ class Settings(BaseSettings):
     allow_private_mcp: bool = True
 
     @property
+    def production(self) -> bool:
+        return self.environment.lower() in ("production", "prod", "staging")
+
+    @property
+    def agent_chrome_enabled(self) -> bool:
+        return (not self.production) if self.agent_chrome is None else self.agent_chrome
+
+    def check_production(self) -> list[str]:
+        """Problems that stop a hosted copy from starting, and warnings worth logging."""
+        if not self.production:
+            return []
+        problems = []
+        if not self.secret_key or len(self.secret_key) < 32:
+            problems.append("SECRET_KEY must be set (32+ characters) in production")
+        if self.database_url.startswith("sqlite"):
+            problems.append("DATABASE_URL must point at Postgres in production")
+        if not self.frontend_origin.startswith("https://"):
+            problems.append("FRONTEND_ORIGIN must be the https:// address people open")
+        return problems
+
+    def production_warnings(self) -> list[str]:
+        if not self.production:
+            return []
+        out = []
+        if not self.smtp_enabled:
+            out.append("SMTP_HOST is not set: sign-in codes are only printed in the logs")
+        if not self.anthropic_api_key:
+            out.append("ANTHROPIC_API_KEY is not set: AI employees can't work")
+        if self.allow_private_mcp:
+            out.append("ALLOW_PRIVATE_MCP is on: set it to false so MCP servers can't reach internal hosts")
+        return out
+
+    @property
     def screenshots_dir(self) -> Path:
         return self.data_dir / "screenshots"
 
@@ -129,6 +178,20 @@ class Settings(BaseSettings):
     @property
     def composio_enabled(self) -> bool:
         return bool(self.composio_api_key)
+
+
+def normalize_database_url(url: str) -> str:
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            url = "postgresql+asyncpg://" + url[len(prefix):]
+    if url.startswith("postgresql+asyncpg://"):
+        parts = urlsplit(url)
+        # asyncpg doesn't take libpq's sslmode; it negotiates TLS itself (ssl='prefer').
+        query = [(k, v) for k, v in parse_qsl(parts.query) if k not in ("sslmode", "ssl")]
+        url = urlunsplit(parts._replace(query=urlencode(query)))
+    return url
 
 
 @lru_cache
