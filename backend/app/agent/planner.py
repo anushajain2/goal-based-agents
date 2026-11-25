@@ -13,19 +13,21 @@ from dataclasses import dataclass
 
 from app.agent.llm import MeteredClaude
 
-_SCHEMA = {
-    "type": "json_schema",
-    "schema": {
-        "type": "object",
-        "properties": {
-            "assessment": {"type": "string"},
-            "plan": {"type": "array", "items": {"type": "string"}},
-            "strategy": {"type": "string"},
-        },
-        "required": ["assessment", "plan", "strategy"],
-        "additionalProperties": False,
-    },
+_BASE = {
+    "assessment": {"type": "string"},
+    "plan": {"type": "array", "items": {"type": "string"}},
+    "strategy": {"type": "string"},
 }
+
+
+def _schema(approach: dict | None) -> dict:
+    """The plan, plus (once the goal has its model) the funnel, approaches, experiment, learnings
+    and the update for the team."""
+    from app.agent.approach import plan_fields
+
+    props = {**_BASE, **(plan_fields(approach) if approach else {})}
+    return {"type": "json_schema", "schema": {"type": "object", "properties": props, "required": list(props),
+                                              "additionalProperties": False}}
 
 _SYSTEM = """You are the strategist for Autopilot, an AI employee that works toward a business \
 goal for an early-stage founder or agency owner, within a budget and the owner's guardrails.
@@ -38,8 +40,10 @@ worker's own AI usage is paid from it too, so prefer a few high-quality actions.
 - strategy: the updated overall strategy as short markdown bullet points (under 200 words), or \
 an empty string if the current strategy still holds.
 
-Respect the guardrails and the rules that always apply. Never plan fake engagement, spam, \
-impersonation or misleading claims."""
+Think like the best person in the world at this job: work the stage of the funnel that holds \
+the goal back, check the pace, and don't only repeat the obvious; when results stall, try the \
+creative approaches. Respect the guardrails and the rules that always apply. Never plan fake \
+engagement, spam, impersonation or misleading claims."""
 
 
 @dataclass
@@ -47,6 +51,7 @@ class Plan:
     assessment: str
     steps: list[str]
     strategy: str
+    extra: dict | None = None  # funnel, approaches, experiment, learnings, update (see approach.py)
 
     def as_text(self) -> str:
         lines = [f"Assessment: {self.assessment}", "", "Plan for this session:"]
@@ -54,11 +59,14 @@ class Plan:
         return "\n".join(lines)
 
 
-async def make_plan(claude: MeteredClaude, *, campaign_id: str, run_id: str, brief: str) -> Plan | None:
+async def make_plan(claude: MeteredClaude, *, campaign_id: str, run_id: str, brief: str,
+                    approach: dict | None = None) -> Plan | None:
+    from app.agent.approach import PLAN_GUIDANCE
+
     result = await claude.create(
         campaign_id=campaign_id, run_id=run_id, purpose="plan the session", role="planner",
-        system=_SYSTEM, messages=[{"role": "user", "content": brief}],
-        max_tokens=8000, output_format=_SCHEMA,
+        system=_SYSTEM + ("\n\n" + PLAN_GUIDANCE if approach else ""), messages=[{"role": "user", "content": brief}],
+        max_tokens=8000, output_format=_schema(approach),
     )
     if result.stop_reason == "refusal":
         return None
@@ -66,6 +74,7 @@ async def make_plan(claude: MeteredClaude, *, campaign_id: str, run_id: str, bri
     try:
         data = json.loads(text)
         steps = [str(s) for s in data.get("plan") or []][:8]
-        return Plan(str(data.get("assessment", "")), steps, str(data.get("strategy", "")).strip())
+        extra = {k: v for k, v in data.items() if k not in _BASE}
+        return Plan(str(data.get("assessment", "")), steps, str(data.get("strategy", "")).strip(), extra or None)
     except (ValueError, AttributeError):
         return None

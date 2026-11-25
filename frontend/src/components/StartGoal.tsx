@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AgentSummary, api, Campaign, DepartmentInfo, Mode, OrgInfo, Readiness, ToolNeed, usd, useApi } from "@/lib/api";
 import { BudgetBreakdown } from "./Budget";
 import { DatabaseForm, GitHubForm } from "./Connections";
+import { WhatItWillDo } from "./GoalEngine";
 import { Assurance, PlanSteps, StepList, teamName, usePermissions } from "./GoalPlan";
 import { AgentAvatar } from "./team";
 import { Button, cx, ErrorNote } from "./ui";
@@ -15,12 +16,13 @@ type Use = { agent: string; text: string; mode: Mode };
 type Need = ToolNeed & { uses: Use[] };
 
 /**
- * Starting AI employees, in two short steps:
+ * Starting AI employees, in three short steps:
+ *   0. the plan: how each goal gets hit and what it will do (creative approaches too, by milestone),
  *   1. connect the tools they'll use, seeing for each what they do on their own and what needs an OK,
  *   2. see who approves (and where work is handed on), change it if you like, and start.
  */
 export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; onClose: () => void; onStarted: () => void }) {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<0 | 1 | 2>(0);
   const [ready, setReady] = useState<Record<string, Readiness>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,9 +90,11 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
         <div className="flex items-start gap-3 border-b border-line bg-white px-5 py-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-xs font-semibold text-muted">
-              <StepDot n={1} active={step === 1} done={step === 2} label="Connect tools" />
+              <StepDot n={1} active={step === 0} done={step > 0} label="The plan" />
               <span className="h-px w-6 bg-line" />
-              <StepDot n={2} active={step === 2} done={false} label="Who approves" />
+              <StepDot n={2} active={step === 1} done={step === 2} label="Connect tools" />
+              <span className="h-px w-6 bg-line" />
+              <StepDot n={3} active={step === 2} done={false} label="Who approves" />
             </div>
             <h2 className="mt-1.5 truncate text-lg font-bold">{goals.length === 1 ? goals[0].name : `Start ${goals.length} goals`}</h2>
           </div>
@@ -98,8 +102,34 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
         </div>
 
         <div className="flex-1 space-y-3 overflow-y-auto p-5">
-          {loading && <p className="flex items-center gap-2 text-sm text-muted"><Loader2 size={15} className="animate-spin" /> Checking what they need…</p>}
+          {loading && step > 0 && <p className="flex items-center gap-2 text-sm text-muted"><Loader2 size={15} className="animate-spin" /> Checking what they need…</p>}
           {error && <ErrorNote>{error}</ErrorNote>}
+
+          {step === 0 && (goals.length === 1 ? (
+            <>
+              {goals[0].first_deliverable && (
+                <div className="rounded-xl bg-brand-50/60 px-4 py-3 text-[13px] ring-1 ring-inset ring-brand-100">
+                  <b className="font-semibold text-brand-800">In the first week you get:</b> {goals[0].first_deliverable}
+                </div>
+              )}
+              <WhatItWillDo goal={goals[0]} />
+            </>
+          ) : (
+            <ul className="space-y-2">
+              {goals.map((g) => (
+                <li key={g.id} className="rounded-xl border border-line bg-white px-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    {g.agent && <AgentAvatar name={g.agent.name} size={26} />}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13.5px] font-semibold">{g.name}</div>
+                      {g.first_deliverable && <div className="truncate text-[12px] text-muted">First week: {g.first_deliverable}</div>}
+                    </div>
+                  </div>
+                  <div className="mt-2"><WhatItWillDo goal={g} compact /></div>
+                </li>
+              ))}
+            </ul>
+          ))}
 
           {!loading && step === 1 && (
             <>
@@ -134,8 +164,10 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-white px-5 py-3">
-          {step === 2 ? <Button variant="ghost" onClick={() => setStep(1)}><ArrowLeft size={15} /> Back</Button> : <Button variant="ghost" onClick={onClose}>Not now</Button>}
-          {step === 1 ? (
+          {step > 0 ? <Button variant="ghost" onClick={() => setStep(step === 2 ? 1 : 0)}><ArrowLeft size={15} /> Back</Button> : <Button variant="ghost" onClick={onClose}>Not now</Button>}
+          {step === 0 ? (
+            <Button variant="primary" onClick={() => setStep(1)}>Looks good <ArrowRight size={15} /></Button>
+          ) : step === 1 ? (
             <Button variant="primary" disabled={loading} onClick={() => setStep(2)}>
               {missing.length ? `Continue, connect ${missing.length === 1 ? "it" : "them"} later` : "Continue"} <ArrowRight size={15} />
             </Button>

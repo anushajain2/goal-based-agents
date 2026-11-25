@@ -17,6 +17,7 @@ import anthropic
 from sqlalchemy import func, select
 from sqlalchemy.orm.attributes import flag_modified
 
+from app.agent import approach as goal_approach
 from app.agent import prompts
 from app.agent.executor import Outcome, Pending, ToolExecutor
 from app.agent.llm import MeteredClaude
@@ -145,10 +146,15 @@ class CycleRunner:
                 uses_mcp = bool((await s.execute(select(McpServer.id).where(McpServer.org_id == owner_id).limit(1))).first())
                 kinds = {k for (k,) in (await s.execute(select(Integration.kind).where(Integration.org_id == owner_id))).all()}
                 tool_sets = sorted({"github": "github", "postgres": "database"}[k] for k in kinds if k in ("github", "postgres"))
-            brief, seen_version = await self._brief(campaign_id, run_id, uses_apps, owner_id)
             await self._log(campaign_id, run_id, "cycle", "Started a work session", status="info")
             try:
-                plan = await make_plan(self.claude, campaign_id=campaign_id, run_id=run_id, brief=brief)
+                model = await self._ensure_approach(campaign_id)
+            except ledger.BudgetExceeded as e:
+                await self._out_of_budget(run_id, campaign_id, str(e))
+                return
+            brief, seen_version = await self._brief(campaign_id, run_id, uses_apps, owner_id)
+            try:
+                plan = await make_plan(self.claude, campaign_id=campaign_id, run_id=run_id, brief=brief, approach=model)
             except ledger.BudgetExceeded as e:
                 await self._out_of_budget(run_id, campaign_id, str(e))
                 return
@@ -242,12 +248,37 @@ class CycleRunner:
 
     # ------------------------------------------------------------------ pieces
 
+    async def _ensure_approach(self, campaign_id: str) -> dict | None:
+        """How the goal gets hit, made once (usually already made when people started the goal)."""
+        async with session_scope() as s:
+            campaign = await s.get(Campaign, campaign_id)
+            if campaign.approach:
+                return campaign.approach
+        try:
+            made = await goal_approach.generate(self.claude, campaign)
+        except ledger.BudgetExceeded:
+            raise
+        except Exception:  # noqa: BLE001 - the session can still run on the plain plan
+            log.warning("could not work out how goal %s gets hit", campaign_id, exc_info=True)
+            made = goal_approach.default(campaign)
+        async with session_scope() as s:
+            campaign = await s.get(Campaign, campaign_id)
+            campaign.approach = campaign.approach or made
+            return campaign.approach
+
     async def _record_plan(self, campaign_id: str, run_id: str, plan) -> None:
         async with session_scope() as s:
             await activity.log(
                 s, campaign_id, "plan", plan.assessment or "Planned this session", run_id=run_id, status="info",
                 details={"plan": plan.steps, "assessment": plan.assessment},
             )
+            if plan.extra:
+                campaign = await s.get(Campaign, campaign_id)
+                posted = goal_approach.apply(campaign, plan.extra)
+                flag_modified(campaign, "approach")
+                if posted:
+                    await activity.log(s, campaign_id, "report", posted["changing"] or posted["learned"] or posted["measured"],
+                                       run_id=run_id, status="info", details=posted)
             if plan.strategy:
                 campaign = await s.get(Campaign, campaign_id)
                 campaign.strategy = plan.strategy[:5000]
@@ -356,7 +387,12 @@ class CycleRunner:
                 [p.name or p.email for p in people],
             )
             await targets.roll_over(s, campaign)
-            target_text = targets.describe(campaign, await targets.value_now(s, campaign)) if targets.active(campaign) else ""
+            value = await targets.value_now(s, campaign)
+            target_text = targets.describe(campaign, value) if targets.active(campaign) else ""
+            waiting = (await s.execute(select(func.count(), func.min(UserRequest.created_at)).where(
+                UserRequest.campaign_id == campaign_id, UserRequest.status == "pending"))).one()
+            oldest = (utcnow() - waiting[1]).total_seconds() / 3600 if waiting[1] else None
+            pace_text = targets.pace_text(campaign, targets.pace(campaign, value), waiting[0], oldest)
             brief = identity + "\n\n" + prompts.campaign_brief(
                 campaign=campaign, budget=budget, cycle_number=run.cycle_number, rules=rules, grants=grants,
                 recent_cycles=[f"Cycle {n}: {summary}" for n, summary in reversed(cycles)],
@@ -367,6 +403,7 @@ class CycleRunner:
             servers = (await s.execute(select(McpServer).where(McpServer.org_id == campaign.org_id)
                                        .order_by(McpServer.created_at))).scalars().all() if campaign.org_id else []
             brief += prompts.plan_and_tools(campaign.playbook, servers)
+            brief += goal_approach.brief_text(campaign.approach, pace_text)
             integrations = (await s.execute(select(Integration).where(Integration.org_id == campaign.org_id))).scalars().all() \
                 if campaign.org_id else []
             handoff_to = await s.get(Agent, agent.handoff_to_agent_id) if agent and agent.handoff_to_agent_id else None

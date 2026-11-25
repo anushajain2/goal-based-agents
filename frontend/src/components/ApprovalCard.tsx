@@ -99,6 +99,13 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
           <Link href={`/goals/${req.campaign_id}`} className="font-semibold text-brand-600 hover:underline">{req.campaign_name}</Link>
         )}
         <span>{timeAgo(req.created_at)}</span>
+        {req.preview.quality && (
+          <span title={req.preview.quality.fixes.length ? `Reviewer's notes: ${req.preview.quality.fixes.join("; ")}` : "Passed the quality check"}
+            className={cx("rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold",
+              req.preview.quality.score >= 4 ? "bg-emerald-50 text-emerald-700" : "bg-signal-50 text-signal-800")}>
+            Quality {req.preview.quality.score}/5
+          </span>
+        )}
       </div>
 
       <h4 className={cx("font-semibold leading-snug", detail ? "text-xl" : "mt-2 text-[15px]")}>

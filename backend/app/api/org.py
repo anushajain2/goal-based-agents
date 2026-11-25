@@ -266,6 +266,22 @@ async def _agent_stats(s: AsyncSession, org_id: str) -> dict[str, dict]:
         )
     ).all():
         stats.setdefault(agent_id, {"goals": 0, "active_goals": 0, "spent": 0.0, "working": False})["needs_you"] = n
+    # How often people approve its work exactly as written (work it prepared, not questions).
+    decided: dict[str, list[int]] = {}
+    for agent_id, status, edited in (
+        await s.execute(
+            select(Campaign.agent_id, UserRequest.status, UserRequest.edited_fields)
+            .join(UserRequest, UserRequest.campaign_id == Campaign.id)
+            .where(Campaign.org_id == org_id, UserRequest.kind == "action",
+                   UserRequest.status.in_(["approved", "rejected"]))
+        )
+    ).all():
+        d = decided.setdefault(agent_id, [0, 0])
+        d[0] += 1
+        d[1] += 1 if status == "approved" and not edited else 0
+    for agent_id, (n, as_is) in decided.items():
+        stats.setdefault(agent_id, {"goals": 0, "active_goals": 0, "spent": 0.0, "working": False, "needs_you": 0})[
+            "approved_as_is"] = {"decided": n, "as_is": as_is, "rate": round(as_is / n, 2)}
     return stats
 
 

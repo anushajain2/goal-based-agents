@@ -261,6 +261,11 @@ function Steps({ steps, total, goalFor, canStart, busy, onStart, onOpen, onFurth
               </div>
               <div className="mt-1.5 text-[14px] font-semibold leading-snug">{m.name}</div>
               {m.outcome && <div className="mt-0.5 text-[12.5px] leading-snug text-muted">{m.outcome}</div>}
+              {(m.does || []).length > 0 && (
+                <ul className="mt-2 space-y-0.5 text-[12px] text-stone-700">
+                  {m.does!.slice(0, 3).map((d) => <li key={d} className="flex gap-1.5"><span className="text-brand-600">·</span><span className="line-clamp-1">{d}</span></li>)}
+                </ul>
+              )}
               <div className="mt-2 text-[12px] text-stone-600">
                 <span className="tabular text-[15px] font-semibold text-ink">{usd(m.total_usd)}</span>
                 <span className="text-muted"> · AI work {usd(m.ai_usd)}{m.paid_usd ? ` + ${usd(m.paid_usd)} spend` : ""}</span>

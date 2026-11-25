@@ -277,7 +277,8 @@ async def test_each_role_uses_its_model_and_checkin_follows_preference(api):
     planner_calls = [m for m, structured in models if structured and m == "claude-opus-5-5"]
     worker_calls = [m for m, structured in models if not structured]
     checker_calls = [m for m, structured in models if structured and m == "claude-haiku-5-5"]
-    assert len(planner_calls) == 1 and checker_calls and set(worker_calls) == {"claude-sonnet-5-5"}
+    # The strategist (Opus) works out once how the goal gets hit, then plans the session.
+    assert len(planner_calls) == 2 and checker_calls and set(worker_calls) == {"claude-sonnet-5-5"}
     # Haiku gets no server-side fallback parameter; Opus and Sonnet do.
     assert all("fallbacks" not in c for c in fake.calls if c["model"] == "claude-haiku-5-5")
     assert all(c.get("fallbacks") == "default" for c in fake.calls if c["model"] != "claude-haiku-5-5")

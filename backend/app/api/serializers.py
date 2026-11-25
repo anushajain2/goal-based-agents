@@ -67,6 +67,22 @@ async def results_for(s: AsyncSession, c: Campaign) -> dict:
     return {"baseline": first.value, "current": last.value, "results": last.value - first.value}
 
 
+async def approval_quality(s: AsyncSession, campaign_id: str | None = None, agent_id: str | None = None) -> dict:
+    """How often people approve this AI employee's (or goal's) work exactly as it was written: the
+    clearest sign its work is good. Questions and suggestions don't count; only work it prepared."""
+    q = select(UserRequest.status, UserRequest.edited_fields).where(
+        UserRequest.kind == "action", UserRequest.status.in_(["approved", "rejected"]))
+    if campaign_id:
+        q = q.where(UserRequest.campaign_id == campaign_id)
+    if agent_id:
+        q = q.join(Campaign, Campaign.id == UserRequest.campaign_id).where(Campaign.agent_id == agent_id)
+    rows = (await s.execute(q)).all()
+    as_is = sum(1 for status, edited in rows if status == "approved" and not edited)
+    edited = sum(1 for status, e in rows if status == "approved" and e)
+    return {"decided": len(rows), "as_is": as_is, "edited": edited, "declined": len(rows) - as_is - edited,
+            "rate": round(as_is / len(rows), 2) if rows else None}
+
+
 async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=None) -> dict:
     budget = (await ledger.budget_state(s, c)).as_dict()
     results = await results_for(s, c)
@@ -107,7 +123,7 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=Non
         "first_deliverable": c.first_deliverable or "",
         "key_results": c.key_results or [],
         "target": targets.view(c, await targets.value_now(s, c) if targets.active(c) else None),
-        "budget_basis": c.budget_basis, "has_playbook": bool(c.playbook),
+        "budget_basis": c.budget_basis, "has_playbook": bool(c.playbook), "has_approach": bool(c.approach),
         "actions_taken": actions_taken,
         "last_activity": {"title": last.title, "kind": last.kind, "at": last.created_at.isoformat()} if last else None,
         "channels": c.channels, "budget": budget, "results": results,
@@ -126,6 +142,8 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=Non
         data["context"] = c.context
         data["strategy"] = c.strategy
         data["playbook"] = c.playbook
+        data["approach"] = c.approach
+        data["approvals"] = await approval_quality(s, campaign_id=c.id)
         data["pace"] = await estimate.pace(s, c, Decimal(str(budget["remaining"])))
         metrics = (
             await s.execute(
@@ -134,7 +152,7 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=Non
             )
         ).scalars()
         data["metrics"] = [
-            {"metric": m.metric, "value": m.value, "source": m.source, "note": m.note,
+            {"metric": m.metric, "value": m.value, "source": m.source, "note": m.note, "verified": m.verified,
              "recorded_at": m.recorded_at.isoformat()} for m in metrics
         ]
     return data

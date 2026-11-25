@@ -34,7 +34,10 @@ export type Campaign = {
   target: TargetView | null;
   budget_basis: BudgetBasis | null;
   has_playbook: boolean;
+  has_approach?: boolean;
   playbook?: Playbook | null; // full goal only
+  approach?: GoalApproach | null; // full goal only
+  approvals?: { decided: number; as_is: number; edited: number; declined: number; rate: number | null };
   pace?: { per_session_usd: number; sessions_measured: number; sessions_left: number; days_left: number } | null;
   actions_taken: number;
   agent: { id: string; name: string; title: string } | null;
@@ -57,13 +60,28 @@ export type Campaign = {
   created_at: string;
   context?: string;
   strategy?: string;
-  metrics?: { metric: string; value: number; source: string; note: string; recorded_at: string }[];
+  metrics?: { metric: string; value: number; source: string; note: string; recorded_at: string; verified?: boolean }[];
+};
+
+/** How a goal gets hit: its funnel and bottleneck, approaches, experiments and learnings. */
+export type GoalApproach = {
+  model: { stages: { name: string; benchmark: string; unit: string; now: number | null }[]; bottleneck: string; why: string; moved_at?: string };
+  approaches: { id: string; name: string; what: string; why: string; creative: boolean; tool: string; milestone: number;
+    status: "planned" | "testing" | "working" | "dropped"; focus?: boolean }[];
+  experiments: { id: string; hypothesis: string; change: string; judge_after: string; status: "planned" | "running" | "kept" | "dropped"; result: string }[];
+  learnings: { text: string; evidence: string; at: string }[];
+  updates?: number; last_update_at?: string;
+};
+export type GoalUpdate = { measured: string; learned: string; changing: string };
+export type Pace = {
+  target: number; progress: number; expected_by_now: number; needed: number; days_left: number;
+  per_day_needed: number | null; per_day_so_far: number | null; status: "behind" | "on_pace" | "ahead" | "hit";
 };
 
 export type Period = "week" | "month" | "quarter";
 export type TargetView = {
   period: Period | null; target: number | null; status?: "planned" | "active"; progress: number | null;
-  start?: string | null; end?: string | null; days_left?: number | null; why?: string; set_by?: string;
+  start?: string | null; end?: string | null; days_left?: number | null; why?: string; set_by?: string; pace?: Pace | null;
   history: { period: Period; target: number; result: number | null; status: "hit" | "missed" | "replaced"; start?: string; end?: string }[];
 };
 export const PERIOD_WORD: Record<Period, string> = { week: "this week", month: "this month", quarter: "this quarter" };
@@ -96,6 +114,7 @@ export type UserRequest = {
   title: string;
   rationale: string;
   preview: {
+    quality?: { score: number; fixes: string[] }; // the reviewer's score before it reached a person
     fields?: Record<string, unknown>;
     editable?: string[];
     url?: string;
@@ -178,6 +197,7 @@ export type AgentSummary = {
   id: string; name: string; title: string; objective: string; role?: string; reports_to: Person | null;
   handoff_to_agent_id: string | null; handoff_review: boolean;
   goals: number; active_goals: number; spent: number; working: boolean; needs_you: number;
+  approved_as_is?: { decided: number; as_is: number; rate: number };
 };
 export type LeadReviewInfo = {
   id: string; status: "queued" | "running" | "done" | "failed"; health: "" | "on_track" | "mixed" | "off_track"; summary: string;
@@ -270,7 +290,7 @@ export type ScoreRow = {
 };
 export type Milestone = {
   name: string; outcome: string; weeks: number; ai_usd: number; paid_usd: number; total_usd: number;
-  paid_items: { item: string; usd: number }[]; goal_id: string | null;
+  paid_items: { item: string; usd: number }[]; goal_id: string | null; does?: string[];
 };
 /** Something the company is missing today, found from public information, and the goal that fixes it. */
 export type Opportunity = {

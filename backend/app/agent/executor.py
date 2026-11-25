@@ -19,6 +19,7 @@ from typing import Any
 
 from sqlalchemy import select
 
+from app.agent import quality
 from app.agent.llm import MeteredClaude
 from app.browser import chrome
 from app.browser.controller import BrowserError, get_controller, is_commit
@@ -82,6 +83,8 @@ class ToolExecutor:
         self.owner_id = owner_id
         self.browser = get_controller()
         self._hub: ComposioHub | None = None
+        self._quality_tries: dict[str, int] = {}  # drafts sent back for a rewrite this session
+        self.sources_read: set[str] = set()  # apps, servers and data this session read (for measured metrics)
 
     async def hub(self) -> ComposioHub:
         """App connectors for this organization (its own Composio key, or the platform's)."""
@@ -211,6 +214,40 @@ class ToolExecutor:
             return "ask", f"{verdict.explanation} Asking you instead."
         return decision.outcome, decision.reason
 
+    async def _quality(self, action_type: str, title: str, fields: dict | None) -> tuple[Outcome | None, dict | None]:
+        """Score outgoing writing before anyone sees it. Below the bar it goes back for a rewrite
+        (at most MAX_TRIES times), then on to the person with the reviewer's notes."""
+        if action_type not in quality.CHECKLISTS:
+            return None, None
+        content = quality.content_of(fields)
+        if not content:
+            return None, None
+        async with session_scope() as s:
+            c = await self._campaign(s)
+            goal, voice = f"{c.name}: {c.goal_description}", c.context or ""
+        try:
+            r = await quality.review(self.claude, campaign_id=self.campaign_id, run_id=self.run_id,
+                                     action_type=action_type, title=title, content=content, goal=goal, voice=voice)
+        except ledger.BudgetExceeded:
+            raise
+        except Exception:  # noqa: BLE001 - the check helps; it must never stop work
+            log.warning("quality check failed", exc_info=True)
+            return None, None
+        if r is None:
+            return None, None
+        key = f"{action_type}:{title[:80]}"
+        tries = self._quality_tries.get(key, 0)
+        if not r.passes and tries < quality.MAX_TRIES:
+            self._quality_tries[key] = tries + 1
+            await self._step(f"Quality check {r.score}/5: rewriting \"{title[:80]}\" before anyone sees it",
+                             status="info", details=r.as_dict())
+            fixes = "\n".join(f"- {f}" for f in r.fixes) or "- Make it more specific and useful."
+            return Outcome(f"Quality check: {r.score}/5, below the bar of {quality.PASS}. Rewrite it with these fixes, "
+                           f"then call the same tool again with the improved version:\n{fixes}", is_error=True), None
+        await self._step(f"Quality check {r.score}/5" + (" (passed)" if r.passes else ": sent on with the reviewer's notes"),
+                         status="info", details=r.as_dict())
+        return None, r.as_dict()
+
     async def _create_request(
         self, *, kind: RequestKind, tool_use_id: str, title: str, rationale: str = "",
         action_type: str | None = None, scope: str | None = None, preview: dict | None = None,
@@ -307,6 +344,9 @@ class ToolExecutor:
                             channel=action.toolkit, details={"reason": reason, "arguments": args})
             return Outcome(f"Blocked by the user's guardrails: {reason} Do not try to do this another way.",
                            is_error=True)
+        bounced, review = await self._quality(action_type, summary, args)
+        if bounced:
+            return bounced
         if outcome == "ask":
             editable = [k for k, v in args.items() if isinstance(v, str) and len(v) >= 20]
             request_id = await self._create_request(
@@ -314,7 +354,7 @@ class ToolExecutor:
                 action_type=action_type, scope=action.toolkit, spend_usd=spend,
                 preview={
                     "app": action.toolkit, "action": action.slug, "action_name": action.name,
-                    "fields": args, "editable": editable,
+                    "fields": args, "editable": editable, **({"quality": review} if review else {}),
                 },
             )
             return Pending(request_id, stored)
@@ -331,6 +371,8 @@ class ToolExecutor:
                 )
                 entry_id = entry.id
         result = await (await self.hub()).execute(stored["slug"], args, self.owner_id)
+        if result["successful"]:
+            self.sources_read.add(stored["app"])
         async with session_scope() as s:
             if entry_id:
                 from app.models import LedgerEntry
@@ -401,13 +443,16 @@ class ToolExecutor:
                             channel=server.name, details={"reason": reason, "arguments": args})
             return Outcome(f"Blocked by the user's guardrails: {reason} Do not try to do this another way.",
                            is_error=True)
+        bounced, review = await self._quality(action_type, summary, args)
+        if bounced:
+            return bounced
         if outcome == "ask":
             editable = [k for k, v in args.items() if isinstance(v, str) and len(v) >= 20]
             request_id = await self._create_request(
                 kind=RequestKind.action, tool_use_id=tool_use_id, title=summary, rationale=reason,
                 action_type=action_type, scope=server.name,
                 preview={"app": server.name, "action": tool["name"], "action_name": f"{server.name}: {tool['name']}",
-                         "fields": args, "editable": editable},
+                         "fields": args, "editable": editable, **({"quality": review} if review else {})},
             )
             return Pending(request_id, stored)
         return await self._execute_mcp(stored, args, approved=False, edited=False)
@@ -416,6 +461,7 @@ class ToolExecutor:
         server = await self._mcp_server(stored["server"])
         if not server:
             return Outcome(f"The MCP server {stored['server']} was removed.", is_error=True)
+        self.sources_read.add(server.name)
         try:
             async with McpClient(server.url, unseal(server.auth_encrypted)) as client:
                 result = await client.call_tool(stored["tool"], args)
@@ -594,6 +640,9 @@ class ToolExecutor:
                             channel=site, details={"reason": reason, "content": inp.get("content")})
             return Outcome(f"Blocked by the user's guardrails: {reason} Do not try to do this another way.",
                            is_error=True)
+        bounced, review = await self._quality(action_type, inp["title"], {"content": inp.get("content") or ""})
+        if bounced:
+            return bounced
         if outcome == "ask":
             shot = None
             try:
@@ -605,7 +654,7 @@ class ToolExecutor:
                 kind=RequestKind.action, tool_use_id=tool_use_id, title=inp["title"], rationale=reason,
                 action_type=action_type, scope=site, spend_usd=spend,
                 preview={"site": site, "fields": fields, "editable": list(fields), "details": inp.get("details"),
-                         "screenshot": shot},
+                         "screenshot": shot, **({"quality": review} if review else {})},
             )
             return Pending(request_id, stored)
         return await self._issue_authorization(stored, None, content=inp.get("content"), edited=False)
@@ -648,15 +697,28 @@ class ToolExecutor:
 
     # ------------------------------------------------------------------ campaign
 
+    def _was_read(self, tool: str) -> bool:
+        t = (tool or "").strip().lower()
+        return bool(t) and any(t in r.lower() or r.lower() in t for r in self.sources_read)
+
     async def t_record_metric(self, inp: dict, _id: str) -> Outcome:
+        how, tool = inp.get("how") or "counted", inp.get("tool") or ""
+        # Measured only when it was read from a tool this session actually used.
+        verified = how == "read_from_tool" and self._was_read(tool)
+        label = {"read_from_tool": f"measured in {tool}" if verified else "reported (tool not read this session)",
+                 "counted": "counted by the AI employee", "estimate": "estimated"}.get(how, "reported")
         async with session_scope() as s:
             s.add(MetricSnapshot(campaign_id=self.campaign_id, metric=inp["metric"][:120],
-                                 value=float(inp["value"]), source=inp.get("source", "")[:200],
-                                 note=inp.get("note", "") or ""))
+                                 value=float(inp["value"]), source=(inp.get("source") or tool or label)[:200],
+                                 note=inp.get("note", "") or "", verified=verified))
             await activity.log(s, self.campaign_id, "metric", f"{inp['metric']}: {inp['value']:g}",
-                               run_id=self.run_id, status="info", channel=inp.get("source"))
+                               run_id=self.run_id, status="info", channel=tool or inp.get("source"),
+                               details={"how": how, "verified": verified, "label": label})
             await notify(s, self.campaign_id, "metric")
-        return Outcome("Recorded.")
+        if how == "read_from_tool" and not verified:
+            return Outcome(f"Recorded, but as reported, not measured: {tool or 'that tool'} wasn't read this session. "
+                           "Read the number from the tool itself next time.")
+        return Outcome("Recorded" + (" as measured." if verified else "."))
 
     async def t_update_strategy(self, inp: dict, _id: str) -> Outcome:
         async with session_scope() as s:
@@ -747,6 +809,8 @@ class ToolExecutor:
     async def _github(self) -> GitHub | None:
         i = await self._integration("github")
         token = unseal(i.secret_encrypted) if i else None
+        if i and token:
+            self.sources_read.add("github")
         return GitHub(token, i.config["repo"]) if i and token else None
 
     async def _read_github(self, title: str, fn) -> Outcome:
@@ -858,6 +922,7 @@ class ToolExecutor:
         url = unseal(i.secret_encrypted) if i else None
         if not url:
             return Outcome("No database is connected.", is_error=True)
+        self.sources_read.update({"database", "postgres"})
         outcome, reason = await self._gate(action_type="read_data", title="Query the database", app="database", payload={})
         if outcome == "block":
             return Outcome(f"Blocked by the user's guardrails: {reason}", is_error=True)

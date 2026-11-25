@@ -219,16 +219,20 @@ BROWSER_TOOLS = [
 CAMPAIGN_TOOLS = [
     _tool(
         "record_metric",
-        "Record a measurement of a campaign metric (e.g. follower count, sales, clicks) after reading it "
-        "from an app or page. Always record the primary metric at least once per cycle, as a running "
-        "total since the goal started (targets count progress from it).",
+        "Record a measurement of a campaign metric (e.g. meetings booked, signups, sales). Always record the "
+        "primary metric at least once per cycle, as a running total since the goal started (targets count "
+        "progress from it). Read it from the source of truth whenever one is connected (the CRM, Stripe, "
+        "analytics, the database) in this session, and say so with how='read_from_tool'; numbers you count "
+        "yourself or estimate are shown to people as reported, not measured.",
         {
             "metric": {"type": "string"},
             "value": {"type": "number"},
-            "source": {"type": "string", "description": "Where you read it, e.g. 'X profile page'."},
+            "how": {"type": "string", "enum": ["read_from_tool", "counted", "estimate"]},
+            "tool": {"type": "string", "description": "For read_from_tool: the app or data you read it from, e.g. 'hubspot'."},
+            "source": {"type": "string", "description": "Where exactly, e.g. 'HubSpot meetings report'."},
             "note": {"type": "string"},
         },
-        ["metric", "value", "source"],
+        ["metric", "value", "how", "source"],
     ),
     _tool(
         "update_strategy",

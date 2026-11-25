@@ -14,8 +14,9 @@ import { TargetHistory } from "@/components/Target";
 import { StartGoal } from "@/components/StartGoal";
 import { MetricChart } from "@/components/MetricChart";
 import { AgentAvatar } from "@/components/team";
-import { Badge, Button, Card, CardHeader, Empty, ErrorNote, Field, Input, Tabs, Textarea, Select } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, cx, Empty, ErrorNote, Field, Input, Tabs, Textarea, Select } from "@/components/ui";
 import { CATEGORY_ICON } from "@/components/UseCaseLibrary";
+import { HowItsGoing } from "@/components/GoalEngine";
 import { ViewToggle, WorkLog } from "@/components/WorkLog";
 import { ActivityItem, api, Campaign, Exclusion, Grant, Level, num, Person, Session, timeAgo, usd, useApi, UserRequest, PERIOD_WORD, Period } from "@/lib/api";
 import { CATEGORIES } from "@/lib/useCases";
@@ -208,6 +209,14 @@ function GoalPage() {
         </Card>
       </div>
 
+      {c.approach && (
+        <HowItsGoing c={c} update={(() => {
+          const r = (activity || []).find((x) => x.kind === "report");
+          const d = r?.details as { measured?: string; learned?: string; changing?: string } | undefined;
+          return r && d ? { u: { measured: d.measured || "", learned: d.learned || "", changing: d.changing || "" }, at: r.created_at } : null;
+        })()} />
+      )}
+
       <Card>
         <Tabs<Tab>
           value={tab}
@@ -299,7 +308,11 @@ function ResultsTab({ c, sessions }: { c: Campaign; sessions: Session[] }) {
                     <td className="py-1.5 text-muted">{new Date(m.recorded_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
                     <td>{m.metric}</td>
                     <td className="tabular text-right font-semibold">{num(m.value)}</td>
-                    <td className="truncate pl-3 text-muted">{m.source}</td>
+                    <td className="truncate pl-3 text-muted">
+                      <span className={cx("mr-1.5 rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold", m.verified ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500")}>
+                        {m.verified ? "Measured" : "Reported"}
+                      </span>{m.source}
+                    </td>
                   </tr>
                 ))}
               </tbody>

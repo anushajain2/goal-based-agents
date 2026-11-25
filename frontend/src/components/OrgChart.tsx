@@ -126,6 +126,12 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13.5px] font-semibold">{a.name}</span>
                     <span className="block truncate text-[11.5px] text-muted">{a.title || "AI employee"} · asks {leadName(boss)}</span>
+                    {a.approved_as_is && a.approved_as_is.decided >= 3 && (
+                      <span className={cx("block text-[11px] font-medium", a.approved_as_is.rate >= 0.7 ? "text-emerald-700" : "text-signal-700")}
+                        title={`${a.approved_as_is.as_is} of ${a.approved_as_is.decided} approved exactly as written`}>
+                        {Math.round(a.approved_as_is.rate * 100)}% approved as written
+                      </span>
+                    )}
                   </span>
                 </span>
                 {a.objective && <span className="mt-1.5 line-clamp-2 block pl-[40px] text-[11.5px] leading-snug text-stone-600">{a.objective}</span>}

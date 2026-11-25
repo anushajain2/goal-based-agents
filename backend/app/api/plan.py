@@ -80,6 +80,39 @@ async def make_playbook(campaign_id: str, remake: bool = False, s: AsyncSession 
     return book
 
 
+# --- how the goal gets hit ------------------------------------------------------------------------
+
+@router.post("/campaigns/{campaign_id}/approach")
+async def make_approach(campaign_id: str, remake: bool = False, s: AsyncSession = Depends(get_session),
+                        me: Member = Depends(current_member)):
+    """The funnel, the bottleneck, the approaches (creative ones too) and the first experiment:
+    what people see before they turn a goal on. Made once; a few cents from the goal's budget."""
+    from app.agent import approach as goal_approach
+    from app.models import Organization
+
+    goal = await get_goal(s, me, campaign_id, manage=remake)
+    if goal.approach and not remake:
+        return goal.approach
+    org = await s.get(Organization, goal.org_id) if goal.org_id else None
+    milestones = next((f.get("milestones") for f in (((org.profile or {}) if org else {}).get("opportunities") or {})
+                       .get("findings") or [] if any(m.get("goal_id") == goal.id for m in f.get("milestones") or [])), None)
+    c = Campaign(id=goal.id, name=goal.name, goal_description=goal.goal_description, done_when=goal.done_when,
+                 primary_metric=goal.primary_metric, target_value=goal.target_value, channels=list(goal.channels or []),
+                 context=goal.context, playbook=goal.playbook)
+    await s.commit()
+    claude = MeteredClaude()
+    made = None
+    if claude.configured:
+        try:
+            made = await goal_approach.generate(claude, c, milestones)
+        except Exception:  # no budget left, API down...: a plain outline is better than nothing
+            made = None
+    made = made or goal_approach.default(c)
+    goal = await s.get(Campaign, campaign_id)
+    goal.approach = made
+    return made
+
+
 # --- permissions -------------------------------------------------------------------------------
 
 async def _people(s: AsyncSession, c: Campaign) -> tuple[str | None, list[str]]:

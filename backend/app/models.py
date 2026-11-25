@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy import false as sa_false
 from sqlalchemy import true as sa_true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -380,6 +381,9 @@ class Campaign(Base):
     # The plan shown to people before they start: steps, each with the kind of action it
     # involves (so it shows as "on its own" or "asks first") and the tool it uses.
     playbook: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
+    # How the goal gets hit (funnel and bottleneck), the approaches tried, experiments and
+    # learnings; see app/agent/approach.py.
+    approach: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     channels: Mapped[list] = mapped_column(JSONType, default=list)  # app/site hints, e.g. ["twitter", "linkedin"]
 
     budget_total: Mapped[Decimal] = mapped_column(Money)
@@ -587,4 +591,7 @@ class MetricSnapshot(Base):
     value: Mapped[float] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(200), default="")
     note: Mapped[str] = mapped_column(Text, default="")
+    # Read from a tool the AI employee used in that session (CRM, Stripe, analytics...), rather
+    # than counted or estimated by the agent itself.
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
     recorded_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)

@@ -162,8 +162,52 @@ def view(c: Campaign, value: float | None = None, now: datetime | None = None) -
         progress = max(value - (t.get("baseline") or 0), 0)
         days_left = max((_dt(t["end"]) - now).total_seconds() / 86400, 0)
     return {"period": t["period"], "target": t["target"], "status": t["status"], "progress": progress,
+            "pace": pace(c, value, now) if t["status"] == "active" else None,
             "start": t.get("start"), "end": t.get("end"), "days_left": round(days_left, 1) if days_left is not None else None,
             "why": t.get("why", ""), "set_by": t.get("set_by", ""), "history": history}
+
+
+def pace(c: Campaign, value: float | None, now: datetime | None = None) -> dict | None:
+    """Where the goal should be by now in this period, against where it is: the rate it needs from
+    here on, the rate so far, and ahead / on pace / behind."""
+    t = active(c)
+    if not t or value is None or not t.get("start") or not t.get("end"):
+        return None
+    now = now or utcnow()
+    start, end = _dt(t["start"]), _dt(t["end"])
+    total = max((end - start).total_seconds() / 86400, 0.01)
+    gone = min(max((now - start).total_seconds() / 86400, 0), total)
+    left = max(total - gone, 0)
+    progress = max(value - (t.get("baseline") or 0), 0)
+    expected = t["target"] * gone / total
+    needed = max(t["target"] - progress, 0)
+    so_far = progress / gone if gone >= 0.5 else None
+    status = "hit" if progress >= t["target"] else "behind" if progress < expected * 0.85 - 0.01 else \
+        "ahead" if progress > expected * 1.15 + 0.01 else "on_pace"
+    return {"target": t["target"], "progress": progress, "expected_by_now": round(expected, 1),
+            "needed": needed, "days_left": round(left, 1),
+            "per_day_needed": round(needed / left, 2) if left >= 0.1 else None,
+            "per_day_so_far": round(so_far, 2) if so_far is not None else None, "status": status}
+
+
+def pace_text(c: Campaign, p: dict | None, waiting: int = 0, oldest_hours: float | None = None) -> str:
+    """For the brief: the pace in one or two lines, with what to do when behind."""
+    if not p:
+        return ""
+    lines = [f"{fmt(p['progress'])} of {fmt(p['target'])} {c.primary_metric} so far; about {fmt(p['expected_by_now'])} "
+             f"expected by now; {p['days_left']:g} days left."]
+    if p["status"] == "behind":
+        lines.append(f"BEHIND: you need about {p['per_day_needed']:g} a day from here"
+                     + (f" (so far {p['per_day_so_far']:g} a day)" if p.get("per_day_so_far") is not None else "")
+                     + ". Change something now: work the bottleneck harder, try a stronger approach, work more often "
+                       "within the budget, or propose a new target with your reasoning.")
+    elif p["status"] in ("ahead", "hit"):
+        lines.append("Ahead of pace: keep what works, and consider proposing a higher target.")
+    if waiting:
+        lines.append(f"{waiting} approval{'s' if waiting != 1 else ''} waiting on people"
+                     + (f", the oldest for {oldest_hours:.0f} hours" if oldest_hours else "")
+                     + ". If that's what holds the goal back, say so in your update.")
+    return "\n".join(lines)
 
 
 def describe(c: Campaign, value: float, now: datetime | None = None) -> str:

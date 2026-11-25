@@ -28,10 +28,11 @@ import Link from "next/link";
 import { Fragment, ReactNode, useMemo, useState } from "react";
 
 import { ActivityItem, API_URL, Session, timeAgo, usd } from "@/lib/api";
+import { UpdateCard } from "./GoalEngine";
 import { Badge, cx } from "./ui";
 
 /** Entries shown in "Highlights": what the employee did, decided, asked or learned. */
-const HIGHLIGHT_KINDS = new Set(["action", "blocked", "decision", "request", "plan", "strategy", "metric", "note", "budget", "error"]);
+const HIGHLIGHT_KINDS = new Set(["report", "action", "blocked", "decision", "request", "plan", "strategy", "metric", "note", "budget", "error"]);
 
 type Meta = { icon: ReactNode; tone: string; label: string; minor?: boolean };
 
@@ -126,6 +127,17 @@ function Details({ a }: { a: ActivityItem }) {
 
 export function LogEntry({ a, showGoal }: { a: ActivityItem; showGoal?: boolean }) {
   const [open, setOpen] = useState(false);
+  if (a.kind === "report") {
+    const d = a.details as { measured?: string; learned?: string; changing?: string };
+    return (
+      <li className="py-1.5">
+        {showGoal && a.campaign_name && (
+          <Link href={`/goals/${a.campaign_id}`} className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-brand-600 hover:underline">{a.campaign_name}</Link>
+        )}
+        <UpdateCard u={{ measured: d.measured || "", learned: d.learned || "", changing: d.changing || "" }} at={a.created_at} />
+      </li>
+    );
+  }
   const m = metaFor(a);
   const expandable = a.kind !== "update" && a.kind !== "cycle" && Object.keys(a.details || {}).some((k) => k !== "request_id");
 
