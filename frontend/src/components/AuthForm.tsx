@@ -209,16 +209,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </div>
       </div>
 
-      <div className="relative hidden overflow-hidden bg-stone-900 lg:block">
+      <div className="relative hidden overflow-hidden bg-brand-600 lg:block">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_45%)]" />
         <div className="relative flex h-full flex-col justify-center px-14 text-white">
-          <p className="text-sm font-semibold uppercase tracking-widest text-white/70">Your AI employee</p>
-          <h2 className="mt-3 max-w-md text-4xl font-bold leading-tight tracking-tight">Set a goal and a budget. Autopilot gets it done.</h2>
+          <p className="text-sm font-semibold uppercase tracking-widest text-white/70">Goal-based AI agents</p>
+          <h2 className="mt-3 max-w-md text-[44px] font-bold leading-[1.05] tracking-[-0.035em]">Stop prompting. Start hitting goals.</h2>
           <ul className="mt-8 max-w-md space-y-3 text-[15px]">
-            <Point icon={<Send size={16} />}>It plans and does the work: research, outreach, posting, follow-ups.</Point>
-            <Point icon={<Hand size={16} />}>It asks before anything important, until you say it doesn&apos;t need to.</Point>
-            <Point icon={<Wallet size={16} />}>It never spends more than the budget you set.</Point>
-            <Point icon={<CheckCircle2 size={16} />}>Every step is in the work log, so you always know what it did.</Point>
+            <Point icon={<Send size={16} />}>We read your website and set up AI employees for every team.</Point>
+            <Point icon={<CheckCircle2 size={16} />}>Each one has real goals and works on them every day.</Point>
+            <Point icon={<Hand size={16} />}>Anything important waits for your yes.</Point>
+            <Point icon={<Wallet size={16} />}>They never spend more than the budget you set.</Point>
           </ul>
         </div>
       </div>

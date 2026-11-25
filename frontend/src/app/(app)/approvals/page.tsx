@@ -75,7 +75,7 @@ function NeedsYouPage() {
             {tabs.map(([t, label]) => (
               <button key={t} onClick={() => { setTab(t); setMobileDetail(false); }}
                 className={cx("rounded-lg px-3 py-1.5 transition", tab === t ? "bg-white text-ink shadow-sm" : "text-stone-500 hover:text-ink")}>
-                {t === "all" ? "Everyone" : label}{t !== "done" && counts[t] ? <span className={cx("tabular ml-1.5 rounded-full px-1.5 text-[11px]", tab === t ? "bg-signal-100 text-signal-800" : "bg-stone-200 text-stone-600")}>{counts[t]}</span> : null}
+                {t === "all" ? "Everyone" : label}{t !== "done" && counts[t] ? <span className={cx("tabular ml-1.5 rounded-full px-1.5 text-[11px]", tab === t ? "bg-brand-50 text-brand-700" : "bg-stone-200 text-stone-600")}>{counts[t]}</span> : null}
               </button>
             ))}
           </div>

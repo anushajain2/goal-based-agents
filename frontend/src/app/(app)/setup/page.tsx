@@ -197,7 +197,7 @@ function TeamLaunch({ info, goals, org, onStart }: { info: SetupInfo; goals: Cam
     );
   }
   return (
-    <div className="rounded-2xl bg-stone-900 p-6 text-white">
+    <div className="rounded-2xl bg-brand-600 p-6 text-white">
       <div className="flex flex-wrap items-start gap-6">
         <div className="min-w-0 flex-1">
           <div className="text-2xl font-bold tracking-tight">Your AI team is ready</div>

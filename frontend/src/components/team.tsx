@@ -2,7 +2,17 @@
 
 import { cx } from "./ui";
 
-const PALETTE = ["bg-stone-900", "bg-stone-800", "bg-black", "bg-stone-700", "bg-neutral-800", "bg-stone-800"];
+/** Soft tints: [background, text]. Each AI employee keeps its colour everywhere. */
+const PALETTE: [string, string][] = [
+  ["#e8f0ff", "#2456d6"],
+  ["#fff0e6", "#c2410c"],
+  ["#e7f6ee", "#15803d"],
+  ["#fdeef5", "#be185d"],
+  ["#fdf5dc", "#a16207"],
+  ["#e6f6f8", "#0e7490"],
+  ["#f0f1f5", "#475467"],
+  ["#eef2ff", "#1e3a8a"],
+];
 
 /** "Outbound Agent" -> "O", "People & Hiring Agent" -> "PH". */
 function monogram(name: string) {
@@ -16,14 +26,15 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
-/** An AI employee's avatar: a bot, coloured consistently by name. */
+/** An AI employee's avatar: a monogram on a soft tint, coloured consistently by name. */
 export function AgentAvatar({ name, size = 36, state }: { name: string; size?: number; state?: "working" | "waiting" | "idle" }) {
+  const [bg, fg] = PALETTE[hash(name) % PALETTE.length];
   return (
-    <span className={cx("relative inline-grid shrink-0 place-items-center rounded-xl font-mono font-semibold text-white", PALETTE[hash(name) % PALETTE.length])}
-      style={{ width: size, height: size, fontSize: Math.max(11, size * 0.42), letterSpacing: "-0.04em" }} aria-label={name}>
+    <span className="relative inline-grid shrink-0 place-items-center rounded-full font-semibold"
+      style={{ width: size, height: size, fontSize: Math.max(11, size * 0.4), letterSpacing: "-0.03em", background: bg, color: fg }} aria-label={name}>
       {monogram(name)}
       {state && state !== "idle" && (
-        <span className={cx("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white", state === "working" ? "animate-pulse bg-signal-500" : "bg-signal-500")} />
+        <span className={cx("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white", state === "working" ? "animate-pulse bg-emerald-500" : "bg-signal-500")} />
       )}
     </span>
   );
@@ -33,7 +44,7 @@ export function AgentAvatar({ name, size = 36, state }: { name: string; size?: n
 export function PersonAvatar({ name, size = 28, title }: { name: string; size?: number; title?: string }) {
   const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
   return (
-    <span title={title || name} className="inline-grid shrink-0 place-items-center rounded-full bg-stone-200 text-[11px] font-bold text-stone-700 ring-2 ring-white" style={{ width: size, height: size }}>
+    <span title={title || name} className="inline-grid shrink-0 place-items-center rounded-full bg-stone-100 text-[11px] font-bold text-stone-700 ring-2 ring-white" style={{ width: size, height: size }}>
       {initials || "?"}
     </span>
   );

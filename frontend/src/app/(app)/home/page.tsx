@@ -63,10 +63,10 @@ export default function HomePage() {
       />
 
       {state === "working" && ov.now && (
-        <div className="flex items-center gap-3 rounded-2xl border border-signal-100 bg-gradient-to-r from-signal-50 to-white px-4 py-3">
+        <div className="flex items-center gap-3 rounded-2xl border border-brand-100 bg-gradient-to-r from-brand-50 to-white px-4 py-3">
           <span className="signal-dot" />
           <span className="min-w-0 flex-1 truncate text-[13.5px]"><b className="font-semibold">Working now</b> <span className="text-stone-600">· {ov.now.title}</span></span>
-          <Link href="/work" className="shrink-0 text-[13px] font-semibold text-signal-700 hover:underline">Watch</Link>
+          <Link href="/work" className="shrink-0 text-[13px] font-semibold text-brand-700 hover:underline">Watch</Link>
         </div>
       )}
 
@@ -80,7 +80,7 @@ export default function HomePage() {
       {researchBanner}
       <ConnectChecklist only="missing_live" />
       {suggested.length > 0 && (
-        <Link href="/setup" className="flex items-center gap-4 rounded-2xl bg-stone-900 px-5 py-4 text-white shadow-[var(--shadow-pop)] transition hover:brightness-105">
+        <Link href="/setup" className="flex items-center gap-4 rounded-2xl bg-brand-600 px-5 py-4 text-white shadow-[var(--shadow-pop)] transition hover:brightness-105">
           <Sparkles size={20} className="shrink-0" />
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">{suggested.length} suggested {suggested.length === 1 ? "goal is" : "goals are"} ready to start</span>
@@ -200,7 +200,7 @@ function FirstRun({ onPick, org }: { onPick: (id: string) => void; org: OrgInfo 
   const count = (org?.departments || []).reduce((n, d) => n + d.agents.length, 0);
   return (
     <div className="space-y-8">
-      <div className="rounded-3xl bg-stone-900 p-10 text-white shadow-[var(--shadow-pop)]">
+      <div className="rounded-3xl bg-brand-600 p-10 text-white shadow-[var(--shadow-pop)]">
         <EmployeeAvatar size={56} />
         <h1 className="mt-4 text-3xl font-bold tracking-tight">{org ? `${org.org.name} has ${count} AI employees ready to work` : "Meet your AI team"}</h1>
         <p className="mt-2 max-w-2xl text-white/85">

@@ -1,12 +1,22 @@
 "use client";
 
-import { ArrowRight, Check, Globe, Hand, Lock, ShieldCheck, Wallet, X } from "lucide-react";
+import { Activity, ArrowRight, Check, Hand, Home, Inbox, Plug, ShieldCheck, Sparkles, Target, Users, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 
 import { BrandMark } from "@/components/Shell";
 import { cx } from "@/components/ui";
+
+/** Each team keeps one soft colour: [background, text]. */
+const TEAM: Record<string, [string, string]> = {
+  Sales: ["#e8f0ff", "#2456d6"],
+  Marketing: ["#fff0e6", "#c2410c"],
+  Product: ["#e7f6ee", "#15803d"],
+  Support: ["#fdeef5", "#be185d"],
+  Finance: ["#fdf5dc", "#a16207"],
+  Hiring: ["#e6f6f8", "#0e7490"],
+};
 
 export default function Landing() {
   const [signedIn, setSignedIn] = useState(false);
@@ -15,56 +25,64 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-canvas text-ink">
-      <header className="sticky top-0 z-30 border-b border-line/80 bg-canvas/85 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3">
+    <div className="min-h-screen overflow-x-hidden bg-white text-ink">
+      <header className="sticky top-0 z-30 border-b border-line/60 bg-white/80 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-8 px-5 py-3.5">
           <Logo />
-          <nav className="hidden gap-6 text-sm font-medium text-stone-600 md:flex">
+          <nav className="hidden gap-7 text-[14.5px] font-medium text-stone-600 md:flex">
             <a href="#why" className="hover:text-ink">Why goals</a>
             <a href="#how" className="hover:text-ink">How it works</a>
             <a href="#results" className="hover:text-ink">Results</a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            {!signedIn && <Link href="/login" className="hidden h-9 items-center rounded-lg px-3 text-sm font-semibold text-stone-700 hover:bg-stone-200/60 sm:inline-flex">Log in</Link>}
-            <Link href={signedIn ? "/home" : "/signup"} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-ink px-4 text-sm font-semibold text-white hover:bg-black">
-              {signedIn ? "Open dashboard" : "Get started"} <ArrowRight size={15} />
+            {!signedIn && <Link href="/login" className="hidden h-9 items-center rounded-lg px-3 text-[14.5px] font-semibold text-stone-700 hover:bg-stone-100 sm:inline-flex">Log in</Link>}
+            <Link href={signedIn ? "/home" : "/signup"} className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-ink px-4 text-sm font-semibold text-white hover:bg-black">
+              {signedIn ? "Open dashboard" : "Get started"}
             </Link>
           </div>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(20,20,19,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(20,20,19,0.045)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_at_top,black_30%,transparent_70%)]" />
-        <div className="relative mx-auto max-w-6xl px-5 pb-16 pt-16 text-center sm:pt-24">
-          <span className="inline-flex items-center gap-2.5 rounded-full border border-line bg-white px-3.5 py-1.5 font-mono text-[11.5px] font-medium uppercase tracking-[0.08em] text-stone-600 shadow-sm">
-            <span className="signal-dot" /> Goal-based AI agents
-          </span>
-          <h1 className="display mx-auto mt-7 max-w-4xl text-[56px] leading-[0.98] sm:text-[92px]">
+      <section className="relative">
+        <div className="pointer-events-none absolute inset-x-0 -top-20 h-[900px] bg-[linear-gradient(to_right,rgba(16,24,40,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,24,40,0.05)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_55%_60%_at_50%_30%,black_30%,transparent_75%)]" />
+        <div className="pointer-events-none absolute left-1/2 top-[300px] h-[500px] w-[900px] max-w-full -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(30,64,175,0.11),transparent)]" />
+        <div className="relative mx-auto max-w-6xl px-5 pt-14 text-center sm:pt-20">
+          <a href="#how" className="inline-flex items-center gap-2 rounded-full border border-line bg-white py-1 pl-1 pr-3 text-[13.5px] font-medium text-stone-700 shadow-[0_1px_2px_rgba(16,24,40,0.04)] hover:border-stone-300">
+            <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[12px] font-semibold text-brand-700">New</span>
+            AI team leads that suggest their own goals <ArrowRight size={13} />
+          </a>
+          <h1 className="display mx-auto mt-7 max-w-4xl text-[48px] leading-[1.02] tracking-[-0.05em] sm:text-[84px]">
             Stop prompting.
             <br />
-            Start hitting <em className="italic">goals</em><span className="text-signal-500">.</span>
+            Start hitting <Underlined>goals.</Underlined>
           </h1>
-          <p className="mx-auto mt-7 max-w-2xl text-balance text-[18px] leading-relaxed text-stone-600">
-            Enter your website. We analyze your company, set up AI agents for every team with the right goals, and they work on them every day.
-            <b className="font-semibold text-ink"> You just approve.</b>
+          <p className="mx-auto mt-6 max-w-[600px] text-balance text-[17px] leading-relaxed text-stone-600 sm:text-[19px]">
+            Enter your website. We set up AI employees for every team, each with real goals. They work every day. You just approve.
           </p>
-          <div className="mx-auto mt-9 max-w-xl"><WebsiteStart signedIn={signedIn} /></div>
-          <div className="mt-6 flex justify-center"><LiveTicker /></div>
-          <div className="mx-auto mt-14 max-w-5xl">
-            <Clip name="setup" label="Your website → your AI team, in two minutes" priority />
+          <div className="mx-auto mt-9 max-w-[560px]"><WebsiteStart signedIn={signedIn} /></div>
+          <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[13.5px] text-muted">
+            {["Live in 5 minutes", "You approve every action", "Set your own budget"].map((t) => (
+              <span key={t} className="inline-flex items-center gap-1.5"><Check size={14} strokeWidth={2.5} className="text-brand-600" />{t}</span>
+            ))}
           </div>
-          <Stats />
+        </div>
+        <ProductPreview />
+        <div className="relative mt-14 px-5 text-center">
+          <div className="text-[13px] text-stone-400">Works with the tools you already use</div>
+          <div className="mt-2.5 text-balance text-[16px] font-semibold tracking-tight text-stone-400">
+            Gmail · Slack · HubSpot · Salesforce · GitHub · Stripe · Notion · Linear · Shopify · 1000+ more
+          </div>
         </div>
       </section>
 
-      {/* The old way */}
-      <section id="why" className="scroll-mt-20 border-t border-line bg-white py-24">
+      {/* Why goals */}
+      <section id="why" className="scroll-mt-20 pt-28">
         <div className="mx-auto max-w-5xl px-5">
-          <Title kicker="01 · Why goals" title={<>Prompting is the <em className="italic">old</em> way.</>} sub="Chat AI makes you the manager, the prompt writer and the worker. Autopilot flips it." />
+          <Title kicker="Why goals" title="Prompting is the old way." sub="Chat AI makes you the manager, the prompt writer and the worker. Autopilot flips it." />
           <div className="mt-12 grid gap-4 md:grid-cols-2">
             <div className="rounded-3xl border border-line bg-canvas p-7">
-              <div className="font-mono text-[11.5px] font-medium uppercase tracking-[0.08em] text-stone-400">Chat AI</div>
+              <div className="text-[13px] font-semibold text-stone-400">Chat AI</div>
               <ul className="mt-5 space-y-3.5">
                 {["You figure out what to ask", "You write and rewrite prompts", "You copy, paste and do the work", "It forgets everything tomorrow"].map((t) => (
                   <li key={t} className="flex items-center gap-3 text-[16px] text-stone-500">
@@ -73,12 +91,13 @@ export default function Landing() {
                 ))}
               </ul>
             </div>
-            <div className="rounded-3xl bg-ink p-7 text-white shadow-[0_30px_70px_-25px_rgba(20,20,19,0.55)]">
-              <div className="flex items-center gap-2 font-mono text-[11.5px] font-medium uppercase tracking-[0.08em] text-white/60"><span className="signal-dot" /> Autopilot</div>
-              <ul className="mt-5 space-y-3.5">
+            <div className="relative overflow-hidden rounded-3xl bg-brand-600 p-7 text-white shadow-[0_30px_70px_-25px_rgba(30,64,175,0.6)]">
+              <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
+              <div className="relative flex items-center gap-2 text-[13px] font-semibold text-white/70"><BrandMark size={18} /> Autopilot</div>
+              <ul className="relative mt-5 space-y-3.5">
                 {["We work out what your company needs", "You set goals, not prompts", "Agents do the work, every day", "You approve what goes out", "They get better every week"].map((t) => (
                   <li key={t} className="flex items-center gap-3 text-[16px] font-medium">
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-signal-500 text-white"><Check size={13} /></span>{t}
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-brand-600"><Check size={13} strokeWidth={3} /></span>{t}
                   </li>
                 ))}
               </ul>
@@ -88,19 +107,20 @@ export default function Landing() {
       </section>
 
       {/* How it works */}
-      <section id="how" className="scroll-mt-20 border-t border-line py-24">
+      <section id="how" className="scroll-mt-20 pt-32">
         <div className="mx-auto max-w-6xl space-y-24 px-5">
-          <Title kicker="02 · How it works" title={<>Then they work. <em className="italic">Every day.</em></>} sub="You stay in charge without doing the work." />
-          <Step n="01" title="Connect once" text="Gmail, LinkedIn, HubSpot, GitHub, your database. One click each." clip="connect" label="Connections" />
-          <Step n="02" title="Approve, don't operate" text="Agents prepare everything. You say yes, edit it, or say no." clip="approve" label="Needs you" flip />
-          <Step n="03" title="They get better every week" text="AI team leads raise targets, cut what isn't working, and hire new agents." clip="lead" label="AI team lead" />
+          <Title kicker="How it works" title="Then they work. Every day." sub="You stay in charge without doing the work." />
+          <Step n="1" title="Your website in, your AI team out" text="We read your site, work out what kind of company you are, and set up the right teams, AI employees and goals." clip="setup" label="Setup" />
+          <Step n="2" title="Connect once" text="Gmail, LinkedIn, HubSpot, GitHub, your database. One click each." clip="connect" label="Connections" flip />
+          <Step n="3" title="Approve, don't operate" text="Agents prepare everything. You say yes, edit it, or say no." clip="approve" label="Needs you" />
+          <Step n="4" title="They get better every week" text="AI team leads raise targets, cut what isn't working, and suggest new AI employees." clip="lead" label="AI team lead" flip />
         </div>
       </section>
 
       {/* Results */}
-      <section id="results" className="scroll-mt-20 border-t border-line bg-white py-24">
+      <section id="results" className="scroll-mt-20 pt-32">
         <div className="mx-auto max-w-6xl px-5">
-          <Title kicker="03 · Results" title={<>What your AI team gets done in <em className="italic">week one</em></>} />
+          <Title kicker="Results" title="What your AI team gets done in week one" />
           <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Result team="Sales" text="40 qualified leads, each with a personal email ready to send" />
             <Result team="Marketing" text="A month of posts, written in your voice" />
@@ -109,39 +129,38 @@ export default function Landing() {
             <Result team="Finance" text="Every overdue invoice chased, politely" />
             <Result team="Hiring" text="20 ranked candidates for your open role" />
           </div>
-          <p className="mt-10 text-center font-mono text-[12px] uppercase tracking-[0.08em] text-stone-500">
-            For B2B startups · agencies · e-commerce brands · expert firms · solo founders
+          <p className="mt-10 text-center text-[14px] text-muted">
+            Built for B2B startups, agencies, e-commerce brands, expert firms and solo founders.
           </p>
         </div>
       </section>
 
       {/* Trust */}
-      <section className="bg-ink py-20 text-white">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 lg:grid-cols-[1fr_1.2fr]">
-          <div>
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/10"><Lock size={20} /></span>
-            <h2 className="display mt-5 text-[44px] leading-[1.02] sm:text-[56px]">Autonomous. <em className="italic text-white/70">Never out of control.</em></h2>
+      <section className="pt-32">
+        <div className="mx-auto max-w-6xl px-5">
+          <Title kicker="Safe by default" title="Autonomous. Never out of control." />
+          <div className="mt-12 grid gap-4 sm:grid-cols-3">
+            <Trust icon={<Hand size={18} />} title="You approve" text="Sends, posts, payments and merges wait for your yes." />
+            <Trust icon={<Wallet size={18} />} title="Hard budgets" text="A few dollars a week to start. Never a cent over." />
+            <Trust icon={<ShieldCheck size={18} />} title="No passwords" text="Agents never see or type your passwords." />
           </div>
-          <ul className="grid gap-3 sm:grid-cols-3">
-            <Trust icon={<Hand size={17} />} text="Sends, posts, payments and merges wait for your yes" />
-            <Trust icon={<Wallet size={17} />} text="Hard budgets. A few dollars a week to start" />
-            <Trust icon={<ShieldCheck size={17} />} text="Never sees or types your passwords" />
-          </ul>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="px-5 py-28 text-center">
-        <h2 className="display mx-auto max-w-3xl text-balance text-[48px] leading-[1.02] sm:text-[72px]">
-          Your AI team is one <em className="italic">website</em> away<span className="text-signal-500">.</span>
-        </h2>
-        <div className="mx-auto mt-10 max-w-xl"><WebsiteStart signedIn={signedIn} /></div>
+      <section className="px-5 pb-20 pt-32">
+        <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[28px] bg-brand-600 px-6 py-20 text-center text-white">
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_70%)]" />
+          <h2 className="display relative mx-auto max-w-3xl text-balance text-[40px] leading-[1.04] sm:text-[60px]">Your AI team is one website away.</h2>
+          <p className="relative mt-4 text-[17px] text-white/75">Set up in minutes. Nothing goes out without you.</p>
+          <div className="relative mx-auto mt-9 max-w-[560px]"><WebsiteStart signedIn={signedIn} onDark /></div>
+        </div>
       </section>
 
       <footer className="border-t border-line py-8">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 text-xs text-stone-500">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 text-[13px] text-muted">
           <Logo small />
-          <span className="font-mono uppercase tracking-[0.08em]">Goals, not prompts</span>
+          <span>Goals, not prompts.</span>
         </div>
       </footer>
     </div>
@@ -151,87 +170,143 @@ export default function Landing() {
 function Logo({ small }: { small?: boolean }) {
   return (
     <Link href="/" className="flex items-center gap-2.5">
-      <BrandMark size={small ? 22 : 30} />
-      <span className={cx("display leading-none", small ? "text-[19px] text-ink" : "text-[25px]")}>Autopilot</span>
+      <BrandMark size={small ? 22 : 28} />
+      <span className={cx("font-bold tracking-[-0.02em]", small ? "text-[15px] text-ink" : "text-[18px]")}>Autopilot</span>
     </Link>
   );
 }
 
-/** What AI teams are doing right now (examples), one line at a time. */
-const LIVE = [
-  ["Outbound Agent", "drafted 12 personal emails for review"],
-  ["Marketing Lead", "raised a weekly target from 40 to 70 signups"],
-  ["Support Agent", "answered 9 tickets in under an hour"],
-  ["Collections Agent", "chased 5 overdue invoices"],
-  ["Product Agent", "explained why activation dropped 8%"],
-  ["Recruiting Agent", "shortlisted 6 account executives"],
+function Underlined({ children }: { children: ReactNode }) {
+  return (
+    <span className="relative whitespace-nowrap text-brand-600">
+      {children}
+      <svg viewBox="0 0 300 20" preserveAspectRatio="none" aria-hidden className="absolute bottom-[-0.06em] left-[2%] h-[0.2em] w-[96%]">
+        <path d="M3 15 C 80 4, 200 2, 297 9" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
+function Chip({ team }: { team: string }) {
+  const [bg, fg] = TEAM[team];
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full py-0.5 pl-2 pr-2.5 text-[12px] font-medium" style={{ background: bg, color: fg }}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: fg }} />{team}
+    </span>
+  );
+}
+
+function Avatar({ name, team, size = 24 }: { name: string; team: string; size?: number }) {
+  const [bg, fg] = TEAM[team];
+  return (
+    <span className="inline-grid shrink-0 place-items-center rounded-full font-semibold" style={{ width: size, height: size, background: bg, color: fg, fontSize: size * 0.42 }}>
+      {name[0]}
+    </span>
+  );
+}
+
+function Spark({ pts, w = 84, h = 26 }: { pts: number[]; w?: number; h?: number }) {
+  const mx = Math.max(...pts), mn = Math.min(...pts);
+  const xy = pts.map((p, i) => [(i * w) / (pts.length - 1), h - 2 - ((p - mn) / (mx - mn || 1)) * (h - 6)]);
+  const line = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const [lx, ly] = xy[xy.length - 1];
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="text-brand-600" aria-hidden>
+      <polygon points={`0,${h} ${line} ${w},${h}`} fill="currentColor" opacity="0.1" />
+      <polyline points={line} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lx - 1} cy={ly} r="2.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+const ROWS: [string, string, string, string, number, number[], boolean][] = [
+  ["Book meetings with ideal customers", "Sales", "Outbound Agent", "3 of 4 this week", 75, [2, 3, 2, 4, 3, 5, 6], true],
+  ["Grow newsletter signups", "Marketing", "Content Agent", "46 of 40 this week", 100, [3, 4, 4, 6, 5, 8, 9], true],
+  ["Ship weekly product updates", "Product", "PM Agent", "2 of 3 this week", 66, [2, 2, 3, 2, 3, 3, 4], true],
+  ["Answer every ticket within 2 hours", "Support", "Support Agent", "91% this week", 91, [6, 5, 7, 6, 8, 7, 9], true],
+  ["Close the books by the 5th", "Finance", "Books Agent", "Day 3 of 5", 60, [1, 2, 2, 3, 3, 4, 4], false],
 ];
 
-function LiveTicker() {
-  const [i, setI] = useState(0);
-  const [show, setShow] = useState(true);
-  useEffect(() => {
-    const t = setInterval(() => {
-      setShow(false);
-      setTimeout(() => { setI((x) => (x + 1) % LIVE.length); setShow(true); }, 280);
-    }, 2600);
-    return () => clearInterval(t);
-  }, []);
-  const [who, what] = LIVE[i];
+/** A still of the product: goals by team, plus an approval and a team lead suggestion floating over it. */
+function ProductPreview() {
+  const side: [typeof Home, string][] = [[Home, "Home"], [Inbox, "Needs you"], [Users, "Team"], [Target, "Goals"], [Activity, "Work log"], [Plug, "Connections"]];
   return (
-    <div className="inline-flex max-w-full items-center gap-2.5 rounded-full border border-line bg-white/80 px-4 py-2 text-[13px] shadow-sm">
-      <span className="signal-dot shrink-0" />
-      <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-stone-400">Live</span>
-      <span className={cx("min-w-0 truncate transition-all duration-300", show ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0")}>
-        <b className="font-semibold">{who}</b> <span className="text-stone-600">{what}</span>
-      </span>
-    </div>
-  );
-}
-
-/** Numbers that count up when they come into view. */
-function Stats() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [on, setOn] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof IntersectionObserver === "undefined") { setOn(true); return; }
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setOn(true); io.disconnect(); } }, { threshold: 0.4 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  const items: [number, string, string][] = [[51, "", "AI roles"], [21, "", "teams"], [1000, "+", "apps"], [5, "", "company packs"]];
-  return (
-    <div ref={ref} className="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-4">
-      {items.map(([n, plus, label]) => (
-        <div key={label} className="bg-canvas px-4 py-5">
-          <div className="tabular text-[30px] font-semibold leading-none"><CountUp to={n} on={on} />{plus}</div>
-          <div className="mt-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-stone-500">{label}</div>
+    <div className="relative mx-auto mt-16 max-w-[1160px] px-5" aria-hidden>
+      <div className="relative h-[360px] overflow-hidden rounded-[18px] border border-[#e4e7ec] bg-white shadow-[0_0_0_8px_rgba(255,255,255,0.7),0_0_0_9px_#eef0f3,0_50px_100px_-40px_rgba(16,24,40,0.35)] sm:h-[470px]">
+        <div className="flex h-10 items-center gap-[7px] border-b border-[#f2f4f7] bg-[#fcfcfd] px-4">
+          <i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" /><i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" /><i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" />
+          <span className="mx-auto -translate-x-6 rounded-md bg-[#f2f4f7] px-3.5 py-1 text-[12px] text-stone-400">app.autopilot.ai/goals</span>
         </div>
-      ))}
+        <div className="grid h-full grid-cols-1 md:grid-cols-[190px_1fr]">
+          <div className="hidden border-r border-[#f2f4f7] bg-[#fcfcfd] px-2.5 py-4 md:block">
+            {side.map(([Icon, label]) => (
+              <div key={label} className={cx("mb-0.5 flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] font-medium",
+                label === "Goals" ? "bg-brand-50 text-brand-700" : "text-stone-600")}>
+                <Icon size={15} className={label === "Goals" ? "text-brand-600" : ""} />{label}
+                {label === "Needs you" && <span className="ml-auto rounded-full bg-brand-600 px-1.5 text-[11px] font-semibold text-white">3</span>}
+              </div>
+            ))}
+          </div>
+          <div className="min-w-0 px-4 py-5 text-left sm:px-6">
+            <div className="mb-4 flex items-end justify-between">
+              <div>
+                <div className="text-[20px] font-semibold tracking-[-0.02em]">Goals</div>
+                <div className="mt-0.5 text-[13px] text-muted">9 of 10 on track this week</div>
+              </div>
+              <div className="hidden rounded-[9px] bg-[#f2f4f7] p-[3px] text-[12.5px] font-medium text-muted sm:flex">
+                <span className="rounded-[7px] bg-white px-2.5 py-1 text-ink shadow-[0_1px_2px_rgba(16,24,40,0.08)]">This week</span>
+                <span className="px-2.5 py-1">Month</span><span className="px-2.5 py-1">Quarter</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-[2fr_1fr] gap-4 border-b border-[#f2f4f7] px-1 pb-2.5 text-[11.5px] font-semibold uppercase tracking-[0.05em] text-stone-400 lg:grid-cols-[2.1fr_1fr_1.5fr_1.4fr_96px_90px]">
+              <div>Goal</div><div className="hidden lg:block">Team</div><div className="hidden lg:block">AI employee</div><div>Progress</div>
+              <div className="hidden lg:block">Trend</div><div className="hidden lg:block">Status</div>
+            </div>
+            {ROWS.map(([goal, team, agent, prog, pct, pts, ok]) => (
+              <div key={goal} className="grid grid-cols-[2fr_1fr] items-center gap-4 border-b border-[#f2f4f7] px-1 py-3 text-[13.5px] lg:grid-cols-[2.1fr_1fr_1.5fr_1.4fr_96px_90px]">
+                <div className="font-medium">{goal}</div>
+                <div className="hidden lg:block"><Chip team={team} /></div>
+                <div className="hidden items-center gap-2 text-stone-700 lg:flex"><Avatar name={agent} team={team} />{agent}</div>
+                <div>
+                  <div className="mb-1.5 text-[12px] text-muted">{prog}</div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-[#f2f4f7]"><div className="h-full rounded-full bg-brand-600" style={{ width: `${pct}%` }} /></div>
+                </div>
+                <div className="hidden lg:block"><Spark pts={pts} /></div>
+                <div className="hidden lg:block">
+                  <span className={cx("inline-flex items-center gap-1.5 text-[12.5px] font-medium", ok ? "text-emerald-700" : "text-signal-700")}>
+                    <span className={cx("h-[7px] w-[7px] rounded-full", ok ? "bg-emerald-600 ring-[3px] ring-emerald-100" : "bg-signal-500 ring-[3px] ring-signal-100")} />
+                    {ok ? "On track" : "Watch"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-white" />
+      </div>
+
+      <div className="absolute right-[-64px] top-[136px] hidden w-[312px] rounded-2xl border border-[#e4e7ec] bg-white px-[18px] py-4 text-left shadow-[0_30px_60px_-20px_rgba(16,24,40,0.28),0_2px_6px_rgba(16,24,40,0.05)] xl:block">
+        <div className="flex items-center gap-2 text-[11.5px] font-semibold uppercase tracking-[0.05em] text-muted">
+          <span className="h-[7px] w-[7px] rounded-full bg-signal-500 ring-[3px] ring-signal-100" />Needs you · Sales
+        </div>
+        <div className="mb-1.5 mt-2 text-[15px] font-semibold tracking-[-0.01em]">Send 12 intro emails to fleet managers</div>
+        <div className="flex items-center gap-2 text-[12.5px] text-muted"><Avatar name="Outbound" team="Sales" size={22} />Outbound Agent · drafted and checked</div>
+        <div className="mt-3.5 flex gap-2">
+          <span className="inline-flex h-8 items-center rounded-[9px] bg-brand-600 px-3 text-[13px] font-semibold text-white">Approve</span>
+          <span className="inline-flex h-8 items-center rounded-[9px] border border-line px-3 text-[13px] font-semibold">Review</span>
+        </div>
+      </div>
+      <div className="absolute left-[-64px] top-[330px] hidden w-[262px] rounded-2xl border border-[#e4e7ec] bg-white px-[18px] py-4 text-left shadow-[0_30px_60px_-20px_rgba(16,24,40,0.28),0_2px_6px_rgba(16,24,40,0.05)] xl:block">
+        <div className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.05em] text-brand-700"><Sparkles size={13} />Marketing team lead</div>
+        <div className="mb-1.5 mt-2 text-[15px] font-semibold tracking-[-0.01em]">Raise the signup target 40 → 60 a week</div>
+        <div className="text-[12.5px] leading-snug text-muted">Beat it 3 weeks in a row. Posts on dispatch overtime are driving it.</div>
+      </div>
     </div>
   );
-}
-
-function CountUp({ to, on }: { to: number; on: boolean }) {
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    if (!on) return;
-    const start = performance.now(), ms = 1200;
-    let raf = 0;
-    const tick = (t: number) => {
-      const k = Math.min(1, (t - start) / ms);
-      setV(Math.round(to * (1 - Math.pow(1 - k, 3))));
-      if (k < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [on, to]);
-  return <>{v.toLocaleString()}</>;
 }
 
 /** "yourcompany.com → Build my AI team": the website goes with them into setup. */
-function WebsiteStart({ signedIn }: { signedIn: boolean }) {
+function WebsiteStart({ signedIn, onDark }: { signedIn: boolean; onDark?: boolean }) {
   const router = useRouter();
   const [site, setSite] = useState("");
   function go(e: FormEvent) {
@@ -242,21 +317,23 @@ function WebsiteStart({ signedIn }: { signedIn: boolean }) {
     router.push(signedIn ? "/welcome" : "/signup");
   }
   return (
-    <form onSubmit={go} className="flex flex-col gap-2 rounded-2xl border border-line bg-white p-2 shadow-[0_20px_50px_-20px_rgba(20,20,19,0.3)] sm:flex-row sm:items-center">
-      <label className="flex min-w-0 flex-1 items-center gap-2.5 px-3">
-        <Globe size={18} className="shrink-0 text-stone-400" />
+    <form onSubmit={go} className={cx("flex flex-col gap-1.5 rounded-2xl border bg-white p-1.5 sm:flex-row sm:items-center",
+      onDark ? "border-white/20 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.5)]" : "border-line shadow-[0_1px_2px_rgba(16,24,40,0.05),0_12px_32px_-12px_rgba(16,24,40,0.14)]")}>
+      <label className="flex min-w-0 flex-1 items-center px-3 text-left">
+        <span className="text-[16px] text-stone-300">https://</span>
         <input value={site} onChange={(e) => setSite(e.target.value)} placeholder="yourcompany.com" aria-label="Your website"
-          className="h-11 w-full bg-transparent font-mono text-[15px] outline-none placeholder:text-stone-400" />
+          className="h-11 w-full bg-transparent text-[16px] text-ink outline-none placeholder:text-stone-400" />
       </label>
-      <button className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-signal-500 px-6 text-[15px] font-semibold text-white shadow-lg shadow-signal-500/25 transition hover:bg-signal-600">
-        Build my AI team <ArrowRight size={17} />
+      <button className={cx("inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-5 text-[15px] font-semibold text-white transition",
+        onDark ? "bg-ink hover:bg-black" : "bg-brand-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-8px_rgba(30,64,175,0.8)] hover:bg-brand-700")}>
+        Build my AI team <ArrowRight size={16} />
       </button>
     </form>
   );
 }
 
 /** A looping product clip in a window frame. Plays like a GIF; only while on screen. */
-function Clip({ name, label, priority }: { name: string; label: string; priority?: boolean }) {
+function Clip({ name, label }: { name: string; label: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const v = ref.current;
@@ -266,13 +343,13 @@ function Clip({ name, label, priority }: { name: string; label: string; priority
     return () => io.disconnect();
   }, []);
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-white text-left shadow-[0_30px_80px_-24px_rgba(20,20,19,0.35),0_2px_8px_rgba(20,20,19,0.06)]">
-      <div className="flex items-center gap-1.5 border-b border-line bg-canvas px-4 py-2.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-stone-300" /><span className="h-2.5 w-2.5 rounded-full bg-stone-300" /><span className="h-2.5 w-2.5 rounded-full bg-stone-300" />
-        <span className="ml-3 truncate font-mono text-[11px] uppercase tracking-[0.06em] text-stone-500">{label}</span>
+    <div className="overflow-hidden rounded-2xl border border-[#e4e7ec] bg-white text-left shadow-[0_0_0_6px_rgba(255,255,255,0.7),0_0_0_7px_#eef0f3,0_40px_80px_-32px_rgba(16,24,40,0.3)]">
+      <div className="flex items-center gap-[7px] border-b border-[#f2f4f7] bg-[#fcfcfd] px-4 py-2.5">
+        <i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" /><i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" /><i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" />
+        <span className="ml-3 truncate text-[12px] text-stone-400">{label}</span>
       </div>
       <video ref={ref} src={`/clips/${name}.mp4`} poster={`/clips/${name}.jpg`} autoPlay muted loop playsInline
-        preload={priority ? "auto" : "metadata"} className="block aspect-[8/5] w-full bg-canvas" aria-label={label} />
+        preload="metadata" className="block aspect-[8/5] w-full bg-canvas" aria-label={label} />
     </div>
   );
 }
@@ -280,8 +357,8 @@ function Clip({ name, label, priority }: { name: string; label: string; priority
 function Title({ kicker, title, sub }: { kicker: string; title: ReactNode; sub?: string }) {
   return (
     <div className="mx-auto max-w-3xl text-center">
-      <div className="font-mono text-[11.5px] font-medium uppercase tracking-[0.1em] text-signal-600">{kicker}</div>
-      <h2 className="display mt-3 text-balance text-[42px] leading-[1.02] sm:text-[60px]">{title}</h2>
+      <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-brand-600">{kicker}</div>
+      <h2 className="display mt-3 text-balance text-[36px] leading-[1.06] sm:text-[52px]">{title}</h2>
       {sub && <p className="mt-4 text-[17px] text-stone-600">{sub}</p>}
     </div>
   );
@@ -291,8 +368,8 @@ function Step({ n, title, text, clip, label, flip }: { n: string; title: string;
   return (
     <div className={cx("grid items-center gap-10", flip ? "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]" : "lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)]")}>
       <div className={flip ? "lg:order-2" : ""}>
-        <span className="font-mono text-[13px] font-medium text-signal-600">{n}</span>
-        <h3 className="display mt-2 text-[36px] leading-[1.05] sm:text-[44px]">{title}</h3>
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-50 text-[14px] font-bold text-brand-700 ring-1 ring-inset ring-brand-100">{n}</span>
+        <h3 className="display mt-4 text-[30px] leading-[1.1] sm:text-[36px]">{title}</h3>
         <p className="mt-3 max-w-sm text-[17px] leading-relaxed text-stone-600">{text}</p>
       </div>
       <div className={flip ? "lg:order-1" : ""}><Clip name={clip} label={label} /></div>
@@ -302,20 +379,19 @@ function Step({ n, title, text, clip, label, flip }: { n: string; title: string;
 
 function Result({ team, text }: { team: string; text: string }) {
   return (
-    <div className="rounded-2xl border border-line bg-canvas p-6 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[var(--shadow-pop)]">
-      <div className="flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-stone-500">
-        <span className="h-1.5 w-1.5 rounded-full bg-signal-500" />{team}
-      </div>
-      <p className="display mt-3 text-[25px] leading-[1.15]">{text}</p>
+    <div className="rounded-2xl border border-line bg-white p-6 shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-pop)]">
+      <Chip team={team} />
+      <p className="mt-4 text-[20px] font-semibold leading-[1.3] tracking-[-0.02em]">{text}</p>
     </div>
   );
 }
 
-function Trust({ icon, text }: { icon: ReactNode; text: string }) {
+function Trust({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
   return (
-    <li className="rounded-2xl bg-white/5 p-4 ring-1 ring-inset ring-white/10">
-      <span className="text-signal-400">{icon}</span>
-      <p className="mt-2 text-[14px] leading-snug text-white/85">{text}</p>
-    </li>
+    <div className="rounded-2xl border border-line bg-canvas p-6">
+      <span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-brand-600 shadow-[0_1px_2px_rgba(16,24,40,0.06)] ring-1 ring-inset ring-line">{icon}</span>
+      <div className="mt-4 text-[17px] font-semibold tracking-[-0.01em]">{title}</div>
+      <p className="mt-1 text-[15px] leading-relaxed text-stone-600">{text}</p>
+    </div>
   );
 }

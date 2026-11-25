@@ -15,7 +15,7 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "sm" | "md" }) {
   const styles: Record<Variant, string> = {
-    primary: "bg-brand-500 text-white hover:bg-brand-600 border-transparent shadow-[0_1px_2px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.12)]",
+    primary: "bg-brand-600 text-white hover:bg-brand-700 border-transparent shadow-[0_1px_2px_rgb(16_24_40/0.12),inset_0_1px_0_rgb(255_255_255/0.14)]",
     secondary: "bg-white text-ink hover:bg-stone-50 border-line shadow-[0_1px_2px_rgb(16_24_40/0.05)]",
     ghost: "bg-transparent text-stone-700 hover:bg-stone-100 hover:text-ink border-transparent",
     danger: "bg-white text-red-700 hover:bg-red-50 border-red-200",
@@ -56,7 +56,7 @@ const badgeTones = {
   green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
   amber: "bg-signal-50 text-signal-800 ring-signal-100",
   red: "bg-red-50 text-red-700 ring-red-100",
-  violet: "bg-stone-50 text-stone-700 ring-stone-100",
+  violet: "bg-brand-50 text-brand-700 ring-brand-100",
 };
 export type Tone = keyof typeof badgeTones;
 
@@ -103,7 +103,7 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
 }
 
 const inputCls =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm shadow-[0_1px_2px_rgb(16_24_40/0.04)] outline-none transition placeholder:text-stone-400 hover:border-stone-300 focus:border-brand-500 focus:ring-4 focus:ring-brand-100";
+  "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm shadow-[0_1px_2px_rgb(16_24_40/0.04)] outline-none transition placeholder:text-stone-400 hover:border-stone-300 focus:border-brand-400 focus:ring-4 focus:ring-brand-100";
 
 export function Input(props: ComponentProps<"input">) {
   return <input {...props} className={cx(inputCls, props.className)} />;
@@ -124,7 +124,7 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { key:
           onClick={() => onChange(t.key)}
           className={cx(
             "-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-3 text-[13.5px] font-semibold transition",
-            value === t.key ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink",
+            value === t.key ? "border-brand-600 text-ink" : "border-transparent text-muted hover:text-ink",
           )}
         >
           {t.label}
@@ -171,8 +171,8 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
   return (
     <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
-        {eyebrow && <div className="mb-1.5 font-mono text-[11.5px] uppercase tracking-[0.08em] text-muted">{eyebrow}</div>}
-        <h1 className="display text-[38px] leading-[1.05]">{title}</h1>
+        {eyebrow && <div className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-brand-600">{eyebrow}</div>}
+        <h1 className="display text-[30px] leading-[1.1]">{title}</h1>
         {subtitle && <p className="mt-1 max-w-2xl text-[14px] text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -182,5 +182,5 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
 
 /** A small section label. */
 export function Label({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-stone-500", className)}>{children}</div>;
+  return <div className={cx("text-[11px] font-semibold uppercase tracking-[0.06em] text-stone-500", className)}>{children}</div>;
 }

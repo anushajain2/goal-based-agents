@@ -25,9 +25,9 @@ export function LeadCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInf
     <>
       <button onClick={() => setOpen(true)}
         className={cx("block w-full rounded-xl px-3 py-2.5 text-left ring-1 ring-inset transition",
-          lead.enabled ? "bg-gradient-to-br from-stone-50 to-emerald-50/40 ring-stone-100 hover:ring-stone-300" : "bg-white ring-stone-200 ring-dashed hover:ring-stone-300")}>
+          lead.enabled ? "bg-gradient-to-br from-brand-50/70 to-white ring-brand-100 hover:ring-stone-300" : "bg-white ring-stone-200 ring-dashed hover:ring-stone-300")}>
         <span className="flex items-center gap-2.5">
-          <span className={cx("grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full", lead.enabled ? "bg-stone-900 text-white shadow-sm" : "bg-stone-100 text-stone-400")}>
+          <span className={cx("grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full", lead.enabled ? "bg-brand-600 text-white shadow-sm" : "bg-stone-100 text-stone-400")}>
             <Compass size={16} />
           </span>
           <span className="min-w-0 flex-1">
@@ -93,7 +93,7 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
       <div className="h-full w-full max-w-md overflow-y-auto bg-white shadow-xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="flex items-center gap-3 border-b border-line px-5 py-3">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-stone-600 text-white"><Compass size={18} /></span>
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-600 text-white"><Compass size={18} /></span>
           <div className="min-w-0 flex-1">
             <div className="font-bold">{lead.name}</div>
             <div className="text-xs text-muted">AI team lead for {d.name}</div>
