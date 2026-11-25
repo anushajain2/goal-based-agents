@@ -75,7 +75,7 @@ function TeamPage() {
 
       <PageHeader
         title="Team"
-        subtitle="Your people, AI employees, and an AI team lead per team that keeps suggesting what to do next."
+        subtitle="Your people stay in charge. AI employees do the work, and an AI team lead per team keeps suggesting what to do next."
         actions={admin && (
           <>
             <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3.5 text-sm font-semibold shadow-[0_1px_2px_rgb(16_24_40/0.05)] hover:bg-stone-50"><UserPlus size={15} /> Invite</Link>

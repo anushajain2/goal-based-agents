@@ -96,6 +96,8 @@ async def send_invitation(to: str, org_name: str, inviter: str) -> None:
         to, f"{inviter} invited you to {org_name} on Autopilot",
         f"{inviter} invited you to join {org_name} on Autopilot, where AI employees work toward the "
         f"company's goals and check with the right people before doing anything important.\n\n"
+        f"You don't need to know anything about AI. Your AI teammates do the work and show it; "
+        f"you approve, edit or say no.\n\n"
         f"Sign in with this email address to join: {url}\n",
     )
 

@@ -203,7 +203,7 @@ function TeamLaunch({ info, goals, org, onStart }: { info: SetupInfo; goals: Cam
           <div className="text-2xl font-bold tracking-tight">Your AI team is ready</div>
           <p className="mt-1 max-w-xl text-white/85">
             {agents} AI employees with {drafts.length} goals, picked for where {info.org.name} is right now. Start them together and they begin
-            today: researching, drafting and reaching out, and asking you before anything goes out.
+            today: researching, drafting and reaching out. Nobody on your team needs to learn AI: they show their work and a person approves.
           </p>
           <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
             <li className="rounded-lg bg-white/10 px-3 py-2"><b className="block text-lg">{usd(total)}</b>{starter ? "for the whole team's first week" : "in total"}</li>

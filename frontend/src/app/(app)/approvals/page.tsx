@@ -69,7 +69,7 @@ function NeedsYouPage() {
     <div className="space-y-4">
       <PageHeader
         title="Needs you"
-        subtitle="Approvals, questions and suggestions waiting for a yes. Nothing happens until someone decides."
+        subtitle="AI employees show their work here. Nothing goes out until a person says yes."
         actions={
           <div className="inline-flex rounded-xl bg-stone-100 p-1 text-[13px] font-semibold">
             {tabs.map(([t, label]) => (

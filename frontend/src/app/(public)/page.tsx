@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, ArrowRight, Check, Hand, Home, Inbox, Plug, ShieldCheck, Sparkles, Target, Users, Wallet, X } from "lucide-react";
+import { Activity, ArrowRight, Check, Eye, Hand, Home, Inbox, Plug, ShieldCheck, Sparkles, Target, Users, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
@@ -30,7 +30,7 @@ export default function Landing() {
         <div className="mx-auto flex max-w-6xl items-center gap-8 px-5 py-3.5">
           <Logo />
           <nav className="hidden gap-7 text-[14.5px] font-medium text-stone-600 md:flex">
-            <a href="#why" className="hover:text-ink">Why goals</a>
+            <a href="#why" className="hover:text-ink">Why Autopilot</a>
             <a href="#how" className="hover:text-ink">How it works</a>
             <a href="#results" className="hover:text-ink">Results</a>
           </nav>
@@ -58,11 +58,11 @@ export default function Landing() {
             Start hitting <Underlined>goals.</Underlined>
           </h1>
           <p className="mx-auto mt-6 max-w-[600px] text-balance text-[17px] leading-relaxed text-stone-600 sm:text-[19px]">
-            Enter your website. We set up AI employees for every team, each with real goals. They work every day. You just approve.
+            Become an AI-native company without teaching anyone to use AI. We set up AI employees for every team. They do the work and show it. <b className="font-semibold text-ink">Your people give the final yes.</b>
           </p>
           <div className="mx-auto mt-9 max-w-[560px]"><WebsiteStart signedIn={signedIn} /></div>
           <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[13.5px] text-muted">
-            {["Live in 5 minutes", "You approve every action", "Set your own budget"].map((t) => (
+            {["No AI skills needed", "Humans approve everything", "Live in 5 minutes"].map((t) => (
               <span key={t} className="inline-flex items-center gap-1.5"><Check size={14} strokeWidth={2.5} className="text-brand-600" />{t}</span>
             ))}
           </div>
@@ -79,12 +79,12 @@ export default function Landing() {
       {/* Why goals */}
       <section id="why" className="scroll-mt-20 pt-28">
         <div className="mx-auto max-w-5xl px-5">
-          <Title kicker="Why goals" title="Prompting is the old way." sub="Chat AI makes you the manager, the prompt writer and the worker. Autopilot flips it." />
+          <Title kicker="Why Autopilot" title="AI isn't the bottleneck. Knowing how to use it is." sub="Most companies stall at “where do we even use AI?” Autopilot answers that for every team, so nobody has to." />
           <div className="mt-12 grid gap-4 md:grid-cols-2">
             <div className="rounded-3xl border border-line bg-canvas p-7">
-              <div className="text-[13px] font-semibold text-stone-400">Chat AI</div>
+              <div className="text-[13px] font-semibold text-stone-400">AI the usual way</div>
               <ul className="mt-5 space-y-3.5">
-                {["You figure out what to ask", "You write and rewrite prompts", "You copy, paste and do the work", "It forgets everything tomorrow"].map((t) => (
+                {["Everyone has to learn prompting", "Each person works out where AI helps", "You copy, paste and do the work", "Adoption stalls after the pilot"].map((t) => (
                   <li key={t} className="flex items-center gap-3 text-[16px] text-stone-500">
                     <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-stone-200/70 text-stone-400"><X size={13} /></span>{t}
                   </li>
@@ -95,7 +95,7 @@ export default function Landing() {
               <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
               <div className="relative flex items-center gap-2 text-[13px] font-semibold text-white/70"><BrandMark size={18} /> Autopilot</div>
               <ul className="relative mt-5 space-y-3.5">
-                {["We work out what your company needs", "You set goals, not prompts", "Agents do the work, every day", "You approve what goes out", "They get better every week"].map((t) => (
+                {["AI set up for every team, automatically", "Nobody needs to learn AI", "Agents work on real goals, every day", "AI shows its work, people approve", "Better every week"].map((t) => (
                   <li key={t} className="flex items-center gap-3 text-[16px] font-medium">
                     <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-brand-600"><Check size={13} strokeWidth={3} /></span>{t}
                   </li>
@@ -110,9 +110,9 @@ export default function Landing() {
       <section id="how" className="scroll-mt-20 pt-32">
         <div className="mx-auto max-w-6xl space-y-24 px-5">
           <Title kicker="How it works" title="Then they work. Every day." sub="You stay in charge without doing the work." />
-          <Step n="1" title="Your website in, your AI team out" text="We read your site, work out what kind of company you are, and set up the right teams, AI employees and goals." clip="setup" label="Setup" />
+          <Step n="1" title="Your website in, your AI team out" text="We read your site, work out where AI helps each team, and set up the right AI employees and goals. Nobody has to figure it out." clip="setup" label="Setup" />
           <Step n="2" title="Connect once" text="Gmail, LinkedIn, HubSpot, GitHub, your database. One click each." clip="connect" label="Connections" flip />
-          <Step n="3" title="Approve, don't operate" text="Agents prepare everything. You say yes, edit it, or say no." clip="approve" label="Needs you" />
+          <Step n="3" title="AI shows its work. You decide." text="Agents prepare everything and show why. A person says yes, edits it, or says no." clip="approve" label="Needs you" />
           <Step n="4" title="They get better every week" text="AI team leads raise targets, cut what isn't working, and suggest new AI employees." clip="lead" label="AI team lead" flip />
         </div>
       </section>
@@ -138,9 +138,10 @@ export default function Landing() {
       {/* Trust */}
       <section className="pt-32">
         <div className="mx-auto max-w-6xl px-5">
-          <Title kicker="Safe by default" title="Autonomous. Never out of control." />
-          <div className="mt-12 grid gap-4 sm:grid-cols-3">
-            <Trust icon={<Hand size={18} />} title="You approve" text="Sends, posts, payments and merges wait for your yes." />
+          <Title kicker="Humans in charge" title="AI does the work. People make the call." sub="Human accuracy at AI speed." />
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Trust icon={<Eye size={18} />} title="Shows its work" text="Every draft, step, source and reason is there to check." />
+            <Trust icon={<Hand size={18} />} title="Final yes is yours" text="Sends, posts, payments and merges wait for a person." />
             <Trust icon={<Wallet size={18} />} title="Hard budgets" text="A few dollars a week to start. Never a cent over." />
             <Trust icon={<ShieldCheck size={18} />} title="No passwords" text="Agents never see or type your passwords." />
           </div>
@@ -151,8 +152,8 @@ export default function Landing() {
       <section className="px-5 pb-20 pt-32">
         <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[28px] bg-brand-600 px-6 py-20 text-center text-white">
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_70%)]" />
-          <h2 className="display relative mx-auto max-w-3xl text-balance text-[40px] leading-[1.04] sm:text-[60px]">Your AI team is one website away.</h2>
-          <p className="relative mt-4 text-[17px] text-white/75">Set up in minutes. Nothing goes out without you.</p>
+          <h2 className="display relative mx-auto max-w-3xl text-balance text-[40px] leading-[1.04] sm:text-[60px]">Become AI-native this week.</h2>
+          <p className="relative mt-4 text-[17px] text-white/75">No AI training. No prompts. Your team just approves.</p>
           <div className="relative mx-auto mt-9 max-w-[560px]"><WebsiteStart signedIn={signedIn} onDark /></div>
         </div>
       </section>
@@ -160,7 +161,7 @@ export default function Landing() {
       <footer className="border-t border-line py-8">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 text-[13px] text-muted">
           <Logo small />
-          <span>Goals, not prompts.</span>
+          <span>AI speed. Human judgment.</span>
         </div>
       </footer>
     </div>

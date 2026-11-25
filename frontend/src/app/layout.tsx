@@ -4,9 +4,9 @@ import { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Autopilot: set a goal and a budget, it gets it done",
+  title: "Autopilot: become AI-native without teaching anyone AI",
   description:
-    "Hire an AI employee for the work that grows your company. Set a goal and a budget; Autopilot plans, does the work, checks with you on what matters and logs every step.",
+    "Enter your website and Autopilot sets up AI employees for every team, with real goals. They do the work and show it; your people give the final yes. Human accuracy at AI speed.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
