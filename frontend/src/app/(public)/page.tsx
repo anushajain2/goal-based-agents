@@ -62,7 +62,7 @@ export default function Landing() {
           </p>
           <div className="mx-auto mt-9 max-w-[560px]"><WebsiteStart signedIn={signedIn} /></div>
           <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[13.5px] text-muted">
-            {["No AI skills needed", "Humans approve everything", "Live in 5 minutes"].map((t) => (
+            {["No AI skills needed", "See what you're missing", "Humans approve everything"].map((t) => (
               <span key={t} className="inline-flex items-center gap-1.5"><Check size={14} strokeWidth={2.5} className="text-brand-600" />{t}</span>
             ))}
           </div>
@@ -106,11 +106,30 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* What you're missing */}
+      <section id="missing" className="scroll-mt-20 pt-32">
+        <div className="mx-auto max-w-6xl px-5">
+          <Title kicker="Before anything else" title="See what you're missing out on."
+            sub="We look at what's public about your company and show you, with evidence, where you're leaving money on the table. Each gap comes with the AI employee and goal that fixes it." />
+          <div className="mt-12 grid gap-4 md:grid-cols-3">
+            <Missing team="Marketing" title="Rare, low-traction LinkedIn posts" evidence="4 company posts in 5 months, most under 10 reactions. Two competitors post weekly."
+              estimate="$20k–60k a year in pipeline" fix="Post twice a week" agent="Content Agent" />
+            <Missing team="Support" title="Few reviews where buyers look" evidence="12 G2 reviews at 4.1 stars. Your two main competitors have 180 and 240."
+              fix="Collect reviews from happy customers" agent="Reviews Agent" />
+            <Missing team="Hiring" title="A key role open for 94 days" evidence="The Senior AE post has been up since August, with a job ad that doesn't mention pay or the product."
+              fix="Fill the Senior AE role" agent="Recruiting Agent" />
+          </div>
+          <p className="mx-auto mt-6 max-w-2xl text-center text-[13.5px] text-muted">
+            Examples. Yours are based on your company and its competitors, with sources. Connect your tools and your AI employees measure the rest for real.
+          </p>
+        </div>
+      </section>
+
       {/* How it works */}
       <section id="how" className="scroll-mt-20 pt-32">
         <div className="mx-auto max-w-6xl space-y-24 px-5">
           <Title kicker="How it works" title="Then they work. Every day." sub="You stay in charge without doing the work." />
-          <Step n="1" title="Your website in, your AI team out" text="We read your site, work out where AI helps each team, and set up the right AI employees and goals. Nobody has to figure it out." clip="setup" label="Setup" />
+          <Step n="1" title="Your website in, your AI team out" text="We read your site, show you what you're missing, and set up the right AI employees and goals for each team. Nobody has to figure it out." clip="setup" label="Setup" />
           <Step n="2" title="Connect once" text="Gmail, LinkedIn, HubSpot, GitHub, your database. One click each." clip="connect" label="Connections" flip />
           <Step n="3" title="AI shows its work. You decide." text="Agents prepare everything and show why. A person says yes, edits it, or says no." clip="approve" label="Needs you" />
           <Step n="4" title="They get better every week" text="AI team leads raise targets, cut what isn't working, and suggest new AI employees." clip="lead" label="AI team lead" flip />
@@ -374,6 +393,22 @@ function Step({ n, title, text, clip, label, flip }: { n: string; title: string;
         <p className="mt-3 max-w-sm text-[17px] leading-relaxed text-stone-600">{text}</p>
       </div>
       <div className={flip ? "lg:order-1" : ""}><Clip name={clip} label={label} /></div>
+    </div>
+  );
+}
+
+function Missing({ team, title, evidence, estimate, fix, agent }: { team: string; title: string; evidence: string; estimate?: string; fix: string; agent: string }) {
+  return (
+    <div className="flex flex-col rounded-2xl border border-line bg-white p-6 text-left shadow-[var(--shadow-card)]">
+      <div><Chip team={team} /></div>
+      <p className="mt-4 text-[18px] font-semibold leading-snug tracking-[-0.02em]">{title}</p>
+      <p className="mt-2 text-[14px] leading-relaxed text-stone-600">{evidence}</p>
+      {estimate && <p className="mt-3 rounded-lg bg-brand-50 px-3 py-1.5 text-[13.5px] font-semibold text-brand-700 ring-1 ring-inset ring-brand-100">{estimate}</p>}
+      <div className="mt-auto flex items-center gap-2 border-t border-line pt-4 text-[13px]">
+        <Avatar name={agent} team={team} size={22} />
+        <span className="min-w-0 flex-1 truncate"><span className="text-muted">{agent}:</span> <b className="font-semibold">{fix}</b></span>
+        <span className="rounded-md bg-brand-600 px-2 py-1 text-[12px] font-semibold text-white">Turn on</span>
+      </div>
     </div>
   );
 }

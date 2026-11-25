@@ -4,6 +4,7 @@
     2. research  web research on the company: funding, team, customers, news, competitors
     3. plan      decide which functions matter now, and the few goals each should pursue
     4. create    departments + AI employees, with the goals saved as drafts to review and start
+    5. scan      what the company is missing today (public signals), each gap tied to a goal
 
 Runs in the worker (see app/worker.py), so it survives the browser being closed. Progress is
 saved after every step for the setup page to show. Goals are drafts: nothing is spent from a
@@ -24,7 +25,7 @@ from app.agent.llm import MeteredClaude
 from app.db import session_scope
 from app.models import Agent, Campaign, Department, Membership, Organization, OrgSetup, Role, utcnow
 from app.org import CATEGORY_KEYS, DEPARTMENT_PRESETS, PRESET_NAMES, add_department
-from app.agent import packs
+from app.agent import opportunities, packs
 from app.agent.playbook import STEP_GUIDANCE, default_key_results, step_schema, tidy_steps
 from app.services import activity, estimate, targets
 from app.services.website import read_site
@@ -53,6 +54,7 @@ STEPS = [
     ("research", "Researching the company on the web"),
     ("plan", "Working out your key functions and goals"),
     ("create", "Setting up your AI employees"),
+    ("scan", "Finding what you're missing out on"),
 ]
 
 
@@ -770,6 +772,23 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
         current = "create"
         await _step(setup_id, "create", "running")
         created = await create_team(setup_id, org_id, requested_by, plan)
+
+        # 5. Scan: what they're missing, tied to goals. Nice to have: setup is done without it.
+        current = "scan"
+        if include:
+            await _step(setup_id, "scan", "skipped", "Kept your earlier findings")
+        else:
+            await _step(setup_id, "scan", "running")
+            try:
+                found = await opportunities.scan(claude, org_id, requested_by, research, site_text)
+                created["goals"] += [g for g in (await _goals_added(org_id)) if g not in created["goals"]]
+                n = len(found["findings"])
+                await _step(setup_id, "scan", "done",
+                            f"{n} thing{'s' if n != 1 else ''} you could do better" if n else "Nothing big stood out",
+                            found["cost"])
+            except Exception as e:
+                log.warning("opportunity scan failed: %s", e)
+                await _step(setup_id, "scan", "failed", "Couldn't finish this check; your AI team is ready anyway")
         async with session_scope() as s:
             setup = await s.get(OrgSetup, setup_id)
             setup.created = created
@@ -783,6 +802,12 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
             setup.status = "failed"
             setup.error = str(e)[:1000] or type(e).__name__
             setup.locked_by = None
+
+
+async def _goals_added(org_id: str) -> list[str]:
+    async with session_scope() as s:
+        org = await s.get(Organization, org_id)
+        return list(((org.profile or {}).get("opportunities") or {}).get("goals_added") or [])
 
 
 async def build_starter_team(org_id: str, requested_by: str | None) -> dict:

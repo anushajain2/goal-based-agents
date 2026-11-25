@@ -244,6 +244,12 @@ export type CompanyProfile = {
   sources?: { url: string; title: string }[]; researched_at?: string;
   revenue?: string; size?: "tiny" | "small" | "mid" | "large"; size_reason?: string; later?: LaterFunction[];
   company_type?: string; pack_label?: string;
+  opportunities?: { findings: Opportunity[]; deeper: { tool: string; label: string; check: string }[]; scanned_at: string };
+};
+/** Something the company is missing today, found from public information, and the goal that fixes it. */
+export type Opportunity = {
+  team_kind: string; title: string; evidence: string; impact: string; estimate: string; assumption: string;
+  confidence: "high" | "medium" | "low"; sources: string[]; goal_id: string | null;
 };
 export type LaterFunction = { kind: string; name: string; when: string };
 export const SIZE_LABEL: Record<string, string> = { tiny: "1-10 people", small: "11-50 people", mid: "51-250 people", large: "250+ people" };

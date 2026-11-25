@@ -26,6 +26,21 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
+/** A soft colour pair [background, text] that stays the same for a name (a team, an AI employee). */
+export function tintFor(name: string): [string, string] {
+  return PALETTE[hash(name) % PALETTE.length];
+}
+
+/** A team's name as a small coloured tag. */
+export function TeamTag({ name }: { name: string }) {
+  const [bg, fg] = tintFor(name);
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full py-0.5 pl-2 pr-2.5 text-[12px] font-medium" style={{ background: bg, color: fg }}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: fg }} />{name}
+    </span>
+  );
+}
+
 /** An AI employee's avatar: a monogram on a soft tint, coloured consistently by name. */
 export function AgentAvatar({ name, size = 36, state }: { name: string; size?: number; state?: "working" | "waiting" | "idle" }) {
   const [bg, fg] = PALETTE[hash(name) % PALETTE.length];

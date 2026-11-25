@@ -13,6 +13,7 @@ import { Badge, Card, cx, ErrorNote, PageHeader } from "@/components/ui";
 import { CATEGORY_ICON, UseCaseCard } from "@/components/UseCaseLibrary";
 import { WorkLog } from "@/components/WorkLog";
 import { YourRole } from "@/components/YourRole";
+import { MissingSummary } from "@/components/Opportunities";
 import { AgentAvatar } from "@/components/team";
 import { ActivityItem, Campaign, num, OrgInfo, Overview, SetupInfo, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
 import { CATEGORIES, FEATURED, findUseCase } from "@/lib/useCases";
@@ -79,6 +80,7 @@ export default function HomePage() {
       </div>
 
       <YourRole />
+      <MissingSummary profile={org?.org.profile} goals={goals} />
       {researchBanner}
       <ConnectChecklist only="missing_live" />
       {suggested.length > 0 && (

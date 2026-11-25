@@ -72,7 +72,7 @@ export default function WelcomePage() {
         <h1 className="text-3xl font-bold tracking-tight">Tell us about your company</h1>
         <p className="mt-2 text-stone-600">
           You don&apos;t need to work out where AI fits. Autopilot reads your website, researches your company, then sets up AI employees
-          for the teams that matter most right now, each with goals that fit where you are. You review everything before any work starts.
+          for the teams that matter most right now, and shows you what you&apos;re missing out on, each gap with a goal to fix it. You review everything before any work starts.
         </p>
 
         <form onSubmit={submit} className="mt-8 space-y-7 rounded-2xl border border-line bg-white p-6">

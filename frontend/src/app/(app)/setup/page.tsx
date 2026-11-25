@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CompanyProfileCard } from "@/components/CompanyProfile";
+import { Opportunities } from "@/components/Opportunities";
 import { ConnectChecklist } from "@/components/ConnectChecklist";
 import { GoalPanel } from "@/components/GoalPanel";
 import { OrgChart } from "@/components/OrgChart";
@@ -264,6 +265,8 @@ function SuggestedTeam({ info, onAdding }: { info: SetupInfo; onAdding: () => vo
         </div>
       )}
 
+      <Opportunities profile={info.org.profile} org={org} goals={goals} orgName={info.org.name} canStart={info.can_run}
+        onStart={setStarting} onOpen={setPanel} />
       <TeamLaunch info={info} goals={mine} org={org} onStart={setStarting} />
       <ConnectChecklist />
 

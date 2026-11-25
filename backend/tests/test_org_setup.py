@@ -98,7 +98,7 @@ async def test_setup_researches_and_builds_a_focused_team(with_key, fake_site):
         assert st["setup"]["status"] == "done", st["setup"]["error"]
         picks = [g["name"] for d in st["setup"]["plan"]["departments"] for g in d["goals"] if g["start_here"]]
         assert picks == ["Book 15 demos with Heads of Ops", "Get 200 newsletter signups"]  # top goal of top functions
-        assert [x["status"] for x in st["setup"]["steps"]] == ["done"] * 4
+        assert [x["status"] for x in st["setup"]["steps"]] == ["done"] * 5
         assert "2 pages" in st["setup"]["steps"][0]["detail"]
         assert "4 web searches" in st["setup"]["steps"][1]["detail"]
         assert st["setup"]["cost_usd"] > 0
@@ -144,7 +144,11 @@ async def test_setup_researches_and_builds_a_focused_team(with_key, fake_site):
     research_call = fake.calls[0]
     assert research_call["tools"][0]["type"] == "web_search_20260209"
     assert "acme.test" in research_call["messages"][0]["content"]
-    assert "Research brief" in fake.calls[-1]["messages"][0]["content"]
+    plan_call = next(c for c in fake.calls if "departments" in (c.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
+    assert "Research brief" in plan_call["messages"][0]["content"]
+    # Then the scan: web search and fetch, and findings tied to goals.
+    scan_call = next(c for c in fake.calls if "findings" in (c.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
+    assert "Book 15 demos with Heads of Ops" in scan_call["messages"][0]["content"]
 
 
 async def test_research_pauses_are_resumed(with_key, fake_site):
@@ -175,7 +179,7 @@ async def test_failed_research_still_plans_from_site_and_description(with_key, f
         await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(broken, org_planner=lambda kw: PLAN)))
         st = (await c.get("/api/org/setup")).json()["setup"]
         assert st["status"] == "done"
-        assert [x["status"] for x in st["steps"]] == ["done", "failed", "done", "done"]
+        assert [x["status"] for x in st["steps"]] == ["done", "failed", "done", "done", "failed"]  # the scan needs the web too; setup still finishes
 
 
 async def test_failed_plan_offers_retry_and_basic_team(with_key, fake_site):
@@ -354,7 +358,7 @@ async def test_adding_a_function_later_reuses_research(with_key, fake_site):
 
         st = (await c.get("/api/org/setup")).json()
         assert st["setup"]["status"] == "done", st["setup"]["error"]
-        assert [x["status"] for x in st["setup"]["steps"]] == ["skipped", "skipped", "done", "done"]
+        assert [x["status"] for x in st["setup"]["steps"]] == ["skipped", "skipped", "done", "done", "skipped"]
         assert [x["name"] for x in st["org"]["profile"]["later"]] == ["Legal & Compliance"]
         assert st["org"]["profile"]["size_reason"] == "8 people, $3M seed"  # profile kept
         org = await org_of(c)
