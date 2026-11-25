@@ -10,9 +10,15 @@ import { cx, ErrorNote } from "./ui";
 
 const CONFIDENCE: Record<Opportunity["confidence"], string> = { high: "Clear signal", medium: "Likely", low: "Worth a look" };
 
+const TEAM_NAMES: Record<string, string> = {
+  it: "IT & Security", legal: "Legal & Compliance", hiring: "People & Hiring", store: "Online store", pr: "PR & Comms",
+  revops: "Revenue Operations", success: "Customer Success", support: "Customer Support", exec: "Founder's office",
+  data: "Data & Analytics", delivery: "Client delivery",
+};
+
 function teamName(kind: string, org: OrgInfo | null | undefined) {
   const d = org?.departments.find((x) => x.kind === kind);
-  return d?.name || kind.charAt(0).toUpperCase() + kind.slice(1).replace(/_/g, " ");
+  return d?.name || TEAM_NAMES[kind] || kind.charAt(0).toUpperCase() + kind.slice(1).replace(/_/g, " ");
 }
 
 function host(url: string) {
@@ -27,7 +33,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
   onStart: (goals: Campaign[]) => void; onOpen: (goal: Campaign) => void; canStart: boolean;
 }) {
   const found = profile?.opportunities;
-  const has = !!found && (found.findings.length > 0 || found.deeper.length > 0 || (found.scorecard || []).length > 0);
+  const has = !!found && (found.findings.length > 0 || (found.unlock || []).length > 0 || (found.scorecard || []).length > 0);
   const [made, setMade] = useState<Record<string, string>>({});  // "finding:step" -> goal made just now
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -126,22 +132,81 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
         })}
       </div>
 
-      {found.deeper.length > 0 && (
-        <div className="rounded-2xl border border-dashed border-stone-300 bg-white/60 p-4">
-          <div className="flex items-center gap-2 text-[13.5px] font-semibold"><Plug size={15} className="text-brand-600" /> Connect for a deeper check</div>
-          <p className="text-[12.5px] text-muted">With your own data, your AI employees can measure these for real.</p>
-          <ul className="mt-2.5 flex flex-wrap gap-2">
-            {found.deeper.map((d) => (
-              <li key={d.check}>
-                <Link href="/connections" title={d.why} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1 text-[12.5px] hover:border-stone-300">
-                  <b className="font-semibold">{d.label}</b><span className="text-muted">{d.title}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {(found.unlock || []).length > 0 && (
+        <Unlock groups={found.unlock!} org={org} goals={goals || []} canStart={canStart} onStart={onStart} onOpen={onOpen} />
       )}
     </section>
+  );
+}
+
+/** "Connect to unlock", per team: what connecting a tool lets its AI employee check, on your own data. */
+function Unlock({ groups, org, goals, canStart, onStart, onOpen }: {
+  groups: NonNullable<NonNullable<CompanyProfile["opportunities"]>["unlock"]>; org: OrgInfo | null | undefined; goals: Campaign[];
+  canStart: boolean; onStart: (g: Campaign[]) => void; onOpen: (g: Campaign) => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const has = (kind: string) => !!org?.departments.some((d) => d.kind === kind);
+  const sorted = [...groups].sort((a, b) => Number(has(b.team_kind)) - Number(has(a.team_kind)));
+  async function go(key: string) {
+    setBusy(key);
+    setErr(null);
+    try {
+      const { goal_id } = await api<{ goal_id: string }>(`/api/org/unlock/${key}`, { method: "POST" });
+      onStart([await api<Campaign>(`/api/campaigns/${goal_id}`)]);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+  return (
+    <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[var(--shadow-card)]">
+      <div className="border-b border-line px-5 py-3.5">
+        <div className="flex items-center gap-2 text-[15px] font-semibold"><Plug size={16} className="text-brand-600" /> Connect to unlock</div>
+        <div className="text-[12.5px] text-muted">The rest of what you&apos;re missing is in your own tools. Connect one and that team&apos;s AI employee checks it, then fixes what it finds, with your OK.</div>
+      </div>
+      {err && <div className="px-5 pt-3"><ErrorNote>{err}</ErrorNote></div>}
+      <div className="-mb-px -mr-px grid sm:grid-cols-2 lg:grid-cols-3">
+        {sorted.map((g) => {
+          const titles = [...new Set(g.checks.map((c) => c.title))];
+          return (
+            <div key={g.team_kind} className="border-b border-r border-line p-4">
+              <div className="flex items-center justify-between gap-2">
+                <TeamTag name={teamName(g.team_kind, org)} />
+                {!has(g.team_kind) && <Link href="/team" className="text-[12px] font-semibold text-brand-700 hover:underline">Add team</Link>}
+              </div>
+              <ul className="mt-3 space-y-3">
+                {titles.map((title) => {
+                  const options = g.checks.filter((c) => c.title === title);
+                  const live = goals.find((x) => options.some((o) => o.goal === x.name));
+                  return (
+                    <li key={title}>
+                      <div className="text-[13.5px] font-semibold leading-snug">{title}</div>
+                      <div className="text-[12px] leading-snug text-muted">{options[0].how}</div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {live ? (
+                          <button onClick={() => (live.status === "draft" && canStart ? onStart([live]) : onOpen(live))}
+                            className={cx("inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-[12px] font-semibold",
+                              live.status === "draft" ? "bg-brand-600 text-white hover:bg-brand-700" : "text-emerald-700")}>
+                            {live.status === "draft" ? <>Turn on <ArrowRight size={12} /></> : <><Check size={13} /> On</>}
+                          </button>
+                        ) : has(g.team_kind) && canStart ? options.map((o) => (
+                          <button key={o.key} onClick={() => go(o.key)} disabled={busy === o.key}
+                            className="inline-flex h-7 items-center gap-1 rounded-md border border-line bg-white px-2.5 text-[12px] font-semibold hover:border-stone-300 disabled:opacity-60">
+                            {busy === o.key ? <Loader2 size={12} className="animate-spin" /> : <Plug size={12} />} Connect {o.label}
+                          </button>
+                        )) : <span className="text-[12px] text-muted">{options.map((o) => o.label).join(" or ")}</span>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

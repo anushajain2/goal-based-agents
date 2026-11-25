@@ -38,9 +38,13 @@ from app.services import estimate, presence
 
 log = logging.getLogger(__name__)
 
-MAX_FINDINGS = 8
-MAX_CHECKS = 10
-MAX_QUERIES = 4
+# The budget for one scan: a ranked shortlist for the company's type and size, of which Claude runs
+# the most relevant few, a handful of searches in its main markets, and two competitors to compare.
+SHOW = 5  # findings shown
+CANDIDATES = 7  # findings asked for, so the best 5 can include another function
+MAX_CHECKS = 6
+MAX_QUERIES = 3
+MAX_COMPETITORS = 2
 MAX_WEB = 8
 MAX_CONTINUATIONS = 4
 MILESTONES_ABOVE_USD = 100  # fixing it fully costs more than this: offer it in steps
@@ -65,7 +69,8 @@ What research found:
 Possible checks (key: what it looks at):
 {checks}
 
-Pick up to {max_checks} checks, write {max_queries} customer searches, name up to 5 competitors, and list its markets."""
+Pick up to {max_checks} checks, including at least one for a team outside sales and marketing, write \
+{max_queries} customer searches, name its 2 closest competitors, and list its markets."""
 
 
 def pick_schema(keys: list[str]) -> dict:
@@ -278,13 +283,12 @@ Goals already set up (id: name · team):
 
 Checks that ran (key: title): {checks}
 
-Deeper checks that need a connected tool (key: what it could show):
-{deeper}
+Return at most {max} findings, most valuable first. Include at least one for a team outside \
+sales and marketing (for example engineering, IT, finance, support, hiring, legal, operations, \
+product) when the measurements or notes show a real gap there."""
 
-Return at most {max} findings, most valuable first, and up to 4 deeper checks that fit this company."""
 
-
-def findings_schema(goal_schema: dict, check_keys: list[str], deeper_keys: list[str]) -> dict:
+def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
     kinds = [k for k, _ in DEPARTMENT_PRESETS] + ["custom"]
     milestone = {
         "type": "object",
@@ -320,13 +324,9 @@ def findings_schema(goal_schema: dict, check_keys: list[str], deeper_keys: list[
                      "source_urls", "goal_id", "new_goal", "milestones"],
         "additionalProperties": False,
     }
-    deeper = {"type": "object", "properties": {"check": {"type": "string", "enum": deeper_keys or [""]},
-                                               "why": {"type": "string"}},
-              "required": ["check", "why"], "additionalProperties": False}
     return {"type": "json_schema", "schema": {
-        "type": "object",
-        "properties": {"findings": {"type": "array", "items": finding}, "deeper": {"type": "array", "items": deeper}},
-        "required": ["findings", "deeper"], "additionalProperties": False}}
+        "type": "object", "properties": {"findings": {"type": "array", "items": finding}},
+        "required": ["findings"], "additionalProperties": False}}
 
 
 def _texts(content: list[dict]) -> str:
@@ -422,13 +422,14 @@ async def look(claude: MeteredClaude, name: str, website: str, description: str,
 
 
 async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, research: str, site_text: str) -> dict:
-    """Run the checks, save the findings on the profile, and return {"findings", "deeper", "cost"}."""
+    """Run the checks, save the findings on the profile, and return {"findings", "ran", "cost"}."""
     from app.agent import org_setup  # the goal schema, tidying and goal creation live there
 
     async with session_scope() as s:
         org = await s.get(Organization, org_id)
         name, website, description = org.name, org.website, org.description
         pack_key = (org.profile or {}).get("company_type")
+        size = (org.profile or {}).get("size")
         depts = (await s.execute(select(Department).where(Department.org_id == org_id)
                                  .order_by(Department.created_at))).scalars().all()
         goals = (await s.execute(select(Campaign.id, Campaign.name, Department.name)
@@ -441,7 +442,7 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     cost = Decimal("0")
 
     # 1. Pick the checks for this company, its customers' searches and its competitors.
-    options = catalog.runnable(pack_key)
+    options = catalog.shortlist(pack_key, size)
     result = await claude.create(
         campaign_id=None, run_id=None, purpose="opportunity scan", role="worker", system=PICK_SYSTEM,
         messages=[{"role": "user", "content": PICK_TASK.format(
@@ -451,15 +452,20 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
         max_tokens=3000, output_format=pick_schema([c.key for c in options]))
     cost += result.cost
     plan = json.loads(_texts(result.content) or "{}")
-    picked = [catalog.BY_KEY[k] for k in dict.fromkeys(plan.get("checks") or []) if k in catalog.BY_KEY][:MAX_CHECKS]
+    allowed_keys = {c.key for c in options}
+    picked = [catalog.BY_KEY[k] for k in dict.fromkeys(plan.get("checks") or []) if k in allowed_keys][:MAX_CHECKS]
+    if not any(c.team not in catalog.GTM for c in picked):  # always at least one for the rest of the company
+        other = next((c for c in options if c.team not in catalog.GTM), None)
+        if other:
+            picked = picked[: MAX_CHECKS - 1] + [other]
     name_words = {w for w in re.findall(r"[a-z0-9]+", name.lower()) if len(w) > 2}
     queries = [q for q in plan.get("queries") or []
                if q.get("query") and not (name_words & set(re.findall(r"[a-z0-9]+", q["query"].lower())))][:MAX_QUERIES]
     competitors = [c for c in plan.get("competitors") or [] if c.get("name") and host(c.get("domain", ""))
-                   and not _same_site(host(c["domain"]), mine)][:5]
+                   and not _same_site(host(c["domain"]), mine)][:MAX_COMPETITORS]
 
     markets = [{"label": m["country"][:40], "gl": m["gl"].lower()[:2], "hl": m["hl"].lower()[:5]}
-               for m in plan.get("markets") or [] if m.get("country") and m.get("gl") and m.get("hl")][:3] \
+               for m in plan.get("markets") or [] if m.get("country") and m.get("gl") and m.get("hl")][:3 if size in ("mid", "large") else 2] \
         or [{"label": "United States", "gl": "us", "hl": "en"}]
     local = plan.get("local") or {}
     local = {"query": local.get("query", "")[:80], "cities": [c for c in local.get("cities") or [] if c][:3],
@@ -503,10 +509,9 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     notes, sources, c3 = await look(claude, name, website, description, research, site_text, picked, competitors)
     cost += c3
     if not notes and not search and not ai and not rows:
-        return {"findings": [], "deeper": [], "cost": cost}
+        return {"findings": [], "ran": len(picked), "cost": cost}
 
     # 4. Findings, each tied to goals; big fixes in milestones with their prices.
-    deeper_options = catalog.deeper(pack_key)
     seen, unique = set(), []
     for src in sources + [{"url": r["url"], "title": r["title"]} for s_ in search for r in s_["results"]]:
         if src["url"] not in seen:
@@ -516,24 +521,20 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
         "agents"]["items"]["properties"]["goals"]["items"]
     task = STRUCTURE_TASK.format(
         name=name, domain=mine or "(no website)", visibility=visibility_text(search, ai), measured=measured_text or "(nothing measured)", notes=(notes or "(none)")[:12000],
-        sources="\n".join(f"- {x['title']}: {x['url']}" for x in unique[:30]) or "(none)", teams=teams, max=MAX_FINDINGS,
+        sources="\n".join(f"- {x['title']}: {x['url']}" for x in unique[:30]) or "(none)", teams=teams, max=CANDIDATES,
         goals="\n".join(f"- {gid}: {gname} · {dname}" for gid, gname, dname in goals) or "(none)",
-        checks=", ".join(f"{c.key}: {c.title}" for c in picked) or "(none)",
-        deeper="\n".join(f"- {c.key}: {c.title} ({TOOLS[c.tool].label})" for c in deeper_options if c.tool in TOOLS))
+        checks=", ".join(f"{c.key}: {c.title}" for c in picked) or "(none)")
     result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", role="worker",
                                  system=STRUCTURE_SYSTEM.format(threshold=MILESTONES_ABOVE_USD),
                                  messages=[{"role": "user", "content": task}], max_tokens=12000,
-                                 output_format=findings_schema(goal_schema, [c.key for c in picked],
-                                                               [c.key for c in deeper_options]))
+                                 output_format=findings_schema(goal_schema, [c.key for c in picked]))
     cost += result.cost
     raw = json.loads(_texts(result.content) or "{}")
 
     known = {gid for gid, _, _ in goals}
     allowed = {x["url"] for x in unique}
     findings, created = [], []
-    for f in (raw.get("findings") or [])[:MAX_FINDINGS]:
-        if not f.get("title") or not f.get("evidence"):
-            continue
+    for f in balanced([f for f in raw.get("findings") or [] if f.get("title") and f.get("evidence")]):
         goal_id = f.get("goal_id") if f.get("goal_id") in known else ""
         steps = _milestones(f.get("milestones") or [], per, basis, n, org_setup)
         if steps:
@@ -563,21 +564,28 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
             "milestones": steps,
             "total_usd": round(sum(m["total_usd"] for m in steps), 2) if steps else None,
         })
-    by_key = {c.key: c for c in deeper_options}
-    deeper = [{"check": d["check"], "tool": by_key[d["check"]].tool, "label": TOOLS[by_key[d["check"]].tool].label,
-               "title": by_key[d["check"]].title, "why": d.get("why", "")[:200]}
-              for d in (raw.get("deeper") or [])[:4] if d.get("check") in by_key and by_key[d["check"]].tool in TOOLS]
     async with session_scope() as s:
         org = await s.get(Organization, org_id)
         org.profile = {**(org.profile or {}), "opportunities": {
-            "findings": findings, "deeper": deeper, "scanned_at": utcnow().isoformat(), "goals_added": created,
+            "findings": findings, "unlock": catalog.unlockable(pack_key), "scanned_at": utcnow().isoformat(),
+            "goals_added": created,
             "checks": [{"key": c.key, "title": c.title, "method": c.method} for c in picked],
             "visibility": {"domain": mine, "competitors": competitors, "markets": [x["label"] for x in markets],
                            "source": "google" if m.get("google") else "web", "search": search, "ai": ai,
                            "local": m.get("local") or [], "highlights": highlights(search, ai)},
             "scorecard": rows,
         }}
-    return {"findings": findings, "deeper": deeper, "cost": cost}
+    return {"findings": findings, "ran": len(picked), "cost": cost}
+
+
+def balanced(found: list[dict]) -> list[dict]:
+    """The SHOW most valuable findings, with at least one outside sales and marketing when there is one."""
+    top = found[:SHOW]
+    if top and all(f.get("team_kind") in catalog.GTM for f in top):
+        other = next((f for f in found[SHOW:] if f.get("team_kind") not in catalog.GTM), None)
+        if other:
+            top = top[:-1] + [other]
+    return top
 
 
 def _milestones(raw: list[dict], per: float, basis: str, n: int, org_setup) -> list[dict]:
@@ -644,3 +652,33 @@ async def milestone_goal(s, org_id: str, requested_by: str | None, finding: int,
         items[finding] = {**items[finding], "milestones": steps}
         org.profile = {**(org.profile or {}), "opportunities": {**opp, "findings": items}}
     return goal_id
+
+
+async def unlock_goal(s, org_id: str, requested_by: str | None, check_key: str) -> str | None:
+    """"Connect to unlock": a draft goal for the team's AI employee that runs a check on the company's
+    own data. Starting it connects the tool. Returns the goal (an existing one with the same name if
+    there is one), or None when the company has no such team."""
+    from app.agent import org_setup
+
+    c = catalog.BY_KEY.get(check_key)
+    if c is None or c.method != "tool" or not c.goal:
+        return None
+    existing = (await s.execute(select(Campaign.id).where(Campaign.org_id == org_id, Campaign.name == c.goal))).scalar_one_or_none()
+    if existing:
+        return existing
+    label = TOOLS[c.tool].label if c.tool in TOOLS else c.tool
+    goal = org_setup._tidy_goal({
+        "name": c.goal, "goal_description": c.goal_how + ".", "done_when": "The list is done and the top items are fixed",
+        "primary_metric": "items fixed", "target_value": None, "target_period": "week", "category": "", "use_case": c.title,
+        "cycle_hours": 24, "duration_days": 30, "paid_spend_usd": 0, "channels": [label],
+        "steps": [{"text": f"Read {label} and find: {c.how.lower()}", "action_type": "read_data", "tool": c.tool},
+                  {"text": "Write a short report: what was found and what to fix first", "action_type": "create_draft", "tool": "none"},
+                  {"text": "Fix or follow up on each, after your OK", "action_type": "other_write", "tool": c.tool}],
+        "why": f"Connecting {label} lets your AI employee check this on your own data.",
+        "first_week": f"A list of {c.title.lower()}, with what to do about each", "start_here": False, "key_results": []})
+    if goal is None:
+        return None
+    per, basis, n = await estimate.session_cost(s, org_id)
+    goal["budget_basis"] = estimate.starter(per, goal["cycle_hours"], goal["duration_days"], 0, basis, n)
+    goal["budget_usd"] = goal["budget_basis"]["suggested_usd"]
+    return await create_goal(org_id, requested_by, c.team, goal, s)

@@ -247,7 +247,8 @@ export type CompanyProfile = {
   company_type?: string; pack_label?: string;
   opportunities?: {
     findings: Opportunity[]; scanned_at: string;
-    deeper: { check: string; tool: string; label: string; title: string; why: string }[];
+    deeper?: { check: string; tool: string; label: string; title: string; why: string }[];
+    unlock?: { team_kind: string; checks: { key: string; title: string; how: string; tool: string; label: string; goal: string }[] }[];
     checks?: { key: string; title: string; method: string }[];
     visibility?: Visibility;
     scorecard?: ScoreRow[];

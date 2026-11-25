@@ -182,6 +182,19 @@ async def milestone_goal(finding: int, step: int, s: AsyncSession = Depends(get_
     return {"goal_id": goal_id}
 
 
+@router.post("/org/unlock/{check_key}")
+async def unlock(check_key: str, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    """"Connect to unlock": a goal for the team that runs this check on the company's own data."""
+    require_admin(me)
+    from app.agent import opportunities
+
+    goal_id = await opportunities.unlock_goal(s, me.org_id, me.user.id, check_key)
+    if not goal_id:
+        raise HTTPException(404, "Add that team first, then its AI employee can run this check.")
+    await s.commit()
+    return {"goal_id": goal_id}
+
+
 @router.post("/org/setup/starter-budgets")
 async def use_starter_budgets(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
     """Suggested goals made before one-week starter budgets existed: switch the ones not started yet."""

@@ -31,6 +31,9 @@ class Check:
     method: str = "web"  # search | ai | web | tool
     packs: tuple[str, ...] = ALL
     tool: str | None = None  # for method "tool": the catalog tool it needs
+    # For "tool" checks: the goal its team's AI employee works on once the tool is connected.
+    goal: str = ""
+    goal_how: str = ""
 
 
 CHECKS: list[Check] = [
@@ -168,22 +171,55 @@ CHECKS: list[Check] = [
     Check("authority", "marketing", "Domain authority", "Open PageRank authority, against competitors", "measure"),
     Check("popularity", "marketing", "Site popularity", "Rank among the most visited sites (Tranco), against competitors", "measure"),
 
-    # --- Deeper checks with a connected tool ---------------------------------------------------------
-    Check("lead_followup", "sales", "Leads nobody followed up", "Leads and deals left without a reply", "tool", B2B, "hubspot"),
-    Check("lead_followup_sf", "sales", "Stalled deals", "Deals with no activity for weeks", "tool", B2B, "salesforce"),
+    # --- Connect to unlock: checks on the company's own data, by team ------------------------------
+    Check("lead_followup", "sales", "Leads nobody followed up", "Leads and deals left without a reply", "tool", B2B, "hubspot",
+          "Follow up every lead and stalled deal", "Find leads and deals in HubSpot with no reply or activity, and draft a follow-up for each"),
+    Check("lead_followup_sf", "sales", "Stalled deals", "Deals with no activity for weeks", "tool", B2B, "salesforce",
+          "Restart stalled deals", "Find deals in Salesforce with no activity for 3+ weeks and draft the next step for each"),
     Check("inbox_unanswered", "sales", "Inbound emails left unanswered", "Prospect and customer emails waiting for a reply",
-          "tool", ALL, "gmail"),
+          "tool", ALL, "gmail", "Answer every inbound email within a day",
+          "Find prospect and customer emails waiting for a reply, and draft an answer for each"),
     Check("social_exact", "marketing", "Exact posting and engagement", "Your company page's real posting frequency and engagement",
-          "tool", ALL, "linkedin"),
+          "tool", ALL, "linkedin", "Post on LinkedIn every week", "Measure what's worked on the company page and draft next week's posts"),
     Check("near_miss_searches", "marketing", "Searches you almost rank for", "Queries where you're on page 2", "tool", ALL,
-          "searchconsole"),
+          "searchconsole", "Win the searches you almost rank for",
+          "Find searches where you're on page 2 in Search Console and improve or write the page for each"),
     Check("failed_payments", "finance", "Failed payments never recovered", "Failed charges and quiet churn", "tool",
-          SOFTWARE + ("ecommerce",), "stripe"),
-    Check("overdue_invoices", "finance", "Overdue invoices nobody chased", "Unpaid invoices by age", "tool", B2B, "quickbooks"),
-    Check("support_backlog", "support", "Slow replies to customers", "First reply times and tickets waiting", "tool", ALL, "zendesk"),
-    Check("code_backlog", "engineering", "Bugs waiting for weeks", "Old issues and pull requests", "tool", SOFTWARE, "github"),
-    Check("abandoned_checkouts", "store", "Abandoned checkouts", "Carts never completed and customers who never came back", "tool",
-          ("ecommerce",), "shopify"),
+          SOFTWARE + ("ecommerce",), "stripe", "Recover failed payments",
+          "Find failed charges in Stripe that were never recovered and draft a friendly payment reminder for each"),
+    Check("overdue_invoices", "finance", "Overdue invoices nobody chased", "Unpaid invoices by age", "tool", B2B, "quickbooks",
+          "Collect overdue invoices", "List unpaid invoices by age in QuickBooks and draft a reminder for each, firmer as they get older"),
+    Check("overdue_invoices_xero", "finance", "Overdue invoices nobody chased", "Unpaid invoices by age", "tool", B2B, "xero",
+          "Collect overdue invoices", "List unpaid invoices by age in Xero and draft a reminder for each, firmer as they get older"),
+    Check("unused_software", "finance", "Software you pay for and don't use", "Duplicate and unused subscriptions", "tool", ALL, "ramp",
+          "Cut unused software spend", "Find duplicate and unused software subscriptions in Ramp and list what to cancel, with the savings"),
+    Check("stale_access", "it", "Accounts that shouldn't exist", "Former employees with access, accounts without 2-step login, "
+          "files shared with anyone", "tool", ALL, "googleworkspace", "Close access gaps",
+          "Find former employees' accounts, accounts without 2-step login and files shared publicly in Google Workspace, and list fixes"),
+    Check("stale_access_okta", "it", "Accounts that shouldn't exist", "Former employees with access and unused app licences", "tool",
+          ALL, "okta", "Close access gaps", "Find accounts of people who left and unused app licences in Okta, and list fixes"),
+    Check("hiring_funnel", "hiring", "Where hiring gets stuck", "Time to hire, candidates waiting and overdue interview feedback",
+          "tool", ALL, "greenhouse", "Hire faster", "Find candidates waiting on a reply or feedback in Greenhouse and draft the nudges"),
+    Check("hiring_funnel_ashby", "hiring", "Where hiring gets stuck", "Time to hire, candidates waiting and overdue interview feedback",
+          "tool", ALL, "ashby", "Hire faster", "Find candidates waiting on a reply or feedback in Ashby and draft the nudges"),
+    Check("onboarding", "hiring", "New hires with unfinished onboarding", "Onboarding tasks still open after the first weeks", "tool",
+          ALL, "bamboohr", "Finish every onboarding", "Find open onboarding tasks in BambooHR and remind the right people"),
+    Check("support_backlog", "support", "Slow replies to customers", "First reply times and tickets waiting", "tool", ALL, "zendesk",
+          "Reply to every ticket within hours", "Measure reply times in Zendesk, find tickets waiting and draft answers"),
+    Check("support_backlog_intercom", "support", "Slow replies to customers", "First reply times and conversations left open",
+          "tool", ALL, "intercom", "Reply to every conversation within hours",
+          "Measure reply times in Intercom, find conversations waiting and draft answers"),
+    Check("code_backlog", "engineering", "Security alerts and work waiting for weeks", "Dependency alerts, old issues and pull requests",
+          "tool", SOFTWARE, "github", "Clear security alerts and old pull requests",
+          "List security alerts, issues and pull requests waiting for weeks in GitHub, and fix or close the top ones"),
+    Check("error_spikes", "engineering", "Errors customers hit", "The errors happening most in production", "tool", SOFTWARE,
+          "sentry", "Fix the top production errors", "Find the most frequent errors in Sentry and propose a fix for each"),
+    Check("contract_renewals", "legal", "Contracts about to renew", "Contracts that auto-renew soon and unsigned ones", "tool",
+          ALL, "docusign", "Review contracts before they renew",
+          "List contracts in DocuSign that renew in the next 60 days or are still unsigned, with what to decide for each"),
+    Check("abandoned_checkouts", "store", "Abandoned checkouts and slow stock", "Carts never completed, customers who never "
+          "came back, products that don't sell", "tool", ("ecommerce",), "shopify", "Win back abandoned checkouts",
+          "Find abandoned checkouts and slow-selling products in Shopify and draft win-back emails and offers"),
 ]
 
 BY_KEY = {c.key: c for c in CHECKS}
@@ -201,3 +237,63 @@ def runnable(pack_key: str | None) -> list[Check]:
 
 def deeper(pack_key: str | None) -> list[Check]:
     return [c for c in for_company(pack_key) if c.method == "tool"]
+
+
+# --- What to run for a company: a budget, not everything -------------------------------------------
+
+# Sales and marketing ("go to market"); everything else counts as another function.
+GTM = {"sales", "marketing", "pr", "community", "partnerships", "store"}
+
+# The checks that usually matter most for each type of company, most important first.
+PRIORITY: dict[str, list[str]] = {
+    "startup": ["search_rank", "ai_answers", "comparison_searches", "social_cadence", "case_studies", "review_volume",
+                "cta_clarity", "trigger_events", "content_gaps", "integrations", "help_center", "security_page", "open_roles",
+                "job_ads", "legal_basics", "grants"],
+    "solo_saas": ["search_rank", "ai_answers", "comparison_searches", "content_gaps", "review_volume", "pricing_clarity",
+                  "app_marketplaces", "changelog", "help_center", "referral_program", "legal_basics", "grants"],
+    "agency": ["search_rank", "ai_answers", "case_studies", "agency_portfolio", "directories", "leadership_voice", "awards",
+               "trust_signals", "tenders", "open_roles", "employer_reviews", "legal_basics"],
+    "services": ["search_rank", "ai_answers", "local_listing", "review_volume", "directories", "case_studies", "trust_signals",
+                 "tenders", "certifications", "unanswered_reviews", "legal_basics", "job_ads", "employer_reviews"],
+    "ecommerce": ["search_rank", "ai_answers", "product_pages", "review_volume", "shipping_returns", "marketplaces",
+                  "social_cadence", "referral_program", "unanswered_reviews", "help_center", "payment_options", "legal_basics"],
+    "general": ["search_rank", "ai_answers", "directories", "b2b_platforms", "local_listing", "review_volume", "trust_signals",
+                "certifications", "trade_shows", "tenders", "legal_basics", "open_roles", "grants"],
+}
+# Small companies don't need these yet; bigger ones get them earlier.
+NOT_YET = {"tiny": {"employer_reviews", "missing_functions", "security_page", "careers_page", "certifications"}}
+SOONER = {"mid": ["security_page", "employer_reviews", "missing_functions"],
+          "large": ["security_page", "employer_reviews", "missing_functions", "legal_basics"]}
+SHORTLIST = 12
+MIN_OTHER = 3  # checks from outside sales and marketing in every shortlist
+
+
+def shortlist(pack_key: str | None, size: str | None) -> list[Check]:
+    """The checks worth considering for this type and size of company, most important first."""
+    fits = {c.key: c for c in runnable(pack_key)}
+    order = list(PRIORITY.get(pack_key or "", PRIORITY["general"]))
+    for k in reversed(SOONER.get(size or "", [])):  # bigger companies: these move up
+        if k in order:
+            order.remove(k)
+        order.insert(4, k)
+    skip = NOT_YET.get(size or "", set())
+    picked = [fits[k] for k in dict.fromkeys(order) if k in fits and k not in skip][:SHORTLIST]
+    others = [c for c in picked if c.team not in GTM]
+    if len(others) < MIN_OTHER:  # always room for the rest of the company
+        extra = [c for k, c in fits.items() if c.team not in GTM and c not in picked and k not in skip][:MIN_OTHER - len(others)]
+        picked = picked[: SHORTLIST - len(extra)] + extra
+    return picked
+
+
+def unlockable(pack_key: str | None) -> list[dict]:
+    """Per team: the checks connecting a tool unlocks, for "Connect to unlock"."""
+    teams: dict[str, list[Check]] = {}
+    for c in deeper(pack_key):
+        teams.setdefault(c.team, []).append(c)
+    order = ["finance", "sales", "support", "it", "hiring", "engineering", "store", "legal", "marketing"]
+    from app.catalog import TOOLS
+
+    return [{"team_kind": t, "checks": [{"key": c.key, "title": c.title, "how": c.how, "tool": c.tool, "goal": c.goal,
+                                         "label": TOOLS[c.tool].label if c.tool in TOOLS else c.tool}
+                                        for c in teams[t]]}
+            for t in sorted(teams, key=lambda t: order.index(t) if t in order else 99)]

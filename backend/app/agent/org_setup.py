@@ -783,8 +783,9 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
                 found = await opportunities.scan(claude, org_id, requested_by, research, site_text)
                 created["goals"] += [g for g in (await _goals_added(org_id)) if g not in created["goals"]]
                 n = len(found["findings"])
+                ran = f"Ran {found['ran']} checks plus measurements · " if found.get("ran") else ""
                 await _step(setup_id, "scan", "done",
-                            f"{n} thing{'s' if n != 1 else ''} you could do better" if n else "Nothing big stood out",
+                            ran + (f"{n} thing{'s' if n != 1 else ''} you could do better" if n else "nothing big stood out"),
                             found["cost"])
             except Exception as e:
                 log.warning("opportunity scan failed: %s", e, exc_info=True)

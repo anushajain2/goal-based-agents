@@ -71,7 +71,7 @@ def findings(kw):
         {"check": "", "team_kind": "finance", "title": "Pricing hidden", "evidence": "No pricing page.",
          "impact": "Some buyers leave.", "estimate": "", "assumption": "", "confidence": "low", "source_urls": [],
          "goal_id": "not-a-goal", "new_goal": goal("Publish pricing", "Finance & admin"), "milestones": []},
-    ], "deeper": [{"check": "lead_followup", "why": "You use HubSpot"}, {"check": "nope", "why": ""}]}
+    ]}
 
 
 async def test_checks_suit_the_type_of_company():
@@ -92,7 +92,7 @@ async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_
 
         st = (await c.get("/api/org/setup")).json()
         assert st["setup"]["status"] == "done"
-        assert st["setup"]["steps"][-1]["detail"] == "4 things you could do better"
+        assert st["setup"]["steps"][-1]["detail"] == "Ran 3 checks plus measurements · 4 things you could do better"
         opp = st["org"]["profile"]["opportunities"]
 
         # Searches never use the company's name; its own site isn't a competitor.
@@ -125,8 +125,20 @@ async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_
         assert len(titles["milestones"]) == 1
         # No Finance team: nothing invented.
         assert pricing["goal_id"] is None and not any(g["name"] == "Publish pricing" for g in goals.values())
-        assert opp["deeper"] == [{"check": "lead_followup", "tool": "hubspot", "label": "HubSpot",
-                                  "title": "Leads nobody followed up", "why": "You use HubSpot"}]
+        # Connect to unlock, per team; a check becomes a goal for its team, once.
+        unlock = {u["team_kind"]: u for u in opp["unlock"]}
+        assert {"finance", "sales", "it"} <= set(unlock)
+        assert any(c["key"] == "overdue_invoices" and c["tool"] == "quickbooks" for c in unlock["finance"]["checks"])
+        r = await c.post("/api/org/unlock/lead_followup")
+        assert r.status_code == 200, r.text
+        lead_goal = r.json()["goal_id"]
+        assert (await c.post("/api/org/unlock/lead_followup")).json()["goal_id"] == lead_goal
+        g = next(x for x in (await c.get("/api/campaigns")).json() if x["id"] == lead_goal)
+        assert (g["name"], g["status"]) == ("Follow up every lead and stalled deal", "draft")
+        full = (await c.get(f"/api/campaigns/{lead_goal}")).json()
+        assert [st["tool"] for st in full["playbook"]["steps"]] == ["hubspot", "none", "hubspot"]
+        assert (await c.post("/api/org/unlock/overdue_invoices")).status_code == 404  # no Finance team yet
+        assert (await c.post("/api/org/unlock/search_rank")).status_code == 404  # not a connect-to-unlock check
 
         # Going further: step 2 becomes a draft goal with its full price, once.
         r = await c.post("/api/org/opportunities/0/milestones/1/goal")
@@ -180,3 +192,19 @@ async def test_with_google_set_up_the_scan_uses_real_rankings_by_country(with_ke
         assert {r["key"] for r in opp["scorecard"]} >= {"speed", "email_auth", "broken_links"}
         structure = next(x for x in fake.calls if "findings" in (x.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
         assert "Mobile speed: you 38/100" in structure["messages"][0]["content"]
+
+
+def test_each_scan_has_a_budget_and_room_for_other_teams():
+    from app.agent.opportunities import SHOW, balanced
+
+    for pack in checks.PRIORITY:
+        for size in ("tiny", "small", "mid", "large"):
+            short = checks.shortlist(pack, size)
+            assert len(short) <= checks.SHORTLIST
+            assert sum(c.team not in checks.GTM for c in short) >= 1
+    assert "employer_reviews" not in {c.key for c in checks.shortlist("agency", "tiny")}
+    assert "security_page" in {c.key for c in checks.shortlist("startup", "large")[:6]}
+    gtm = [{"team_kind": "marketing", "title": str(i)} for i in range(6)]
+    picked = balanced(gtm + [{"team_kind": "engineering", "title": "slow site"}])
+    assert len(picked) == SHOW and picked[-1]["title"] == "slow site"
+    assert balanced(gtm)[:SHOW] == gtm[:SHOW]  # nothing else found: the best five
