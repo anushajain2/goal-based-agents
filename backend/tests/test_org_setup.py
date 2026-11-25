@@ -146,9 +146,9 @@ async def test_setup_researches_and_builds_a_focused_team(with_key, fake_site):
     assert "acme.test" in research_call["messages"][0]["content"]
     plan_call = next(c for c in fake.calls if "departments" in (c.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
     assert "Research brief" in plan_call["messages"][0]["content"]
-    # Then the scan: web search and fetch, and findings tied to goals.
-    scan_call = next(c for c in fake.calls if "findings" in (c.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
-    assert "Book 15 demos with Heads of Ops" in scan_call["messages"][0]["content"]
+    # Then the scan starts by picking which checks to run for this company.
+    pick_call = next(c for c in fake.calls if "checks" in (c.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
+    assert "Identity: Acme" in pick_call["messages"][0]["content"]
 
 
 async def test_research_pauses_are_resumed(with_key, fake_site):
@@ -179,7 +179,7 @@ async def test_failed_research_still_plans_from_site_and_description(with_key, f
         await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(broken, org_planner=lambda kw: PLAN)))
         st = (await c.get("/api/org/setup")).json()["setup"]
         assert st["status"] == "done"
-        assert [x["status"] for x in st["steps"]] == ["done", "failed", "done", "done", "failed"]  # the scan needs the web too; setup still finishes
+        assert [x["status"] for x in st["steps"]] == ["done", "failed", "done", "done", "done"]
 
 
 async def test_failed_plan_offers_retry_and_basic_team(with_key, fake_site):

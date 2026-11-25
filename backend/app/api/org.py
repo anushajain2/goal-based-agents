@@ -168,6 +168,20 @@ async def rerun_setup(body: SetupIn, s: AsyncSession = Depends(get_session), me:
     return _setup_json(setup)
 
 
+@router.post("/org/opportunities/{finding}/milestones/{step}/goal")
+async def milestone_goal(finding: int, step: int, s: AsyncSession = Depends(get_session),
+                         me: Member = Depends(current_member)):
+    """Turn a later milestone of a finding into a draft goal, ready to start."""
+    require_admin(me)
+    from app.agent import opportunities
+
+    goal_id = await opportunities.milestone_goal(s, me.org_id, me.user.id, finding, step)
+    await s.commit()
+    if not goal_id:
+        raise HTTPException(404, "That step can't be set up: its team may not exist yet.")
+    return {"goal_id": goal_id}
+
+
 @router.post("/org/setup/starter-budgets")
 async def use_starter_budgets(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
     """Suggested goals made before one-week starter budgets existed: switch the ones not started yet."""
@@ -181,7 +195,7 @@ async def use_starter_budgets(s: AsyncSession = Depends(get_session), me: Member
     for c in (await s.execute(select(Campaign).where(Campaign.org_id == me.org_id, Campaign.origin == "setup",
                                                      Campaign.status == "draft"))).scalars():
         old = c.budget_basis or {}
-        if old.get("starter"):
+        if old.get("starter") or old.get("milestone"):  # a milestone keeps the price people were shown
             continue
         basis = estimate.starter(per, c.cycle_hours, old.get("days") or estimate.DEFAULT_DAYS,
                                  old.get("paid_spend_usd") or 0, kind, n)

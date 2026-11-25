@@ -195,6 +195,7 @@ export type BudgetBasis = {
   per_session_usd: number; sessions: number; cycle_hours: number; days: number; ai_usd: number; paid_spend_usd: number;
   suggested_usd: number; basis: "typical" | "history"; history_sessions: number; chosen_usd?: number;
   starter?: boolean; full_days?: number; full_sessions?: number; full_usd?: number; // one-week starter budgets
+  milestone?: boolean; // a step of a bigger fix, priced in full
 };
 export type Mode = "auto" | "ask" | "never";
 export type PlanStep = { text: string; action_type: string; tool: string };
@@ -244,12 +245,29 @@ export type CompanyProfile = {
   sources?: { url: string; title: string }[]; researched_at?: string;
   revenue?: string; size?: "tiny" | "small" | "mid" | "large"; size_reason?: string; later?: LaterFunction[];
   company_type?: string; pack_label?: string;
-  opportunities?: { findings: Opportunity[]; deeper: { tool: string; label: string; check: string }[]; scanned_at: string };
+  opportunities?: {
+    findings: Opportunity[]; scanned_at: string;
+    deeper: { check: string; tool: string; label: string; title: string; why: string }[];
+    checks?: { key: string; title: string; method: string }[];
+    visibility?: Visibility;
+  };
+};
+/** Where the company shows up when customers search, against competitors. */
+export type Visibility = {
+  domain: string; competitors: { name: string; domain: string }[];
+  search: { query: string; intent: string; rank: number | null; checked: number; competitors_ahead: string[];
+    results: { title: string; url: string; domain: string; who: string }[] }[];
+  ai: { query: string; rank: number | null; recommended: { name: string; domain: string; you: boolean; competitor: boolean }[] }[];
+};
+export type Milestone = {
+  name: string; outcome: string; weeks: number; ai_usd: number; paid_usd: number; total_usd: number;
+  paid_items: { item: string; usd: number }[]; goal_id: string | null;
 };
 /** Something the company is missing today, found from public information, and the goal that fixes it. */
 export type Opportunity = {
   team_kind: string; title: string; evidence: string; impact: string; estimate: string; assumption: string;
   confidence: "high" | "medium" | "low"; sources: string[]; goal_id: string | null;
+  check?: string; milestones?: Milestone[]; total_usd?: number | null;
 };
 export type LaterFunction = { kind: string; name: string; when: string };
 export const SIZE_LABEL: Record<string, string> = { tiny: "1-10 people", small: "11-50 people", mid: "51-250 people", large: "250+ people" };

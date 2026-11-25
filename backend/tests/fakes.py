@@ -40,13 +40,15 @@ class FakeAnthropic:
     def __init__(self, script: Callable[[dict], list[dict]], reviewer: Callable[[dict], dict] | None = None,
                  planner: Callable[[dict], dict] | None = None,
                  org_planner: Callable[[dict], dict] | None = None, searches: int = 0,
-                 classifier: Callable[[dict], dict] | None = None, scanner: Callable[[dict], dict] | None = None):
+                 classifier: Callable[[dict], dict] | None = None, scanner: Callable[[dict], dict] | None = None,
+                 routes: dict[str, Callable[[dict], dict]] | None = None):
         self.script = script
         self.reviewer = reviewer or (lambda kw: {"violates": False, "rule": "", "explanation": ""})
         self.planner = planner or (lambda kw: {"assessment": "Fresh start.", "plan": ["Research", "Post once"],
                                                "strategy": ""})
         self.org_planner = org_planner  # organization setup: the team plan
         self.classifier = classifier or (lambda kw: {"company_type": "general", "size": "small", "reason": ""})
+        self.routes = routes or {}  # structured output by a property of its schema, checked first
         self.scanner = scanner or (lambda kw: {"findings": [], "deeper": []})  # setup: what they're missing
         self.searches = searches  # web searches reported per agent-loop call
         self.calls: list[dict] = []
@@ -58,7 +60,8 @@ class FakeAnthropic:
         fmt = kwargs.get("output_config", {}).get("format")
         if fmt:
             props = fmt["schema"]["properties"]
-            answer = (self.org_planner if "departments" in props
+            route = next((f for k, f in self.routes.items() if k in props), None)
+            answer = (route if route else self.org_planner if "departments" in props
                       else self.scanner if "findings" in props
                       else self.classifier if "company_type" in props
                       else self.planner if "plan" in props else self.reviewer)

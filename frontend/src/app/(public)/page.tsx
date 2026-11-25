@@ -110,10 +110,10 @@ export default function Landing() {
       <section id="missing" className="scroll-mt-20 pt-32">
         <div className="mx-auto max-w-6xl px-5">
           <Title kicker="Before anything else" title="See what you're missing out on."
-            sub="We look at what's public about your company and show you, with evidence, where you're leaving money on the table. Each gap comes with the AI employee and goal that fixes it." />
+            sub="We search for what your customers search, ask AI assistants what they recommend, and check what's public about you and your competitors. Each gap comes with the AI employee that fixes it, and what it costs, in steps." />
           <div className="mt-12 grid gap-4 md:grid-cols-3">
-            <Missing team="Marketing" title="Rare, low-traction LinkedIn posts" evidence="4 company posts in 5 months, most under 10 reactions. Two competitors post weekly."
-              estimate="$20k–60k a year in pipeline" fix="Post twice a week" agent="Content Agent" />
+            <Missing team="Marketing" title="Competitors own the searches buyers make" evidence="Rank 6 for “route planning software”. Asked the same question, AI assistants recommend three competitors and not you."
+              steps={[["Start: page 1 for 3 searches", "$30"], ["Full: top 3 for the main search", "~$1,750"]]} fix="Win the searches" agent="Content Agent" />
             <Missing team="Support" title="Few reviews where buyers look" evidence="12 G2 reviews at 4.1 stars. Your two main competitors have 180 and 240."
               fix="Collect reviews from happy customers" agent="Reviews Agent" />
             <Missing team="Hiring" title="A key role open for 94 days" evidence="The Senior AE post has been up since August, with a job ad that doesn't mention pay or the product."
@@ -397,13 +397,22 @@ function Step({ n, title, text, clip, label, flip }: { n: string; title: string;
   );
 }
 
-function Missing({ team, title, evidence, estimate, fix, agent }: { team: string; title: string; evidence: string; estimate?: string; fix: string; agent: string }) {
+function Missing({ team, title, evidence, estimate, steps, fix, agent }: {
+  team: string; title: string; evidence: string; estimate?: string; steps?: [string, string][]; fix: string; agent: string;
+}) {
   return (
     <div className="flex flex-col rounded-2xl border border-line bg-white p-6 text-left shadow-[var(--shadow-card)]">
       <div><Chip team={team} /></div>
       <p className="mt-4 text-[18px] font-semibold leading-snug tracking-[-0.02em]">{title}</p>
       <p className="mt-2 text-[14px] leading-relaxed text-stone-600">{evidence}</p>
       {estimate && <p className="mt-3 rounded-lg bg-brand-50 px-3 py-1.5 text-[13.5px] font-semibold text-brand-700 ring-1 ring-inset ring-brand-100">{estimate}</p>}
+      {steps && (
+        <ul className="mt-3 space-y-1 rounded-lg bg-brand-50 px-3 py-2 text-[13px] ring-1 ring-inset ring-brand-100">
+          {steps.map(([what, cost]) => (
+            <li key={what} className="flex justify-between gap-3"><span className="text-brand-700">{what}</span><b className="font-semibold text-brand-700">{cost}</b></li>
+          ))}
+        </ul>
+      )}
       <div className="mt-auto flex items-center gap-2 border-t border-line pt-4 text-[13px]">
         <Avatar name={agent} team={team} size={22} />
         <span className="min-w-0 flex-1 truncate"><span className="text-muted">{agent}:</span> <b className="font-semibold">{fix}</b></span>

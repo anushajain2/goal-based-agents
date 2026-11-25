@@ -240,7 +240,7 @@ function SuggestedTeam({ info, onAdding }: { info: SetupInfo; onAdding: () => vo
     const created = new Set(createdIds || []);
     return (goals || []).filter((g) => created.has(g.id) || g.origin === "setup");
   }, [goals, createdIds]);
-  const oldBudgets = mine.filter((g) => g.status === "draft" && !g.budget_basis?.starter);
+  const oldBudgets = mine.filter((g) => g.status === "draft" && !g.budget_basis?.starter && !g.budget_basis?.milestone);
 
   async function starterBudgets() {
     setErr(null);
