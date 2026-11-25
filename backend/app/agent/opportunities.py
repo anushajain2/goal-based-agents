@@ -19,6 +19,7 @@ never judges individual people.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -33,7 +34,7 @@ from app.catalog import TOOLS
 from app.db import session_scope
 from app.models import Agent, Campaign, Department, Organization, utcnow
 from app.org import DEPARTMENT_PRESETS
-from app.services import estimate
+from app.services import estimate, presence
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ company, given what it sells, who buys it, its stage and its market. Then write 
 real customer would type when looking for what this company sells. Never include the company's \
 own name or brand in a search: we want to know if customers who don't know them yet find them. \
 Mix a broad search with more specific ones (by use case, industry or location), in the language \
-its customers use. Finally name its main competitors with their website domains."""
+its customers use. Name its main competitors with their website domains. List the markets where its customers are (up to 3, most important first) with Google's country code and the language people search in there. If it serves customers in particular cities (a clinic, an installer, a restaurant, a local agency or shop), give the search a local customer would type without the city (e.g. "emergency plumber") and up to 3 cities; otherwise leave local empty."""
 
 PICK_TASK = """Company: {name} ({website})
 What they do: {description}
@@ -64,7 +65,7 @@ What research found:
 Possible checks (key: what it looks at):
 {checks}
 
-Pick up to {max_checks} checks, write {max_queries} customer searches, and name up to 5 competitors."""
+Pick up to {max_checks} checks, write {max_queries} customer searches, name up to 5 competitors, and list its markets."""
 
 
 def pick_schema(keys: list[str]) -> dict:
@@ -80,8 +81,17 @@ def pick_schema(keys: list[str]) -> dict:
             "competitors": {"type": "array", "items": {
                 "type": "object", "properties": {"name": {"type": "string"}, "domain": {"type": "string"}},
                 "required": ["name", "domain"], "additionalProperties": False}},
+            "markets": {"type": "array", "items": {
+                "type": "object",
+                "properties": {"country": {"type": "string", "description": "Country name in English, e.g. Germany"},
+                               "gl": {"type": "string", "description": "Google country code, e.g. de"},
+                               "hl": {"type": "string", "description": "Search language code, e.g. de"}},
+                "required": ["country", "gl", "hl"], "additionalProperties": False}},
+            "local": {"type": "object",
+                      "properties": {"query": {"type": "string"}, "cities": {"type": "array", "items": {"type": "string"}}},
+                      "required": ["query", "cities"], "additionalProperties": False},
         },
-        "required": ["checks", "queries", "competitors"], "additionalProperties": False}}
+        "required": ["checks", "queries", "competitors", "markets", "local"], "additionalProperties": False}}
 
 
 # --- 2. measure ---------------------------------------------------------------------------------
@@ -166,8 +176,8 @@ async def search_visibility(claude: MeteredClaude, queries: list[dict], mine: st
         for row in rows[: (rank - 1) if rank else len(rows)]:
             if row["who"] and row["who"] != "you" and row["who"] not in ahead:
                 ahead.append(row["who"])
-        out.append({"query": q["query"], "intent": q.get("intent", ""), "rank": rank, "checked": len(rows),
-                    "results": rows[:6], "competitors_ahead": ahead})
+        out.append({"query": q["query"], "intent": q.get("intent", ""), "market": "Web", "rank": rank, "checked": len(rows),
+                    "results": rows[:6], "competitors_ahead": ahead, "source": "web"})
     return out, cost
 
 
@@ -193,7 +203,7 @@ async def ai_answers(claude: MeteredClaude, queries: list[dict], name: str, mine
                 rank = pos
             names.append({"name": r.get("name", "")[:80], "domain": host(r.get("domain", "")), "you": is_me,
                           "competitor": any(_same_site(host(r.get("domain", "")), host(c["domain"])) for c in competitors)})
-        out.append({"query": q["query"], "rank": rank, "recommended": names})
+        out.append({"assistant": "Claude", "query": q["query"], "rank": rank, "recommended": names})
     return out, result.cost
 
 
@@ -251,6 +261,9 @@ pad: if no extra spend is needed, list none.
 
 STRUCTURE_TASK = """Measured: where {name} ({domain}) shows up for what customers search
 {visibility}
+
+Measured: its website, domain and presence next to competitors
+{measured}
 
 The analyst's notes:
 {notes}
@@ -340,12 +353,45 @@ def visibility_text(search: list[dict], ai: list[dict]) -> str:
     for s in search:
         where = f"rank {s['rank']} of {s['checked']} results" if s["rank"] else f"not in the top {s['checked']} results"
         top = ", ".join(f"{r['domain']}{' (' + r['who'] + ')' if r['who'] else ''}" for r in s["results"][:5])
-        lines.append(f"- Web search \"{s['query']}\": {where}. Top results: {top}")
+        ov = s.get("ai_overview")
+        ai_text = (" AI Overview " + ("mentions you" if ov.get("mentioned") else "doesn't mention you")) if ov else ""
+        lines.append(f"- {'Google ' + s['market'] if s.get('source') == 'google' else 'Web search'} \"{s['query']}\": {where}. Top results: {top}.{ai_text}")
     for a in ai:
         where = f"recommended #{a['rank']}" if a["rank"] else "not recommended"
         names = ", ".join(r["name"] for r in a["recommended"]) or "nobody"
-        lines.append(f"- AI assistant asked \"{a['query']}\": {where}. Recommended: {names}")
+        lines.append(f"- {a.get('assistant', 'AI assistant')} asked \"{a['query']}\": {where}. Recommended: {names}")
     return "\n".join(lines)
+
+
+def highlights(search: list[dict], ai: list[dict]) -> list[str]:
+    """The few results most worth pointing out, in plain words."""
+    out: list[str] = []
+    by_query: dict[str, list[dict]] = {}
+    for row in search:
+        by_query.setdefault(row["query"], []).append(row)
+    for q, rows in by_query.items():
+        ranked = [r for r in rows if r["rank"]]
+        missing = [r for r in rows if not r["rank"]]
+        names_a_market = any(r["market"].lower() in q.lower() for r in rows)  # "... netherlands" is meant for one country
+        if ranked and missing and len(rows) > 1 and not names_a_market:
+            best = min(ranked, key=lambda r: r["rank"])
+            miss = missing[0]
+            leader = (miss["competitors_ahead"] or [""])[0]
+            out.append(f"You're #{best['rank']} in {best['market']} for \"{q}\" but not in the top {miss['checked']} in "
+                       f"{miss['market']}" + (f", where {leader} leads." if leader else "."))
+        elif rows and not ranked:
+            leaders = {r["competitors_ahead"][0] for r in rows if r["competitors_ahead"]}
+            where = rows[0]["market"] if len(rows) == 1 else f"all {len(rows)} countries checked"
+            out.append(f"Not in the top results for \"{q}\" in {where}" + (f"; {', '.join(sorted(leaders))} rank there." if leaders else "."))
+    by_q_ai: dict[str, list[dict]] = {}
+    for a in ai:
+        by_q_ai.setdefault(a["query"], []).append(a)
+    for q, answers in by_q_ai.items():
+        if len(answers) > 1 and not any(a["rank"] for a in answers):
+            named = sorted({r["name"] for a in answers for r in a["recommended"] if r.get("competitor")})
+            out.append(f"None of the {len(answers)} AI assistants asked recommend you for \"{q}\""
+                       + (f"; they suggest {', '.join(named)}." if named else "."))
+    return out[:3]
 
 
 async def look(claude: MeteredClaude, name: str, website: str, description: str, research: str, site_text: str,
@@ -412,25 +458,51 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     competitors = [c for c in plan.get("competitors") or [] if c.get("name") and host(c.get("domain", ""))
                    and not _same_site(host(c["domain"]), mine)][:5]
 
-    # 2. Measure: real searches, and what an AI assistant recommends.
-    search, ai = [], []
-    if queries and any(c.method == "search" for c in picked):
+    markets = [{"label": m["country"][:40], "gl": m["gl"].lower()[:2], "hl": m["hl"].lower()[:5]}
+               for m in plan.get("markets") or [] if m.get("country") and m.get("gl") and m.get("hl")][:3] \
+        or [{"label": "United States", "gl": "us", "hl": "en"}]
+    local = plan.get("local") or {}
+    local = {"query": local.get("query", "")[:80], "cities": [c for c in local.get("cities") or [] if c][:3],
+             "gl": markets[0]["gl"], "hl": markets[0]["hl"]} if local.get("query") and local.get("cities") else None
+
+    # 2. Measure: real Google results by country (Claude's web search when Google isn't set up),
+    #    what AI assistants recommend, and the website, domain and presence against competitors.
+    async def claude_search():
+        if not queries or presence.google.enabled() or not any(c.method == "search" for c in picked):
+            return [], Decimal("0")
         try:
-            search, c1 = await search_visibility(claude, queries, mine, competitors)
-            cost += c1
+            return await search_visibility(claude, queries, mine, competitors)
         except Exception as e:
             log.warning("search visibility check failed: %s", e)
-    if queries and any(c.method == "ai" for c in picked):
+            return [], Decimal("0")
+
+    async def claude_answers():
+        if not queries or not any(c.method == "ai" for c in picked):
+            return [], Decimal("0")
         try:
-            ai, c2 = await ai_answers(claude, queries, name, mine, competitors)
-            cost += c2
+            return await ai_answers(claude, queries, name, mine, competitors)
         except Exception as e:
             log.warning("AI answer check failed: %s", e)
+            return [], Decimal("0")
+
+    async def measured():
+        try:
+            return await presence.measure(name, website or "", competitors, queries, markets, local)
+        except Exception as e:
+            log.warning("market measurements failed: %s", e)
+            return {}
+
+    (web, c1), (ai, c2), m = await asyncio.gather(claude_search(), claude_answers(), measured())
+    cost += c1 + c2 + presence.cost(m.get("calls") or {})
+    search = m.get("google") or web
+    ai = ai + (m.get("assistants") or [])
+    rows = presence.scorecard(m) if m else []
+    measured_text = presence.summary(m, rows) if m else ""
 
     # 3. Look at public pages for the rest.
     notes, sources, c3 = await look(claude, name, website, description, research, site_text, picked, competitors)
     cost += c3
-    if not notes and not search and not ai:
+    if not notes and not search and not ai and not rows:
         return {"findings": [], "deeper": [], "cost": cost}
 
     # 4. Findings, each tied to goals; big fixes in milestones with their prices.
@@ -443,7 +515,7 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     goal_schema = org_setup.plan_schema()["schema"]["properties"]["departments"]["items"]["properties"][
         "agents"]["items"]["properties"]["goals"]["items"]
     task = STRUCTURE_TASK.format(
-        name=name, domain=mine or "(no website)", visibility=visibility_text(search, ai), notes=(notes or "(none)")[:12000],
+        name=name, domain=mine or "(no website)", visibility=visibility_text(search, ai), measured=measured_text or "(nothing measured)", notes=(notes or "(none)")[:12000],
         sources="\n".join(f"- {x['title']}: {x['url']}" for x in unique[:30]) or "(none)", teams=teams, max=MAX_FINDINGS,
         goals="\n".join(f"- {gid}: {gname} · {dname}" for gid, gname, dname in goals) or "(none)",
         checks=", ".join(f"{c.key}: {c.title}" for c in picked) or "(none)",
@@ -500,7 +572,10 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
         org.profile = {**(org.profile or {}), "opportunities": {
             "findings": findings, "deeper": deeper, "scanned_at": utcnow().isoformat(), "goals_added": created,
             "checks": [{"key": c.key, "title": c.title, "method": c.method} for c in picked],
-            "visibility": {"domain": mine, "competitors": competitors, "search": search, "ai": ai},
+            "visibility": {"domain": mine, "competitors": competitors, "markets": [x["label"] for x in markets],
+                           "source": "google" if m.get("google") else "web", "search": search, "ai": ai,
+                           "local": m.get("local") or [], "highlights": highlights(search, ai)},
+            "scorecard": rows,
         }}
     return {"findings": findings, "deeper": deeper, "cost": cost}
 

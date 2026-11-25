@@ -58,3 +58,20 @@ def _capture_sign_in_codes(monkeypatch):
     monkeypatch.setattr(auth, "send_login_code", fake_send)
     SENT_CODES.clear()
     yield
+
+
+@pytest.fixture(autouse=True)
+def _no_network_for_market_checks(monkeypatch):
+    """Market checks never reach the internet in tests: every request gets a 404 unless a test
+    installs its own fake (presence.http.transport)."""
+    import httpx
+
+    from app.services.presence import http, site
+
+    monkeypatch.setattr(http, "transport", httpx.MockTransport(lambda request: httpx.Response(404)))
+
+    async def no_cert(domain):
+        return None
+
+    monkeypatch.setattr(site, "cert_days", no_cert)
+    yield

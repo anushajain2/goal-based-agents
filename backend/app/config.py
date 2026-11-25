@@ -39,6 +39,27 @@ class Settings(BaseSettings):
     # Composio scopes connected accounts per "user"; locally there is one user.
     composio_user_id: str = "autopilot-local-user"
 
+    # --- Market checks at setup (optional, the platform's own keys) -------------
+    # Used by "What you're missing out on". Customers never enter these: set them once for the
+    # whole platform. Each source is used when its key is set and skipped otherwise; checks that
+    # need no key (DNS, Wikipedia, App Store, popularity ranks) always run.
+    serpapi_key: str | None = None  # real Google results by country, AI Overviews, Maps, Google Play, ads
+    dataforseo_login: str | None = None  # search volume and keyword difficulty
+    dataforseo_password: str | None = None
+    google_api_key: str | None = None  # PageSpeed Insights and YouTube Data API
+    openpagerank_key: str | None = None  # domain authority
+    meta_ad_library_token: str | None = None  # ads running on Facebook and Instagram (EU)
+    openai_api_key: str | None = None  # what ChatGPT recommends
+    openai_model: str = "gpt-5-mini"
+    perplexity_api_key: str | None = None
+    perplexity_model: str = "sonar"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.5-flash"
+    # What one call costs, for the setup cost shown to people (US$).
+    serpapi_cost_usd: float = 0.015
+    dataforseo_cost_usd: float = 0.08
+    assistant_cost_usd: float = 0.01
+
     # --- GitHub sign-in (optional) ---------------------------------------------
     # An OAuth app (github.com/settings/developers) lets people connect a repository with
     # "Sign in with GitHub". Its callback URL is <frontend origin>/api/integrations/github/callback.

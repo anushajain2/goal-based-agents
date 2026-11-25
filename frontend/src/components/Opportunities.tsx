@@ -4,7 +4,7 @@ import { ArrowRight, Bot, Check, ExternalLink, Flag, Loader2, Plug, Search, Tren
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, usd, Visibility } from "@/lib/api";
+import { api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, ScoreRow, usd, Visibility } from "@/lib/api";
 import { TeamTag } from "./team";
 import { cx, ErrorNote } from "./ui";
 
@@ -27,7 +27,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
   onStart: (goals: Campaign[]) => void; onOpen: (goal: Campaign) => void; canStart: boolean;
 }) {
   const found = profile?.opportunities;
-  const has = !!found && (found.findings.length > 0 || found.deeper.length > 0);
+  const has = !!found && (found.findings.length > 0 || found.deeper.length > 0 || (found.scorecard || []).length > 0);
   const [made, setMade] = useState<Record<string, string>>({});  // "finding:step" -> goal made just now
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -71,6 +71,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
       {err && <ErrorNote>{err}</ErrorNote>}
 
       {found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) && <Findable v={found.visibility} name={orgName} />}
+      {(found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} />}
 
       <div className="grid gap-3 md:grid-cols-2">
         {found.findings.map((f, i) => {
@@ -205,58 +206,162 @@ function Steps({ steps, total, goalFor, canStart, busy, onStart, onOpen, onFurth
   );
 }
 
-/** Where they show up when customers search or ask an AI assistant, next to competitors. */
+/** Where they show up when customers search on Google (by country) or ask AI assistants. */
 function Findable({ v, name }: { v: Visibility; name: string }) {
-  const rows = [...new Set([...v.search.map((s) => s.query), ...v.ai.map((a) => a.query)])];
-  const seen = v.search.filter((s) => s.rank).length + v.ai.filter((a) => a.rank).length;
-  const asked = v.search.length + v.ai.length;
+  const queries = [...new Set([...v.search.map((s) => s.query), ...v.ai.map((a) => a.query)])];
+  const markets = v.source === "google" ? (v.markets || [...new Set(v.search.map((s) => s.market || ""))]) : ["Web"];
+  const assistants = [...new Set(v.ai.map((a) => a.assistant || "AI assistant"))];
+  const seen = v.search.filter((s) => s.rank).length;
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-end justify-between gap-2 border-b border-line px-5 py-3.5">
         <div>
           <div className="text-[15px] font-semibold">How customers find you</div>
-          <div className="text-[12.5px] text-muted">What people looking for what you sell type in, without your name. Checked live.</div>
+          <div className="text-[12.5px] text-muted">
+            {v.source === "google" ? `Real Google results in ${markets.join(", ")}` : "Web search results"}, for what people looking for what you sell type in, without your name.
+          </div>
         </div>
-        <span className={cx("rounded-full px-2.5 py-1 text-[12px] font-semibold", seen === 0 ? "bg-red-50 text-red-700" : seen < asked ? "bg-signal-50 text-signal-800" : "bg-emerald-50 text-emerald-700")}>
-          {name} shows up in {seen} of {asked}
+        {v.search.length > 0 && (
+          <span className={cx("rounded-full px-2.5 py-1 text-[12px] font-semibold", seen === 0 ? "bg-red-50 text-red-700" : seen < v.search.length ? "bg-signal-50 text-signal-800" : "bg-emerald-50 text-emerald-700")}>
+            {name} shows up in {seen} of {v.search.length} searches
+          </span>
+        )}
+      </div>
+      {(v.highlights || []).length > 0 && (
+        <ul className="space-y-1.5 border-b border-line bg-brand-50/50 px-5 py-3">
+          {v.highlights!.map((h) => <li key={h} className="flex gap-2 text-[13px] font-medium text-brand-900"><TrendingUp size={14} className="mt-0.5 shrink-0 text-brand-600" />{h}</li>)}
+        </ul>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left">
+          <thead>
+            <tr className="border-b border-line bg-canvas text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">
+              <th className="px-5 py-2 font-semibold">Search</th>
+              {markets.map((m) => <th key={m} className="px-3 py-2 font-semibold"><span className="inline-flex items-center gap-1"><Search size={11} />{v.source === "google" ? `Google ${m}` : "Web search"}</span></th>)}
+              {assistants.length > 0 && <th className="px-3 py-2 font-semibold"><span className="inline-flex items-center gap-1"><Bot size={11} /> AI assistants</span></th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {queries.map((q) => {
+              const intent = v.search.find((x) => x.query === q)?.intent;
+              return (
+                <tr key={q} className="align-top">
+                  <td className="px-5 py-3">
+                    <div className="text-[13.5px] font-semibold">&ldquo;{q}&rdquo;</div>
+                    {intent && <div className="text-[12px] text-muted">{intent}</div>}
+                  </td>
+                  {markets.map((m) => {
+                    const s = v.search.find((x) => x.query === q && (v.source !== "google" || x.market === m));
+                    return (
+                      <td key={m} className="px-3 py-3 text-[12.5px]">
+                        {s ? (
+                          <div className="space-y-1">
+                            <Rank rank={s.rank} miss={`Not in top ${s.checked}`} />
+                            {(s.volume != null || s.difficulty != null) && (
+                              <div className="text-muted">
+                                {s.volume != null && <span className="tabular">{s.volume.toLocaleString()}/mo</span>}
+                                {s.volume != null && s.difficulty != null && " · "}
+                                {s.difficulty != null && <span>difficulty {s.difficulty}</span>}
+                              </div>
+                            )}
+                            {s.competitors_ahead.length > 0 && <div className="text-muted">Ahead: {s.competitors_ahead.join(", ")}</div>}
+                            {s.ai_overview && (
+                              <div className={cx("text-[11.5px] font-medium", s.ai_overview.mentioned ? "text-emerald-700" : "text-red-700")}>
+                                AI Overview {s.ai_overview.mentioned ? "cites you" : s.ai_overview.competitors.length ? `cites ${s.ai_overview.competitors.join(", ")}` : "doesn't cite you"}
+                              </div>
+                            )}
+                          </div>
+                        ) : <span className="text-muted">-</span>}
+                      </td>
+                    );
+                  })}
+                  {assistants.length > 0 && (
+                    <td className="px-3 py-3 text-[12.5px]">
+                      <ul className="space-y-1">
+                        {assistants.map((who) => {
+                          const a = v.ai.find((x) => x.query === q && (x.assistant || "AI assistant") === who);
+                          if (!a) return null;
+                          const others = a.recommended.filter((r) => !r.you).slice(0, 2).map((r) => r.name).join(", ");
+                          return (
+                            <li key={who} className="flex flex-wrap items-center gap-1.5">
+                              <span className="w-[74px] shrink-0 font-medium text-stone-700">{who}</span>
+                              <Rank rank={a.rank} miss="Not named" prefix="" />
+                              {!a.rank && others && <span className="truncate text-muted">{others}</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {(v.local || []).length > 0 && (
+        <div className="border-t border-line px-5 py-3">
+          <div className="mb-2 text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">Google Maps results</div>
+          <ul className="grid gap-2 sm:grid-cols-3">
+            {v.local!.map((l) => (
+              <li key={l.city} className="rounded-xl bg-canvas p-3 text-[12.5px]">
+                <div className="font-semibold">{l.city}</div>
+                <div className="mt-1"><Rank rank={l.rank} miss="Not in the map results" /></div>
+                {l.results[0] && !l.results[0].you && (
+                  <div className="mt-1 truncate text-muted">#1 {l.results[0].title}{l.results[0].rating ? ` · ${l.results[0].rating}★ (${l.results[0].reviews ?? 0})` : ""}</div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The website, domain and presence, measured next to competitors. */
+function Scorecard({ rows, name }: { rows: ScoreRow[]; name: string }) {
+  const names = [...new Set(rows.flatMap((r) => r.others.map((o) => o.name)))].slice(0, 3);
+  const bad = rows.filter((r) => r.you.status === "bad").length;
+  return (
+    <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[var(--shadow-card)]">
+      <div className="flex flex-wrap items-end justify-between gap-2 border-b border-line px-5 py-3.5">
+        <div>
+          <div className="text-[15px] font-semibold">Your website and presence, measured</div>
+          <div className="text-[12.5px] text-muted">Checked live, next to {names.length ? names.join(", ") : "your competitors"}.</div>
+        </div>
+        <span className={cx("rounded-full px-2.5 py-1 text-[12px] font-semibold", bad ? "bg-signal-50 text-signal-800" : "bg-emerald-50 text-emerald-700")}>
+          {bad ? `${bad} to fix` : "All good"}
         </span>
       </div>
-      <div className="hidden grid-cols-[1.3fr_1fr_1fr] gap-4 border-b border-line bg-canvas px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-muted md:grid">
-        <div>Search</div><div className="flex items-center gap-1"><Search size={11} /> Web search</div><div className="flex items-center gap-1"><Bot size={11} /> AI assistant</div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left text-[12.5px]">
+          <thead>
+            <tr className="border-b border-line bg-canvas text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">
+              <th className="px-5 py-2 font-semibold">Check</th>
+              <th className="px-3 py-2 font-semibold">{name}</th>
+              {names.map((n) => <th key={n} className="px-3 py-2 font-semibold">{n}</th>)}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {rows.map((r) => (
+              <tr key={r.key} className="align-top">
+                <td className="px-5 py-2.5">
+                  <div className="font-semibold text-ink">{r.label}</div>
+                  {r.note && <div className="text-[11.5px] text-muted">{r.note}</div>}
+                </td>
+                <td className="px-3 py-2.5">
+                  <span className={cx("inline-flex items-start gap-1.5 font-medium", r.you.status === "bad" ? "text-red-700" : r.you.status === "good" ? "text-emerald-700" : "text-ink")}>
+                    <span className={cx("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", r.you.status === "bad" ? "bg-red-500" : r.you.status === "good" ? "bg-emerald-500" : "bg-stone-300")} />
+                    {r.you.display}
+                  </span>
+                </td>
+                {names.map((n) => <td key={n} className="px-3 py-2.5 text-stone-600">{r.others.find((o) => o.name === n)?.display ?? <span className="text-stone-300">-</span>}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <ul className="divide-y divide-line">
-        {rows.map((q) => {
-          const s = v.search.find((x) => x.query === q);
-          const a = v.ai.find((x) => x.query === q);
-          return (
-            <li key={q} className="grid gap-2 px-5 py-3 md:grid-cols-[1.3fr_1fr_1fr] md:gap-4">
-              <div>
-                <div className="text-[13.5px] font-semibold">&ldquo;{q}&rdquo;</div>
-                {s?.intent && <div className="text-[12px] text-muted">{s.intent}</div>}
-              </div>
-              <div className="text-[12.5px]">
-                {s ? (
-                  <>
-                    <Rank rank={s.rank} miss={`Not in the top ${s.checked}`} />
-                    {s.competitors_ahead.length > 0 && <div className="mt-1 text-muted">Ahead of you: {s.competitors_ahead.join(", ")}</div>}
-                    {!s.rank && !s.competitors_ahead.length && s.results.length > 0 && <div className="mt-1 truncate text-muted">Top: {s.results.slice(0, 3).map((r) => r.who || r.domain).join(", ")}</div>}
-                  </>
-                ) : <span className="text-muted">Not checked</span>}
-              </div>
-              <div className="text-[12.5px]">
-                {a ? (
-                  <>
-                    <Rank rank={a.rank} miss="Not recommended" prefix="Recommended" />
-                    {a.recommended.length > 0 && (
-                      <div className="mt-1 truncate text-muted">Suggests: {a.recommended.filter((r) => !r.you).slice(0, 3).map((r) => r.name).join(", ")}</div>
-                    )}
-                  </>
-                ) : <span className="text-muted">Not checked</span>}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
     </div>
   );
 }
@@ -265,7 +370,7 @@ function Rank({ rank, miss, prefix = "Rank" }: { rank: number | null; miss: stri
   if (!rank) return <span className="inline-flex rounded-md bg-red-50 px-2 py-0.5 font-semibold text-red-700">{miss}</span>;
   return (
     <span className={cx("inline-flex rounded-md px-2 py-0.5 font-semibold", rank <= 3 ? "bg-emerald-50 text-emerald-700" : "bg-signal-50 text-signal-800")}>
-      {prefix} #{rank}
+      {prefix ? `${prefix} ` : ""}#{rank}
     </span>
   );
 }

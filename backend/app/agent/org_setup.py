@@ -787,7 +787,7 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
                             f"{n} thing{'s' if n != 1 else ''} you could do better" if n else "Nothing big stood out",
                             found["cost"])
             except Exception as e:
-                log.warning("opportunity scan failed: %s", e)
+                log.warning("opportunity scan failed: %s", e, exc_info=True)
                 await _step(setup_id, "scan", "failed", "Couldn't finish this check; your AI team is ready anyway")
         async with session_scope() as s:
             setup = await s.get(OrgSetup, setup_id)

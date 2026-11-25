@@ -145,3 +145,38 @@ def test_host_matching():
     assert host("https://www.Acme.test/pricing") == "acme.test"
     assert host("acme.test") == "acme.test"
     assert host("") == ""
+
+
+async def test_with_google_set_up_the_scan_uses_real_rankings_by_country(with_key, fake_site, monkeypatch):
+    import httpx
+
+    from app.config import get_settings
+    from app.services.presence import http
+    from tests.test_presence import QA, handler
+
+    monkeypatch.setattr(get_settings(), "serpapi_key", "k")
+    monkeypatch.setattr(http, "transport", httpx.MockTransport(handler))
+
+    def pick_de_nl(kw):
+        return {"checks": ["search_rank", "ai_answers"], "queries": [{"query": QA, "intent": "Ops lead"}],
+                "competitors": [{"name": "Routeco", "domain": "routeco.test"}],
+                "markets": [{"country": "Germany", "gl": "DE", "hl": "de"}, {"country": "Netherlands", "gl": "nl", "hl": "nl"}],
+                "local": {"query": "", "cities": []}}
+
+    def answers(kw):
+        return {"answers": [{"query": QA, "recommendations": [{"name": "Routeco", "domain": "routeco.test"}]}]}
+
+    async with client() as c:
+        setup_id = await start_setup(c)
+        fake = FakeAnthropic(script, org_planner=lambda kw: PLAN, routes={"checks": pick_de_nl, "answers": answers},
+                             scanner=lambda kw: {"findings": [], "deeper": []})
+        await run_org_setup(setup_id, MeteredClaude(client=fake))
+        opp = (await c.get("/api/org/setup")).json()["org"]["profile"]["opportunities"]
+        vis = opp["visibility"]
+        assert vis["source"] == "google" and vis["markets"] == ["Germany", "Netherlands"]
+        assert [(r["market"], r["rank"]) for r in vis["search"]] == [("Germany", 2), ("Netherlands", None)]
+        assert not any(x.get("system") == SEARCH_SYSTEM for x in fake.calls)  # Google instead of Claude's search
+        assert vis["highlights"][0] == f'You\'re #2 in Germany for "{QA}" but not in the top 2 in Netherlands, where Routeco leads.'
+        assert {r["key"] for r in opp["scorecard"]} >= {"speed", "email_auth", "broken_links"}
+        structure = next(x for x in fake.calls if "findings" in (x.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
+        assert "Mobile speed: you 38/100" in structure["messages"][0]["content"]

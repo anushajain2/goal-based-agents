@@ -250,14 +250,22 @@ export type CompanyProfile = {
     deeper: { check: string; tool: string; label: string; title: string; why: string }[];
     checks?: { key: string; title: string; method: string }[];
     visibility?: Visibility;
+    scorecard?: ScoreRow[];
   };
 };
 /** Where the company shows up when customers search, against competitors. */
 export type Visibility = {
-  domain: string; competitors: { name: string; domain: string }[];
-  search: { query: string; intent: string; rank: number | null; checked: number; competitors_ahead: string[];
-    results: { title: string; url: string; domain: string; who: string }[] }[];
-  ai: { query: string; rank: number | null; recommended: { name: string; domain: string; you: boolean; competitor: boolean }[] }[];
+  domain: string; competitors: { name: string; domain: string }[]; markets?: string[]; source?: "google" | "web";
+  search: { query: string; intent: string; market?: string; rank: number | null; checked: number; competitors_ahead: string[];
+    results: { title: string; url: string; domain: string; who: string }[]; volume?: number | null; difficulty?: number | null;
+    ai_overview?: { shown: boolean; mentioned: boolean; competitors: string[] } | null }[];
+  ai: { assistant?: string; query: string; rank: number | null; recommended: { name: string; domain: string; you: boolean; competitor: boolean }[] }[];
+  local?: { query: string; city: string; rank: number | null; results: { title: string; rating: number | null; reviews: number | null; you: boolean; competitor: boolean }[] }[];
+  highlights?: string[];
+};
+export type ScoreRow = {
+  key: string; label: string; team: string; note: string;
+  you: { display: string; status: "good" | "ok" | "bad" }; others: { name: string; display: string }[];
 };
 export type Milestone = {
   name: string; outcome: string; weeks: number; ai_usd: number; paid_usd: number; total_usd: number;

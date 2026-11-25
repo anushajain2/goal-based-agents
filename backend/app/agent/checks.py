@@ -10,6 +10,7 @@ How a check is run:
   ai      what an AI assistant recommends when asked those same questions
   web     reading public pages: the company's site, reviews, job posts, directories, competitors
   tool    needs a connected tool (the company's own data); offered as a deeper check
+  measure measured directly from data sources (app/services/presence), always run when available
 """
 
 from __future__ import annotations
@@ -144,6 +145,29 @@ CHECKS: list[Check] = [
           "web", ("ecommerce",)),
     Check("agency_portfolio", "marketing", "Portfolio going stale", "Date and relevance of the latest work shown", "web", ("agency",)),
 
+    # --- Measured directly (app/services/presence) --------------------------------------------------
+    Check("google_by_country", "marketing", "Google rank in each market",
+          "Real Google results for customer searches in up to 3 countries, with competitors above you", "measure"),
+    Check("search_volume", "marketing", "How many people search, and how hard it is to rank",
+          "Monthly searches and keyword difficulty per country", "measure"),
+    Check("ai_overview", "marketing", "Google's AI Overview", "Whether Google's AI answer cites you or competitors", "measure"),
+    Check("assistants", "marketing", "ChatGPT, Perplexity and Gemini", "Who each AI assistant recommends for your customers' questions", "measure"),
+    Check("page_speed", "engineering", "Mobile speed", "Google PageSpeed score and load time, against competitors", "measure"),
+    Check("accessibility", "engineering", "Accessibility", "Google Lighthouse accessibility score", "measure"),
+    Check("email_auth", "it", "Email authentication", "SPF, DKIM and DMARC records, so email lands in inboxes", "measure"),
+    Check("site_security", "it", "Website security", "HTTPS, certificate and domain expiry, HSTS", "measure"),
+    Check("tracking", "marketing", "Tracking basics", "Analytics, ad pixels and cookie consent on the home page", "measure"),
+    Check("site_tools", "sales", "Chat and booking", "Live chat and online booking, against competitors", "measure"),
+    Check("broken_links", "engineering", "Broken links", "A crawl of the site with every link checked", "measure"),
+    Check("maps_rank", "marketing", "Google Maps results by city", "Where you show up in the map results in up to 3 cities",
+          "measure", ("services", "general", "ecommerce", "agency")),
+    Check("competitor_ads", "marketing", "Ads competitors run", "Google Ads Transparency and Meta Ad Library counts", "measure"),
+    Check("app_ratings", "product", "App store ratings", "App Store and Google Play rating and number of ratings", "measure"),
+    Check("youtube_channel", "marketing", "YouTube channel", "Subscribers and the latest video, against competitors", "measure"),
+    Check("ai_knowledge", "pr", "What AI assistants learn from", "Wikipedia, Wikidata and Reddit mentions, against competitors", "measure"),
+    Check("authority", "marketing", "Domain authority", "Open PageRank authority, against competitors", "measure"),
+    Check("popularity", "marketing", "Site popularity", "Rank among the most visited sites (Tranco), against competitors", "measure"),
+
     # --- Deeper checks with a connected tool ---------------------------------------------------------
     Check("lead_followup", "sales", "Leads nobody followed up", "Leads and deals left without a reply", "tool", B2B, "hubspot"),
     Check("lead_followup_sf", "sales", "Stalled deals", "Deals with no activity for weeks", "tool", B2B, "salesforce"),
@@ -172,7 +196,7 @@ def for_company(pack_key: str | None) -> list[Check]:
 
 
 def runnable(pack_key: str | None) -> list[Check]:
-    return [c for c in for_company(pack_key) if c.method != "tool"]
+    return [c for c in for_company(pack_key) if c.method not in ("tool", "measure")]
 
 
 def deeper(pack_key: str | None) -> list[Check]:
