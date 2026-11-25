@@ -506,8 +506,12 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     measured_text = presence.summary(m, rows) if m else ""
 
     # 3. Look at public pages for the rest.
-    notes, sources, c3 = await look(claude, name, website, description, research, site_text, picked, competitors)
-    cost += c3
+    try:
+        notes, sources, c3 = await look(claude, name, website, description, research, site_text, picked, competitors)
+        cost += c3
+    except Exception as e:  # the measurements can still make findings
+        log.warning("reading public pages failed: %s", e)
+        notes, sources = "", []
     if not notes and not search and not ai and not rows:
         return {"findings": [], "ran": len(picked), "cost": cost}
 
