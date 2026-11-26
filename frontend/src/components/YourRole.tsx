@@ -19,7 +19,7 @@ export function YourRole() {
   const steps: [React.ReactNode, string, string][] = [
     [<Bot key="b" size={16} />, "AI does the work", "Your AI employees work on the team's goals every day."],
     [<Eye key="e" size={16} />, "It shows its work", "Every draft, step, source and reason, ready to check."],
-    [<ThumbsUp key="t" size={16} />, "You make the call", "Nothing goes out until a person says yes."],
+    [<ThumbsUp key="t" size={16} />, "You make the call", "You choose what goes out on its own; everything else waits for a person's yes."],
   ];
   return (
     <section className="relative rounded-2xl border border-line bg-white p-5 shadow-[var(--shadow-card)]">

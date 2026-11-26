@@ -39,6 +39,8 @@ class GrantIn(BaseModel):
     action_type: str
     scope: str | None = None
     spend_limit_usd: Decimal | None = None
+    mode: str = Field(default="auto", pattern="^(auto|heads_up|ask)$")
+    daily_cap: int | None = Field(default=None, ge=1, le=1000)
 
 
 def _level(row) -> str:
@@ -153,17 +155,22 @@ async def list_grants(campaign_id: str | None = None, department_id: str | None 
 async def add_grant(body: GrantIn, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
     if body.action_type not in ACTION_TYPES:
         raise HTTPException(400, "Unknown action type")
-    if body.action_type == "spend_money" and body.spend_limit_usd is None:
+    if body.action_type == "spend_money" and body.mode == "auto" and body.spend_limit_usd is None:
         raise HTTPException(400, "A spending permission needs a per-action limit")
+    if body.action_type == "spend_money" and body.mode == "heads_up":
+        raise HTTPException(400, "Spending asks first, or goes ahead under a per-action limit; it has no heads-up.")
     department_id = None if body.campaign_id else body.department_id
     await _check_scope(s, me, body.campaign_id, department_id)
     g = PermissionGrant(org_id=me.org_id, owner_id=me.user.id, granted_by=me.user.id, campaign_id=body.campaign_id,
                         department_id=department_id, action_type=body.action_type, scope=body.scope,
-                        spend_limit_usd=body.spend_limit_usd)
+                        spend_limit_usd=body.spend_limit_usd, mode=body.mode,
+                        daily_cap=body.daily_cap if body.mode != "ask" else None, source="user")
     s.add(g)
     await s.flush()
+    how = {"auto": "without asking", "heads_up": "after a heads-up", "ask": "always asks first"}[body.mode]
     await _bump(s, me, body.campaign_id, department_id,
-                f"Permission added: {ACTION_TYPES[g.action_type].label} without asking")
+                f"Permission added: {ACTION_TYPES[g.action_type].label} {how}"
+                + (f" on {body.scope}" if body.scope else "") + (f", up to {body.daily_cap} a day" if g.daily_cap else ""))
     return grant_json(g)
 
 

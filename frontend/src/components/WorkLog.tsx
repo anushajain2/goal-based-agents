@@ -28,7 +28,7 @@ import {
 import Link from "next/link";
 import { Fragment, ReactNode, useMemo, useState } from "react";
 
-import { ActivityItem, API_URL, Session, timeAgo, usd } from "@/lib/api";
+import { ActivityItem, api, API_URL, Session, timeAgo, usd } from "@/lib/api";
 import { UpdateCard } from "./GoalEngine";
 import { Badge, cx } from "./ui";
 
@@ -128,6 +128,38 @@ function Details({ a }: { a: ActivityItem }) {
   return <div className="space-y-3">{shown}</div>;
 }
 
+// Kinds of action that can go out without a yes (see backend services/autonomy).
+const FLAGGABLE = new Set(["engage", "reply", "publish_post", "publish_article", "send_message", "merge_content", "modify_account", "other_write"]);
+
+/** "This shouldn't have gone out": that kind of action asks first again on this goal. */
+function FlagButton({ a }: { a: ActivityItem }) {
+  const [state, setState] = useState<"idle" | "busy" | "done" | string>("idle");
+  if (state === "done") return <span className="text-[11px] font-semibold text-signal-800">Flagged · asks first from now on</span>;
+  return (
+    <span onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        disabled={state === "busy"}
+        onClick={async () => {
+          const why = window.prompt("What was wrong with it? (optional) It will ask first before doing this again on this goal.", "");
+          if (why === null) return;
+          setState("busy");
+          try {
+            await api(`/api/campaigns/${a.campaign_id}/autonomy/flag`, { method: "POST", json: { action_type: a.action_type, note: why.trim() || null } });
+            setState("done");
+          } catch (err) {
+            setState((err as Error).message);
+          }
+        }}
+        className="inline-flex items-center gap-1 rounded px-1 text-[11px] font-semibold text-stone-500 hover:bg-stone-100 hover:text-signal-800"
+      >
+        <Flag size={11} /> Shouldn&apos;t have gone out
+      </button>
+      {state !== "idle" && state !== "busy" && <span className="text-[11px] text-red-600">{state}</span>}
+    </span>
+  );
+}
+
 export function LogEntry({ a, showGoal }: { a: ActivityItem; showGoal?: boolean }) {
   const [open, setOpen] = useState(false);
   if (a.kind === "report") {
@@ -187,6 +219,12 @@ export function LogEntry({ a, showGoal }: { a: ActivityItem; showGoal?: boolean 
             {a.status === "waiting" && <Badge tone="amber">waiting for you</Badge>}
             {a.details?.approved_by_user === true && <Badge tone="green">you approved</Badge>}
             {a.details?.edited_by_user === true && <Badge tone="blue">you edited</Badge>}
+            {a.kind === "action" && a.status !== "failed" && a.action_type && FLAGGABLE.has(a.action_type) && a.details?.approved_by_user === false && (
+              <>
+                <Badge tone="gray">on its own</Badge>
+                <FlagButton a={a} />
+              </>
+            )}
           </span>
         </span>
         {a.cost_usd !== null && a.cost_usd > 0 && <span className="tabular mt-1 shrink-0 text-xs text-muted">{usd(a.cost_usd)}</span>}

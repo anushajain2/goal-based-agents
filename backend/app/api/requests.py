@@ -31,7 +31,7 @@ from app.models import (
 )
 from app.org import Member, approvers, can_decide, current_member, routed_to_me
 from app.services.proposals import apply_change
-from app.services import activity
+from app.services import activity, autonomy
 from app.services.events import notify
 from app.services.handoff import hand_off
 from app.services.policy import ACTION_TYPES
@@ -149,13 +149,24 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
         else:
             limit = None
         req.remember = True
+        # Replaces this level's own setting for the same kind of action (e.g. a heads-up from a preset).
+        same = select(PermissionGrant).where(
+            PermissionGrant.action_type == req.action_type, PermissionGrant.revoked_at.is_(None),
+            PermissionGrant.scope.is_(None) if body.remember_any_channel or not req.scope else PermissionGrant.scope == req.scope)
+        same = (same.where(PermissionGrant.campaign_id == req.campaign_id) if scope == "goal"
+                else same.where(PermissionGrant.campaign_id.is_(None), PermissionGrant.department_id == req.department_id)
+                if scope == "department"
+                else same.where(PermissionGrant.org_id == me.org_id, PermissionGrant.campaign_id.is_(None),
+                                PermissionGrant.department_id.is_(None)))
+        for old in (await s.execute(same)).scalars():
+            old.revoked_at = utcnow()
         s.add(PermissionGrant(
             org_id=me.org_id, owner_id=me.user.id, granted_by=me.user.id,
             campaign_id=req.campaign_id if scope == "goal" else None,
             department_id=req.department_id if scope == "department" else None,
             action_type=req.action_type,
             scope=None if body.remember_any_channel else req.scope,
-            spend_limit_usd=limit,
+            spend_limit_usd=limit, mode="auto", source="user",
         ))
         label = ACTION_TYPES[req.action_type].label if req.action_type in ACTION_TYPES else req.action_type
         where = "" if body.remember_any_channel or not req.scope else f" on {req.scope}"
@@ -191,7 +202,10 @@ async def decide(request_id: str, body: Decision, s: AsyncSession = Depends(get_
                     await hand_off(s, d, source, target, who)
                     handoff_note = f" and handed to {target.name}"
 
-    verb = {"action": "Approved" if approved else "Declined",
+    heads_up = req.auto_approve_at is not None
+    if heads_up and not approved:
+        grant_note += await autonomy.after_stop(s, req, campaign)
+    verb = {"action": ("Sent now" if approved else "Stopped") if heads_up else "Approved" if approved else "Declined",
             "login": "Signed in" if approved else "Declined sign-in",
             "connect": "Connected" if approved else "Declined to connect",
             "question": "Answered" if approved else "Skipped the question",

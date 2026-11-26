@@ -1,8 +1,9 @@
 """A small GitHub client for Engineering AI employees.
 
 They can read code and issues, and propose a change as a pull request on a new branch. They
-never push to the default branch: merging is a separate action that waits for an engineer's
-approval (action type "merge_code").
+never push to the default branch: merging is a separate action. A small pull request that only
+changes content (copy, articles, images) and passes its checks is "merge_content", which a goal
+may allow without asking; anything else is "merge_code", which waits for an engineer.
 """
 
 from __future__ import annotations
@@ -20,6 +21,34 @@ MAX_FILE_CHARS = 60_000
 
 class GitHubError(Exception):
     pass
+
+
+CONTENT_EXTENSIONS = (".md", ".mdx", ".markdown", ".txt", ".rst", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg")
+SENSITIVE_PATH = re.compile(r"(pric|checkout|billing|payment|(^|/)o?auth(/|[._-]|$)|login|sign-?in|sign-?up|legal|terms|privacy|security|"
+                            r"\.github/|workflow)", re.I)
+CONTENT_MAX_LINES = 300
+CONTENT_MAX_FILES = 10
+
+
+def content_only(files: list[dict], checks: str) -> tuple[bool, str]:
+    """Is this pull request a small content change that's safe to merge without an engineer?"""
+    if checks != "success":
+        why = {"none": "no checks ran on it", "pending": "its checks are still running", "failure": "its checks failed"}
+        return False, why.get(checks, "its checks didn't pass")
+    if not files or len(files) > CONTENT_MAX_FILES:
+        return False, f"it changes {len(files)} files"
+    lines = sum((f.get("additions") or 0) + (f.get("deletions") or 0) for f in files)
+    if lines > CONTENT_MAX_LINES:
+        return False, f"it changes {lines} lines"
+    for f in files:
+        path = f.get("path") or ""
+        if f.get("status") == "removed":
+            return False, f"it deletes {path}"
+        if not path.lower().endswith(CONTENT_EXTENSIONS):
+            return False, f"it changes {path}, which isn't content"
+        if SENSITIVE_PATH.search(path):
+            return False, f"it touches {path}"
+    return True, f"{len(files)} content files, {lines} lines, checks passed"
 
 
 def safe_branch(name: str) -> str:
@@ -113,7 +142,29 @@ class GitHub:
         pr = await self._call("GET", f"/repos/{self.repo}/pulls/{number}")
         return {"number": pr["number"], "title": pr.get("title"), "url": pr.get("html_url"), "state": pr.get("state"),
                 "merged": pr.get("merged"), "additions": pr.get("additions"), "deletions": pr.get("deletions"),
-                "changed_files": pr.get("changed_files"), "head": (pr.get("head") or {}).get("ref")}
+                "changed_files": pr.get("changed_files"), "head": (pr.get("head") or {}).get("ref"),
+                "head_sha": (pr.get("head") or {}).get("sha")}
+
+    async def pull_request_files(self, number: int) -> list[dict]:
+        rows = await self._call("GET", f"/repos/{self.repo}/pulls/{number}/files?per_page=100")
+        return [{"path": f.get("filename"), "status": f.get("status"), "additions": f.get("additions", 0),
+                 "deletions": f.get("deletions", 0)} for f in rows or []]
+
+    async def checks_state(self, sha: str | None) -> str:
+        """success, pending, failure, or none (no checks ran)."""
+        if not sha:
+            return "none"
+        runs = (await self._call("GET", f"/repos/{self.repo}/commits/{sha}/check-runs?per_page=100")).get("check_runs") or []
+        status = await self._call("GET", f"/repos/{self.repo}/commits/{sha}/status")
+        statuses = status.get("statuses") or []
+        if not runs and not statuses:
+            return "none"
+        if any(r.get("status") != "completed" for r in runs) or any(x.get("state") == "pending" for x in statuses):
+            return "pending"
+        if any(r.get("conclusion") not in ("success", "neutral", "skipped") for r in runs) or any(
+                x.get("state") in ("failure", "error") for x in statuses):
+            return "failure"
+        return "success"
 
     async def merge_pull_request(self, number: int, method: str = "squash") -> dict:
         r = await self._call("PUT", f"/repos/{self.repo}/pulls/{number}/merge", json={"merge_method": method})

@@ -2,10 +2,14 @@
 
 For every outward action:
 
-    classify -> hard blocks -> AI rule check -> grant / approval -> budget reserve -> execute -> log
+    classify -> hard blocks -> AI rule check -> grant / approval -> quality -> budget reserve -> execute -> log
 
 A call that needs the user returns `Pending`; the runner parks the run until the user
 decides, then calls `resume()` with the stored call to finish it.
+
+A heads-up (services/autonomy) goes ahead on its own after a delay unless someone stops it.
+App, MCP and merge calls don't hold up the run: the call is queued on the request and the
+worker makes it when the heads-up ends. Browser actions need the live page, so they wait.
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ from app.browser.controller import BrowserError, BrowserForOrg, HelperOffline, i
 from app.connectors.composio_hub import ComposioHub, hub_for_org
 from app.connectors.database import QueryError, run_read_only
 from app.connectors.github import GitHub, GitHubError
+from app.connectors.github import content_only as github_content_only
 from app.connectors.mcp_client import McpClient, McpError
 from app.db import session_scope
 from app.models import (
@@ -44,7 +49,7 @@ from app.models import (
     utcnow,
 )
 from app.org import approvers, goal_department
-from app.services import activity, ledger, policy, targets
+from app.services import activity, autonomy, ledger, policy, targets
 from app.services.events import notify
 from app.services.mailer import send_approval_needed
 from app.services.rule_check import check_action
@@ -157,18 +162,19 @@ class ToolExecutor:
                 is_error=True,
             )
         edited = request.edited_fields or {}
+        by_person = request.decided_by is not None  # not a heads-up that went ahead on its own
         if kind == "app_action":
             args = {**stored["arguments"], **edited}
-            outcome = await self._execute_app_action(stored, args, approved=True, edited=bool(edited))
+            outcome = await self._execute_app_action(stored, args, approved=by_person, edited=bool(edited))
         elif kind == "mcp_action":
             args = {**stored["arguments"], **edited}
-            outcome = await self._execute_mcp(stored, args, approved=True, edited=bool(edited))
+            outcome = await self._execute_mcp(stored, args, approved=by_person, edited=bool(edited))
         elif kind == "github_pr":
             if "body" in edited:
                 stored = {**stored, "body": edited["body"]}
             outcome = await self._open_pr(stored, stored["files"], approved=True)
         elif kind == "github_merge":
-            outcome = await self._merge_pr(stored, approved=True)
+            outcome = await self._merge_pr(stored, approved=by_person)
         elif kind == "browser_action":
             content = edited.get("content", stored.get("content"))
             outcome = await self._issue_authorization(stored, request.id, content=content, edited="content" in edited)
@@ -202,7 +208,9 @@ class ToolExecutor:
         site: str | None = None,
         spend_usd: Decimal | None = None,
     ) -> tuple[str, str]:
-        """Run hard blocks + AI rule check + grants. Returns (outcome, reason)."""
+        """Run hard blocks + AI rule check + grants. Returns (outcome, reason), where outcome is
+        block, ask, heads_up, auto (going ahead because of a permission, so it counts towards
+        daily caps; see _settle) or allow (allowed by default)."""
         async with session_scope() as s:
             rules = await policy.exclusions_for(s, self.campaign_id)
             decision = await policy.decide(
@@ -221,7 +229,35 @@ class ToolExecutor:
             return "block", f'Breaks the rule "{verdict.rule}": {verdict.explanation}'
         if verdict.uncertain:
             return "ask", f"{verdict.explanation} Asking you instead."
+        if decision.autonomous and verdict.sensitive:
+            return "ask", f"{verdict.sensitive_reason or 'The content is sensitive'}, so it's asking you instead of going ahead on its own."
+        if decision.autonomous and decision.outcome == "allow":
+            return "auto", decision.reason
         return decision.outcome, decision.reason
+
+    async def _settle(self, outcome: str, reason: str, action_type: str, review: dict | None) -> tuple[str, str]:
+        """Last checks before something goes out without a yes: it must pass the quality bar,
+        and it counts towards the daily cap."""
+        if outcome in ("auto", "heads_up") and review and review.get("score", quality.PASS) < quality.PASS:
+            return "ask", (f"The quality check scored it {review['score']}/5, below the bar for going out on its own, "
+                           "so it's asking you.")
+        if outcome in ("auto", "heads_up"):
+            async with session_scope() as s:
+                await autonomy.record(s, self.campaign_id, action_type)
+        return ("allow" if outcome == "auto" else outcome), reason
+
+    async def _heads_up(self, *, tool_use_id: str, title: str, reason: str, action_type: str, scope: str | None,
+                        preview: dict, stored: dict) -> Outcome:
+        """Queue a call that goes ahead after the heads-up unless someone stops it, and carry on."""
+        at = autonomy.heads_up_at()
+        await self._create_request(
+            kind=RequestKind.action, tool_use_id=tool_use_id, title=title, rationale=reason, action_type=action_type,
+            scope=scope, preview={**preview, "heads_up": True}, blocking=False, auto_approve_at=at,
+            queued_call={**stored, "run_id": self.run_id},
+        )
+        return Outcome(f"Scheduled with a heads-up: it goes ahead at {at:%H:%M} UTC ({autonomy.HEADS_UP_MINUTES} minutes) "
+                       "unless someone on the team stops or edits it. Don't do it again; carry on with other work. "
+                       "The result will show in the work log.")
 
     async def _quality(self, action_type: str, title: str, fields: dict | None) -> tuple[Outcome | None, dict | None]:
         """Score outgoing writing before anyone sees it. Below the bar it goes back for a rewrite
@@ -260,7 +296,7 @@ class ToolExecutor:
     async def _create_request(
         self, *, kind: RequestKind, tool_use_id: str, title: str, rationale: str = "",
         action_type: str | None = None, scope: str | None = None, preview: dict | None = None,
-        spend_usd: Decimal | None = None, blocking: bool = True,
+        spend_usd: Decimal | None = None, blocking: bool = True, auto_approve_at=None, queued_call: dict | None = None,
     ) -> str:
         async with session_scope() as s:
             campaign = await s.get(Campaign, self.campaign_id)
@@ -270,6 +306,7 @@ class ToolExecutor:
                 tool_use_id=tool_use_id if blocking else None, kind=kind.value,
                 action_type=action_type, scope=scope, title=title[:300], rationale=rationale,
                 preview=preview or {}, est_spend_usd=spend_usd, department_id=department_id,
+                auto_approve_at=auto_approve_at, queued_call=queued_call,
             )
             s.add(req)
             await s.flush()
@@ -277,8 +314,10 @@ class ToolExecutor:
             dept = await s.get(Department, department_id) if department_id else None
             agent = await s.get(Agent, campaign.agent_id) if campaign.agent_id else None
             routed = ", ".join(p.name or p.email for p in people) or "the owner"
+            said = (f"Heads-up to {routed} (goes ahead at {auto_approve_at:%H:%M} UTC unless stopped)"
+                    if auto_approve_at else f"Asked {routed}")
             await activity.log(
-                s, self.campaign_id, "request", f"Asked {routed}: {title}", run_id=self.run_id,
+                s, self.campaign_id, "request", f"{said}: {title}", run_id=self.run_id,
                 status="waiting", action_type=action_type, channel=scope,
                 details={"request_id": req.id, "routed_to": [p.name or p.email for p in people]},
             )
@@ -288,7 +327,9 @@ class ToolExecutor:
             agent_name = agent.name if agent else "Autopilot"
             dept_name = dept.name if dept else "your organization"
         # Email the people it's routed to (best effort; the in-app inbox is the source of truth).
-        await send_approval_needed(emails, agent_name, dept_name, title, self.campaign_id)
+        # A heads-up isn't waiting on anyone, so it only shows in the inbox.
+        if not auto_approve_at:
+            await send_approval_needed(emails, agent_name, dept_name, title, self.campaign_id)
         return request_id
 
     # ------------------------------------------------------------------ app connectors
@@ -356,15 +397,17 @@ class ToolExecutor:
         bounced, review = await self._quality(action_type, summary, args)
         if bounced:
             return bounced
+        outcome, reason = await self._settle(outcome, reason, action_type, review)
+        editable = [k for k, v in args.items() if isinstance(v, str) and len(v) >= 20]
+        preview = {"app": action.toolkit, "action": action.slug, "action_name": action.name,
+                   "fields": args, "editable": editable, **({"quality": review} if review else {})}
+        if outcome == "heads_up":
+            return await self._heads_up(tool_use_id=tool_use_id, title=summary, reason=reason, action_type=action_type,
+                                        scope=action.toolkit, preview=preview, stored=stored)
         if outcome == "ask":
-            editable = [k for k, v in args.items() if isinstance(v, str) and len(v) >= 20]
             request_id = await self._create_request(
                 kind=RequestKind.action, tool_use_id=tool_use_id, title=summary, rationale=reason,
-                action_type=action_type, scope=action.toolkit, spend_usd=spend,
-                preview={
-                    "app": action.toolkit, "action": action.slug, "action_name": action.name,
-                    "fields": args, "editable": editable, **({"quality": review} if review else {}),
-                },
+                action_type=action_type, scope=action.toolkit, spend_usd=spend, preview=preview,
             )
             return Pending(request_id, stored)
         return await self._execute_app_action(stored, args, approved=False, edited=False)
@@ -455,13 +498,17 @@ class ToolExecutor:
         bounced, review = await self._quality(action_type, summary, args)
         if bounced:
             return bounced
+        outcome, reason = await self._settle(outcome, reason, action_type, review)
+        editable = [k for k, v in args.items() if isinstance(v, str) and len(v) >= 20]
+        preview = {"app": server.name, "action": tool["name"], "action_name": f"{server.name}: {tool['name']}",
+                   "fields": args, "editable": editable, **({"quality": review} if review else {})}
+        if outcome == "heads_up":
+            return await self._heads_up(tool_use_id=tool_use_id, title=summary, reason=reason, action_type=action_type,
+                                        scope=server.name, preview=preview, stored=stored)
         if outcome == "ask":
-            editable = [k for k, v in args.items() if isinstance(v, str) and len(v) >= 20]
             request_id = await self._create_request(
                 kind=RequestKind.action, tool_use_id=tool_use_id, title=summary, rationale=reason,
-                action_type=action_type, scope=server.name,
-                preview={"app": server.name, "action": tool["name"], "action_name": f"{server.name}: {tool['name']}",
-                         "fields": args, "editable": editable, **({"quality": review} if review else {})},
+                action_type=action_type, scope=server.name, preview=preview,
             )
             return Pending(request_id, stored)
         return await self._execute_mcp(stored, args, approved=False, edited=False)
@@ -537,6 +584,7 @@ class ToolExecutor:
         return await self._snapshot_outcome()
 
     async def _use_authorization(self, authorization_id: str | None, what: str) -> tuple[bool, str]:
+        """(ok, title of the approved action or why not). Remembers what it was for the work log."""
         if not authorization_id:
             return False, (
                 f"Blocked: {what} is a final commit step. Declare it first with browser_declare_action and "
@@ -553,10 +601,17 @@ class ToolExecutor:
             if not auth or auth.uses_remaining <= 0 or auth.expires_at < utcnow():
                 return False, "That authorization_id is invalid, used up or expired. Declare the action again."
             auth.uses_remaining -= 1
+            by_person = False
+            if auth.request_id:
+                req = await s.get(UserRequest, auth.request_id)
+                by_person = bool(req and req.decided_by)
+            self._commit_meta = {"action_type": auth.action_type, "approved_by_user": by_person}
             return True, auth.title
 
     async def _commit_log(self, title: str, what: str, url: str) -> None:
-        await self._log("action", f"{title} ({what})", channel=policy.domain_of(url), details={"url": url})
+        meta = getattr(self, "_commit_meta", None) or {}
+        await self._log("action", f"{title} ({what})", channel=policy.domain_of(url), action_type=meta.get("action_type"),
+                        details={"url": url, "approved_by_user": meta.get("approved_by_user", False)})
 
     async def t_browser_click(self, inp: dict, _id: str) -> Outcome:
         ref = int(inp["ref"])
@@ -652,7 +707,10 @@ class ToolExecutor:
         bounced, review = await self._quality(action_type, inp["title"], {"content": inp.get("content") or ""})
         if bounced:
             return bounced
-        if outcome == "ask":
+        outcome, reason = await self._settle(outcome, reason, action_type, review)
+        if outcome in ("ask", "heads_up"):
+            # A heads-up here holds up the session: the click needs the live page once it ends.
+            heads_up = outcome == "heads_up"
             shot = None
             try:
                 shot, _ = await self.browser.screenshot(self.run_id)
@@ -663,7 +721,8 @@ class ToolExecutor:
                 kind=RequestKind.action, tool_use_id=tool_use_id, title=inp["title"], rationale=reason,
                 action_type=action_type, scope=site, spend_usd=spend,
                 preview={"site": site, "fields": fields, "editable": list(fields), "details": inp.get("details"),
-                         "screenshot": shot, **({"quality": review} if review else {})},
+                         "screenshot": shot, **({"quality": review} if review else {}), **({"heads_up": True} if heads_up else {})},
+                auto_approve_at=autonomy.heads_up_at() if heads_up else None,
             )
             return Pending(request_id, stored)
         return await self._issue_authorization(stored, None, content=inp.get("content"), edited=False)
@@ -895,19 +954,34 @@ class ToolExecutor:
             return Outcome(str(e), is_error=True)
         summary = inp.get("summary") or pr.get("title") or ""
         stored = {"kind": "github_merge", "number": pr["number"], "title": pr.get("title") or "", "url": pr.get("url")}
-        outcome, reason = await self._gate(action_type="merge_code", title=f"Merge pull request #{pr['number']}",
-                                           app="github", payload=stored)
+        # Small content-only changes that pass their checks are a different, lower-risk kind of merge.
+        try:
+            files = await gh.pull_request_files(pr["number"])
+            checks = await gh.checks_state(pr.get("head_sha"))
+            is_content, why = github_content_only(files, checks)
+        except GitHubError:
+            files, checks, is_content, why = [], "none", False, "its files or checks couldn't be read"
+        action_type = "merge_content" if is_content else "merge_code"
+        stored["action_type"] = action_type
+        outcome, reason = await self._gate(action_type=action_type, title=f"Merge pull request #{pr['number']}",
+                                           app="github", payload={**stored, "files": [f["path"] for f in files]})
         if outcome == "block":
             return Outcome(f"Blocked by the user's guardrails: {reason}", is_error=True)
+        outcome, reason = await self._settle(outcome, reason, action_type, None)
+        preview = {"app": "github", "action_name": "Merge pull request", "url": pr.get("url"),
+                   "details": f"{pr.get('changed_files')} files changed (+{pr.get('additions')} / -{pr.get('deletions')}). "
+                              f"{'Content only: ' if is_content else 'Not content-only: '}{why}. "
+                              f"Review the code on GitHub before approving: {pr.get('url')}",
+                   "fields": {}}
+        title = f"Merge pull request #{pr['number']}: {pr.get('title')}"
+        if outcome == "heads_up":
+            return await self._heads_up(tool_use_id=tool_use_id, title=title, reason=reason, action_type=action_type,
+                                        scope="github", preview=preview, stored=stored)
         if outcome == "ask":
             request_id = await self._create_request(
-                kind=RequestKind.action, tool_use_id=tool_use_id,
-                title=f"Merge pull request #{pr['number']}: {pr.get('title')}",
-                rationale=summary, action_type="merge_code", scope="github",
-                preview={"app": "github", "action_name": "Merge pull request", "url": pr.get("url"),
-                         "details": f"{pr.get('changed_files')} files changed (+{pr.get('additions')} / -{pr.get('deletions')}). "
-                                    f"Review the code on GitHub before approving: {pr.get('url')}",
-                         "fields": {}},
+                kind=RequestKind.action, tool_use_id=tool_use_id, title=title,
+                rationale=summary if reason in ("Needs your approval.", "") else f"{summary}\n\n{reason}".strip(),
+                action_type=action_type, scope="github", preview=preview,
             )
             return Pending(request_id, stored)
         return await self._merge_pr(stored, approved=False)
@@ -920,7 +994,8 @@ class ToolExecutor:
             result = await gh.merge_pull_request(stored["number"])
         except GitHubError as e:
             return Outcome(str(e), is_error=True)
-        await self._log("action", f"Merged pull request #{stored['number']}: {stored['title']}", action_type="merge_code",
+        await self._log("action", f"Merged pull request #{stored['number']}: {stored['title']}",
+                        action_type=stored.get("action_type", "merge_code"),
                         channel="github", details={**result, "approved_by_user": approved})
         return Outcome(_json(result))
 

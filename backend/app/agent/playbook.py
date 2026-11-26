@@ -38,9 +38,11 @@ def step_schema() -> dict:
 STEP_GUIDANCE = """Steps: 3 to 6 plain-English steps, in order, saying how the AI employee will \
 pursue the goal. Keep preparing and doing apart, so approval points are obvious: "Write a \
 personalised first email to each person" (create_draft) comes before "Send each email" \
-(send_message). action_type is the riskiest kind of action in the step: research, read_data \
-and create_draft happen on their own; engage, publish_post, publish_article, send_message, \
-modify_account, delete_content, spend_money and other_write wait for a person's approval. \
+(send_message). action_type is the riskiest kind of action in the step: research, read_data, \
+create_draft and propose_code happen on their own; engage (likes, follows), reply (replies and \
+comments), publish_post, publish_article, send_message, modify_account, delete_content, \
+spend_money, merge_content (small content-only pull requests), merge_code and other_write go \
+through the goal's permissions (asking first unless the team allowed more). \
 tool is the main tool the step uses: a listed tool, "web" for web research and browsing, or \
 "none"."""
 

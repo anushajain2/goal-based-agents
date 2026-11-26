@@ -442,6 +442,8 @@ class Campaign(Base):
     cycles_completed: Mapped[int] = mapped_column(Integer, default=0)
     # Bumped whenever guardrails change so a running agent picks up the change immediately.
     guardrail_version: Mapped[int] = mapped_column(Integer, default=0)
+    # The autonomy preset chosen when the goal was started (cautious / balanced / fast), if any.
+    autonomy_preset: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow)
@@ -510,8 +512,26 @@ class PermissionGrant(Base):
     action_type: Mapped[str] = mapped_column(String(50))
     scope: Mapped[str | None] = mapped_column(String(200), nullable=True)
     spend_limit_usd: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    # auto: go ahead; heads_up: go ahead after a heads-up unless stopped; ask: always ask (wins).
+    mode: Mapped[str] = mapped_column(String(20), default="auto", server_default="auto")
+    # At most this many without asking in any 24 hours; past it, it asks.
+    daily_cap: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Where it came from: user (an approval or a setting), preset, earned, downgrade, personal.
+    source: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class AutonomousAction(Base):
+    """One action an AI employee took without a person saying yes first (on its own, or after a
+    heads-up). Counted for daily caps."""
+
+    __tablename__ = "autonomous_actions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    action_type: Mapped[str] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
 
 
 class AgentRun(Base):
@@ -573,6 +593,12 @@ class UserRequest(Base):
     remember: Mapped[bool] = mapped_column(Boolean, default=False)
     decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    # Heads-up: goes ahead on its own at this time unless someone stops it first.
+    auto_approve_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True, index=True)
+    # A heads-up that doesn't hold up the AI employee: the call to make once it goes ahead
+    # (see services/autonomy.run_queued), and when that happened.
+    queued_call: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
+    ran_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class BrowserAuthorization(Base):

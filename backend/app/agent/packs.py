@@ -188,7 +188,7 @@ ROLES: dict[str, Role] = {r.key: r for r in [
          "helpful contributions", "Helpful answer or post that got engagement", 10, category="Brand, PR & community", use_case="Community",
          steps=(("Find questions in communities", "research", "reddit"),
                 ("Draft helpful answers", "create_draft", "none"),
-                ("Post them", "engage", "reddit")))),
+                ("Post them", "reply", "reddit")))),
     _r("localization", "marketing", "Localisation", "Localisation Agent", "Make the company feel local in every market",
        "translates and adapts pages, emails and ads for each market",
        "publishing translated content", ("googledocs", "webflow"),

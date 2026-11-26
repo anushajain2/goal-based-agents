@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, Compass, ExternalLink, FileText, HelpCircle, KeyRound, Link2, Lock, MessageSquare, ShieldQuestion, TrendingUp, Users, X } from "lucide-react";
+import { ArrowRight, Check, Clock, Compass, ExternalLink, FileText, HelpCircle, KeyRound, Link2, Lock, MessageSquare, ShieldQuestion, TrendingUp, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -42,6 +42,10 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
   const [error, setError] = useState<string | null>(null);
   const agent = req.agent_name || "Your AI employee";
   const to = req.routed_to_me ? "you" : req.approvers?.join(", ") || "an admin";
+  // A heads-up goes ahead on its own at auto_approve_at unless someone stops it.
+  const headsUp = req.kind === "action" && !!req.auto_approve_at;
+  const goesAt = req.auto_approve_at ? new Date(req.auto_approve_at) : null;
+  const minutesLeft = goesAt ? Math.max(0, Math.ceil((goesAt.getTime() - Date.now()) / 60000)) : 0;
 
   async function decide(decision: "approve" | "reject", rememberThis = false) {
     setBusy(true);
@@ -91,6 +95,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
             <span className="block">{[req.agent_title, req.department_name].filter(Boolean).join(" · ")}</span>
           </span>
         )}
+        {headsUp && <Badge tone="blue"><Clock size={12} /> Heads-up</Badge>}
         <Badge tone={k.tone}>{k.icon} {req.kind === "action" ? req.action_label || k.label : k.label}</Badge>
         {req.scope && req.kind !== "question" && <Badge>{req.scope}</Badge>}
         {!detail && req.agent_name && <Badge tone="violet">{req.agent_name}</Badge>}
@@ -109,7 +114,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
       </div>
 
       <h4 className={cx("font-semibold leading-snug", detail ? "text-xl" : "mt-2 text-[15px]")}>
-        {req.kind === "action" ? `${agent} wants to: ${req.title}` : req.kind === "question" ? req.preview.question || req.title : req.title}
+        {headsUp ? `${agent} will: ${req.title}` : req.kind === "action" ? `${agent} wants to: ${req.title}` : req.kind === "question" ? req.preview.question || req.title : req.title}
       </h4>
       {req.rationale && (
         <p className={cx("text-sm text-muted", !detail && "mt-1")}>
@@ -164,7 +169,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
         <div className={cx("space-y-3", !detail && "mt-3")}>
           {req.kind === "action" && !decided && canDecide && (
             <p className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800">
-              <Lock size={12} /> Nothing has been sent or changed yet. It only happens if you approve.
+              <Lock size={12} /> {headsUp ? "Nothing has been sent or changed yet. You can still edit or stop it." : "Nothing has been sent or changed yet. It only happens if you approve."}
             </p>
           )}
           {editable.map((key) => (
@@ -234,15 +239,23 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
 
       {decided ? (
         <div className={cx("rounded-md bg-stone-50 px-3 py-2 text-sm", !detail && "mt-3")}>
-          <b>{req.status === "approved" ? (req.kind === "question" ? "Answered" : "Approved") : req.kind === "question" ? "Skipped" : req.kind === "review" ? "Changes requested" : req.kind === "proposal" ? "Kept as is" : "Declined"}</b>
+          <b>{headsUp ? (req.status === "approved" ? (req.decided_by_name ? "Sent early" : "Went ahead after the heads-up") : "Stopped")
+            : req.status === "approved" ? (req.kind === "question" ? "Answered" : "Approved") : req.kind === "question" ? "Skipped" : req.kind === "review" ? "Changes requested" : req.kind === "proposal" ? "Kept as is" : "Declined"}</b>
           {req.decided_by_name ? ` by ${req.decided_by_name}` : ""}
           {req.decision_note && <p className="mt-1 text-stone-700">&ldquo;{req.decision_note}&rdquo;</p>}
         </div>
       ) : (
         <>
           <p className={cx("flex flex-wrap items-center gap-1.5 text-xs text-muted", !detail && "mt-3")}>
-            <Users size={13} />
-            <span>{req.routed_to_me ? "Waiting on you" : <>Waiting on <b className="text-ink">{to}</b></>}{req.department_name ? ` · ${req.department_name}` : ""}</span>
+            {headsUp ? <Clock size={13} /> : <Users size={13} />}
+            {headsUp && goesAt ? (
+              <span>
+                Goes ahead {minutesLeft > 0 ? <>in <b className="text-ink">{minutesLeft} min</b></> : "any moment now"} ({goesAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})
+                {" "}unless {req.routed_to_me ? "you stop" : `${to} stops`} it. You can edit it first.
+              </span>
+            ) : (
+              <span>{req.routed_to_me ? "Waiting on you" : <>Waiting on <b className="text-ink">{to}</b></>}{req.department_name ? ` · ${req.department_name}` : ""}</span>
+            )}
           </p>
 
           {!canDecide ? (
@@ -258,7 +271,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
             <div className={cx("space-y-2", !detail && "mt-4")}>
               <Input autoFocus placeholder={`Tell ${agent} why (it will adjust)`} value={note} onChange={(e) => setNote(e.target.value)} />
               <div className="flex gap-2">
-                <Button variant="danger" disabled={busy} onClick={() => decide("reject")}><X size={15} /> {req.kind === "review" ? "Send back" : req.kind === "proposal" ? "Keep as is" : "Decline"}</Button>
+                <Button variant="danger" disabled={busy} onClick={() => decide("reject")}><X size={15} /> {headsUp ? "Stop it" : req.kind === "review" ? "Send back" : req.kind === "proposal" ? "Keep as is" : "Decline"}</Button>
                 <Button variant="ghost" onClick={() => setRejecting(false)}>Cancel</Button>
               </div>
             </div>
@@ -275,15 +288,16 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
                   {req.kind === "login" ? "I've signed in" : req.kind === "connect" ? "I've connected it"
                     : req.kind === "review" ? (req.preview.handoff_to ? `Approve & send to ${req.preview.handoff_to}` : "Approve")
                     : req.kind === "proposal" ? PROPOSAL_YES[req.preview.change?.type || ""] || "Approve"
+                    : headsUp ? (remember ? "Send now & skip heads-ups" : "Send now")
                     : remember ? "Approve & don't ask again" : "Approve"}
                 </Button>
                 <Button variant="secondary" disabled={busy} onClick={() => setRejecting(true)}>
-                  {req.kind === "action" ? "Don't do this" : req.kind === "review" ? "Ask for changes" : req.kind === "proposal" ? "Keep as is" : "Not now"}
+                  {headsUp ? "Stop it" : req.kind === "action" ? "Don't do this" : req.kind === "review" ? "Ask for changes" : req.kind === "proposal" ? "Keep as is" : "Not now"}
                 </Button>
                 {req.kind === "action" && (
                   <label className="ml-1 flex cursor-pointer items-center gap-2 text-sm">
                     <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 accent-brand-500" />
-                    Don&apos;t ask next time
+                    {headsUp ? "No heads-up next time" : <>Don&apos;t ask next time</>}
                   </label>
                 )}
               </div>

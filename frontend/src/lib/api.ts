@@ -134,8 +134,10 @@ export type UserRequest = {
     source?: "lead";
     lead?: string;
     budget_usd?: number;
+    heads_up?: boolean; // goes ahead on its own at auto_approve_at unless someone stops it
   };
   est_spend_usd: number | null;
+  auto_approve_at?: string | null;
   decision_note: string | null;
   created_at: string;
   department_id: string | null;
@@ -186,6 +188,9 @@ export type Grant = {
   action_type: string;
   action_label: string;
   scope: string | null;
+  mode?: "auto" | "heads_up" | "ask";
+  daily_cap?: number | null;
+  source?: string | null;
   spend_limit_usd: number | null;
   created_at: string;
   department_id?: string | null;
@@ -218,12 +223,28 @@ export type BudgetBasis = {
   starter?: boolean; full_days?: number; full_sessions?: number; full_usd?: number; // one-week starter budgets
   milestone?: boolean; // a step of a bigger fix, priced in full
 };
-export type Mode = "auto" | "ask" | "never";
+export type Mode = "auto" | "heads_up" | "ask" | "never";
 export type PlanStep = { text: string; action_type: string; tool: string };
 export type Playbook = { steps: PlanStep[]; source: "setup" | "generated" | "default" };
 export type Permission = {
   key: string; label: string; description: string; default: "auto" | "ask"; mode: Mode;
   set_at: "default" | "goal" | "department" | "org"; spend_limit_usd: number | null; only_on: string[];
+  /** Most it does without a yes in any 24 hours; past it, it asks. */
+  daily_cap: number | null;
+  source: "user" | "preset" | "earned" | "downgrade" | "personal" | null;
+  /** Apps or sites where it always asks (e.g. a personal profile). */
+  asks_on: string[];
+  /** A looser setting this goal has earned (never applied by itself). */
+  suggestion: { mode: Mode; streak: number; reason: string } | null;
+};
+export type AutonomyRow = {
+  key: string; label: string; description: string; mode: Mode; daily_cap: number | null; why: string; gain: string; in_plan: boolean;
+};
+export type AutonomyPreset = { key: "cautious" | "balanced" | "fast"; label: string; summary: string; rows: AutonomyRow[] };
+export type Autonomy = {
+  recommended: AutonomyPreset["key"]; reasons: string[]; presets: Record<AutonomyPreset["key"], AutonomyPreset>;
+  current: AutonomyPreset["key"] | null; heads_up_minutes: number; personal_candidates: { key: string; label: string }[];
+  regulated: string | null;
 };
 export type Permissions = { action_types: Permission[]; department: string | null; approvers: string[]; built_in_rules: string[]; can_edit: boolean };
 export type ToolNeed = {
@@ -239,7 +260,7 @@ export type Deliverable = {
 export type IntegrationInfo = { id: string; kind: "github" | "postgres" | "github_pending" | "composio"; name: string; config: Record<string, unknown>; error: string | null };
 export type Readiness = {
   tools: ToolNeed[]; composio_enabled: boolean; mcp_servers: { id: string; name: string; tools: number; error: string | null }[];
-  permissions: Permission[]; department: string | null; approvers: string[]; playbook: Playbook | null;
+  permissions: Permission[]; autonomy: Autonomy; department: string | null; approvers: string[]; playbook: Playbook | null;
 };
 export type McpServerInfo = {
   id: string; name: string; url: string; has_key: boolean; error: string | null; checked_at: string | null;

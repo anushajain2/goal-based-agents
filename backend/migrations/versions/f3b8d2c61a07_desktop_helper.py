@@ -1,7 +1,7 @@
 """desktop helper: paired computers, pairing codes, screenshots in the database
 
 Revision ID: f3b8d2c61a07
-Revises: e2a1c7b9d410
+Revises: f4c2d8a1b7e3
 Create Date: 2026-11-26 12:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from app.dbtypes import UTCDateTime
 
 revision: str = 'f3b8d2c61a07'
-down_revision: Union[str, Sequence[str], None] = 'e2a1c7b9d410'
+down_revision: Union[str, Sequence[str], None] = 'f4c2d8a1b7e3'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
