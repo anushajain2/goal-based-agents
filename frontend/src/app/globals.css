@@ -35,6 +35,25 @@
   --shadow-pop: 0 24px 48px -16px rgb(16 24 40 / 0.22), 0 2px 6px rgb(16 24 40 / 0.05);
 }
 
+/* The homepage, for now: olive instead of cobalt. Every brand-*, ink, canvas, line and muted utility inside it
+   picks these up, so the app keeps its blue until it moves over too. */
+.theme-olive {
+  --color-brand-50: #f5f6ec;
+  --color-brand-100: #e9ecd5;
+  --color-brand-200: #d6dcb0;
+  --color-brand-300: #bcc685;
+  --color-brand-400: #8c9a4b;
+  --color-brand-500: #5f6f2a;
+  --color-brand-600: #556b2f;
+  --color-brand-700: #455824;
+  --color-brand-800: #37461d;
+  --color-brand-900: #2b3717;
+  --color-ink: #151a0e;
+  --color-muted: #6b6f5c;
+  --color-line: #e9eadf;
+  --color-canvas: #f8f8f3;
+}
+
 html,
 body {
   background: var(--color-canvas);
