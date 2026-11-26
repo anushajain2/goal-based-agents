@@ -23,18 +23,67 @@
   "build": {
     "appId": "com.autopilot.helper",
     "productName": "Autopilot Helper",
-    "files": ["src/**/*", "assets/**/*", "package.json"],
-    "directories": { "output": "dist", "buildResources": "assets" },
-    "protocols": [{ "name": "Autopilot", "schemes": ["autopilot"] }],
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "protocols": [
+      {
+        "name": "Autopilot",
+        "schemes": [
+          "autopilot"
+        ]
+      }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
-      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
       "icon": "assets/icon.png",
-      "extendInfo": { "LSUIElement": false }
+      "extendInfo": {
+        "LSUIElement": false
+      }
     },
-    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "assets/icon.png" },
-    "nsis": { "oneClick": true, "perMachine": false },
-    "linux": { "target": ["AppImage"], "category": "Utility", "icon": "assets/icon.png" },
-    "artifactName": "Autopilot-Helper-${version}-${os}-${arch}.${ext}"
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility",
+      "icon": "assets/icon.png"
+    },
+    "artifactName": "Autopilot-Helper-${version}-${os}-${arch}.${ext}",
+    "publish": null
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anushajain2/goal-based-agents.git",
+    "directory": "desktop"
   }
 }
