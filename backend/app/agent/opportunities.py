@@ -313,6 +313,9 @@ funding they qualify for), include it; don't include a weak one just for variety
 
 
 def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
+    # The goal is defined once and referenced twice: written out in both places, the API rejects
+    # the schema ("compiled grammar is too large") and every scan fails at this last step.
+    goal = {"$ref": "#/$defs/goal"}
     kinds = [k for k, _ in DEPARTMENT_PRESETS] + ["custom"]
     milestone = {
         "type": "object",
@@ -323,7 +326,7 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
             "paid_items": {"type": "array", "items": {
                 "type": "object", "properties": {"item": {"type": "string"}, "usd": {"type": "number"}},
                 "required": ["item", "usd"], "additionalProperties": False}},
-            "goal": goal_schema,
+            "goal": goal,
         },
         "required": ["name", "outcome", "weeks", "paid_items", "goal"],
         "additionalProperties": False,
@@ -345,7 +348,7 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
             "pull": {"type": "integer", "description": "1-5: how much they'll want to fix it"},
             "source_urls": {"type": "array", "items": {"type": "string"}},
             "goal_id": {"type": "string", "description": "Id of an existing goal that fixes this, or ''"},
-            "new_goal": {"anyOf": [goal_schema, {"type": "null"}]},
+            "new_goal": {"anyOf": [goal, {"type": "null"}]},
             "milestones": {"type": "array", "items": milestone},
         },
         "required": ["check", "team_kind", "title", "evidence", "impact", "estimate", "assumption", "confidence",
@@ -355,7 +358,7 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
     }
     return {"type": "json_schema", "schema": {
         "type": "object", "properties": {"findings": {"type": "array", "items": finding}},
-        "required": ["findings"], "additionalProperties": False}}
+        "required": ["findings"], "additionalProperties": False, "$defs": {"goal": goal_schema}}}
 
 
 def _texts(content: list[dict]) -> str:
