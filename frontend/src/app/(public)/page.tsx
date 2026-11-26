@@ -3,10 +3,16 @@
 import { ArrowRight, Check, Eye, Gauge, Globe, Hand, MessageSquare, Plug, Search, ShieldCheck, Sparkles, Star, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { FormEvent, PointerEvent, ReactNode, useEffect, useRef, useState } from "react";
 
 import { BrandMark } from "@/components/Shell";
+import PixelCard from "@/components/reactbits/PixelCard";
 import { cx } from "@/components/ui";
+
+// The moving backgrounds are WebGL: loaded in the browser only, after the page itself.
+const SoftAurora = dynamic(() => import("@/components/reactbits/SoftAurora"), { ssr: false });
+const PixelBlast = dynamic(() => import("@/components/reactbits/PixelBlast"), { ssr: false });
 
 /** Each team keeps one soft colour: [background, text]. */
 const TEAM: Record<string, [string, string]> = {
@@ -20,6 +26,7 @@ const TEAM: Record<string, [string, string]> = {
 
 export default function Landing() {
   const [signedIn, setSignedIn] = useState(false);
+  const lite = useLiteMotion();
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" }).then((r) => setSignedIn(r.ok)).catch(() => null);
   }, []);
@@ -45,25 +52,21 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="relative">
-        <div className="pointer-events-none absolute inset-x-0 -top-20 h-[900px] bg-[linear-gradient(to_right,rgba(16,24,40,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,24,40,0.05)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_55%_60%_at_50%_30%,black_30%,transparent_75%)]" />
-        <div className="pointer-events-none absolute left-1/2 top-[300px] h-[500px] w-[900px] max-w-full -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(30,64,175,0.11),transparent)]" />
+        <HeroBackdrop lite={lite} />
         <div className="relative mx-auto max-w-6xl px-5 pt-14 text-center sm:pt-20">
-          <a href="#checks" className="inline-flex items-center gap-2 rounded-full border border-line bg-white py-1 pl-1 pr-3 text-[13.5px] font-medium text-stone-700 shadow-[0_1px_2px_rgba(16,24,40,0.04)] hover:border-stone-300">
-            <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[12px] font-semibold text-brand-700">New</span>
+          <a href="#checks" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 py-1 pl-1 pr-3 text-[13.5px] font-medium text-white/85 backdrop-blur hover:border-white/30">
+            <span className="rounded-full bg-white px-2.5 py-0.5 text-[12px] font-semibold text-ink">New</span>
             See if ChatGPT recommends you, or your competitors <ArrowRight size={13} />
           </a>
-          <h1 className="display mx-auto mt-7 max-w-5xl text-balance text-[44px] leading-[1.02] tracking-[-0.05em] sm:text-[64px] lg:text-[80px]">
+          <h1 className="display mx-auto mt-7 max-w-5xl text-balance text-[44px] leading-[1.02] tracking-[-0.05em] text-white sm:text-[64px] lg:text-[80px]">
             What are your competitors
             <br />
-            doing that you <Underlined>aren&apos;t?</Underlined>
+            doing that you <Underlined className="text-lime-300">aren&apos;t?</Underlined>
           </h1>
-          <p className="mx-auto mt-6 max-w-[620px] text-balance text-[17px] leading-relaxed text-stone-600 sm:text-[19px]">
-            Enter your website. We check how you show up on Google, in AI assistants, in reviews and on your site, next to your competitors.
-          </p>
-          <div className="mx-auto mt-9 max-w-[560px]"><WebsiteStart signedIn={signedIn} /></div>
-          <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[13.5px] text-muted">
+          <div className="mx-auto mt-24 max-w-[560px] sm:mt-32"><WebsiteStart signedIn={signedIn} onDark /></div>
+          <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[13.5px] text-white/70">
             {["Just your website", "Compared with your competitors", "Sources for every finding"].map((t) => (
-              <span key={t} className="inline-flex items-center gap-1.5"><Check size={14} strokeWidth={2.5} className="text-brand-600" />{t}</span>
+              <span key={t} className="inline-flex items-center gap-1.5"><Check size={14} strokeWidth={2.5} className="text-lime-300" />{t}</span>
             ))}
           </div>
         </div>
@@ -78,10 +81,10 @@ export default function Landing() {
             <Tile icon={<Search size={17} />} title="Google" text="Where you rank for what buyers search."><SerpMock /></Tile>
             <Tile icon={<MessageSquare size={17} />} title="AI assistants" text="Whether ChatGPT and others recommend you."><ChatMock /></Tile>
             <Tile icon={<Star size={17} />} title="Reviews" text="How you compare where buyers read them.">
-              <Bars rows={[["Routeco", 100, "240 reviews"], ["OptiDrive", 75, "180 reviews"], ["You", 5, "12 reviews", true]]} />
+              <Bars rows={[["Routeco", 100, <><CountUp to={240} /> reviews</>], ["OptiDrive", 75, <><CountUp to={180} /> reviews</>], ["You", 5, <><CountUp to={12} /> reviews</>, true]]} />
             </Tile>
             <Tile icon={<Gauge size={17} />} title="Your website" text="How fast it loads on a phone.">
-              <Bars rows={[["Routeco", 31, "2.1s"], ["Fleetbase", 50, "3.4s"], ["You", 100, "6.8s", true]]} />
+              <Bars rows={[["Routeco", 31, <><CountUp to={2.1} decimals={1} />s</>], ["Fleetbase", 50, <><CountUp to={3.4} decimals={1} />s</>], ["You", 100, <><CountUp to={6.8} decimals={1} />s</>, true]]} />
             </Tile>
           </div>
           <p className="mx-auto mt-8 flex max-w-2xl items-center justify-center gap-2 text-center text-[14.5px] text-muted">
@@ -112,7 +115,12 @@ export default function Landing() {
       {/* Why */}
       <section id="why" className="scroll-mt-20 px-3 pt-32 sm:px-5">
         <div className="relative mx-auto max-w-[1240px] overflow-hidden rounded-[32px] bg-ink px-5 py-20 text-white sm:py-24">
-          <div className="pointer-events-none absolute left-1/2 top-[-200px] h-[500px] w-[900px] max-w-full -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(91,127,230,0.35),transparent)]" />
+          <div className="absolute inset-0 opacity-70 [mask-image:radial-gradient(ellipse_58%_60%_at_50%_48%,transparent_35%,black_85%)]" aria-hidden>
+            {lite
+              ? <div className="h-full w-full bg-[radial-gradient(rgba(163,176,97,0.45)_1px,transparent_1.6px)] bg-[size:10px_10px] [mask-image:radial-gradient(ellipse_at_center,black_10%,transparent_70%)]" />
+              : <PixelBlast color="#a3b061" pixelSize={4} patternScale={2.5} edgeFade={0.35} speed={0.35} />}
+          </div>
+          <div className="pointer-events-none absolute left-1/2 top-[-200px] h-[500px] w-[900px] max-w-full -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(140,154,75,0.32),transparent)]" />
           <div className="relative mx-auto max-w-5xl">
             <div className="text-center">
               <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-brand-300">Why Autopilot</div>
@@ -207,9 +215,9 @@ function Logo({ small }: { small?: boolean }) {
   );
 }
 
-function Underlined({ children }: { children: ReactNode }) {
+function Underlined({ children, className = "text-brand-600" }: { children: ReactNode; className?: string }) {
   return (
-    <span className="relative whitespace-nowrap text-brand-600">
+    <span className={cx("relative whitespace-nowrap", className)}>
       {children}
       <svg viewBox="0 0 300 20" preserveAspectRatio="none" aria-hidden className="absolute bottom-[-0.06em] left-[2%] h-[0.2em] w-[96%]">
         <path d="M3 15 C 80 4, 200 2, 297 9" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
@@ -264,7 +272,7 @@ function ScanPreview() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 text-[13px] text-muted"><Globe size={14} />fleetwise.com</div>
-              <div className="mt-1 text-[22px] font-semibold tracking-[-0.02em]">5 gaps worth fixing</div>
+              <div className="mt-1 text-[22px] font-semibold tracking-[-0.02em]"><CountUp to={5} duration={900} /> gaps worth fixing</div>
               <div className="mt-0.5 text-[13px] text-muted">Checked live, next to Routeco, Fleetbase and OptiDrive</div>
             </div>
             <div className="hidden gap-2 sm:flex xl:hidden">
@@ -330,47 +338,160 @@ function useInView<T extends Element>() {
 /** One kind of check: a simple picture on top, one line below. */
 function Tile({ icon, title, text, children }: { icon: ReactNode; title: string; text: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-3xl border border-line bg-white text-left shadow-[var(--shadow-card)] transition duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-pop)]">
-      <div className="flex h-[230px] flex-col justify-center border-b border-line bg-canvas px-7 py-6" aria-hidden>{children}</div>
-      <div className="px-7 py-5">
-        <div className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.01em]"><span className="text-brand-600">{icon}</span>{title}</div>
-        <p className="mt-1 text-[15px] text-stone-600">{text}</p>
+    <Tilt>
+      <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-white text-left shadow-[var(--shadow-card)] transition-shadow duration-300 hover:shadow-[var(--shadow-pop)]">
+        <div className="flex h-[230px] flex-col justify-center border-b border-line bg-canvas px-7 py-6" aria-hidden>{children}</div>
+        <div className="px-7 py-5">
+          <div className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.01em]"><span className="text-brand-600">{icon}</span>{title}</div>
+          <p className="mt-1 text-[15px] text-stone-600">{text}</p>
+        </div>
+      </div>
+    </Tilt>
+  );
+}
+
+/** The moving background behind the hero: green northern lights on near-black. It ends behind the scan preview. */
+function HeroBackdrop({ lite }: { lite: boolean }) {
+  return (
+    <div aria-hidden className="absolute inset-x-0 top-0 h-[940px] overflow-hidden bg-ink">
+      {lite
+        ? <div className="h-full w-full bg-[radial-gradient(70%_40%_at_50%_45%,rgba(16,185,129,0.45),transparent)]" />
+        : <SoftAurora color1="#d9f99d" color2="#10b981" brightness={1.1} bandHeight={0.55} />}
+      <div className="pointer-events-none absolute left-1/2 top-[110px] h-[460px] w-[900px] max-w-full -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(0,0,0,0.45),transparent)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-ink/60" />
+    </div>
+  );
+}
+
+/** Touch screens (phones, tablets) and people who asked their system for less motion get still backgrounds and no
+ *  tilt. Decided by the device, not the window width, so a narrow desktop window still moves. */
+function useLiteMotion() {
+  const [lite, setLite] = useState(true);
+  useEffect(() => {
+    const q = window.matchMedia("(pointer: coarse), (prefers-reduced-motion: reduce)");
+    const update = () => setLite(q.matches);
+    update();
+    q.addEventListener("change", update);
+    return () => q.removeEventListener("change", update);
+  }, []);
+  return lite;
+}
+
+/** Tilts a card toward the pointer in 3D, with a soft glare where the pointer is. */
+function Tilt({ children, max = 6 }: { children: ReactNode; max?: number }) {
+  const lite = useLiteMotion();
+  const [t, setT] = useState({ x: 0, y: 0, gx: 50, gy: 50, on: false });
+  function move(e: PointerEvent<HTMLDivElement>) {
+    if (lite) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    setT({ x: (0.5 - py) * max * 2, y: (px - 0.5) * max * 2, gx: px * 100, gy: py * 100, on: true });
+  }
+  return (
+    <div className="h-full [perspective:1100px]" onPointerMove={move} onPointerLeave={() => setT((p) => ({ ...p, x: 0, y: 0, on: false }))}>
+      <div className="relative h-full transition-transform duration-300 ease-out [transform-style:preserve-3d]"
+        style={{ transform: `rotateX(${t.x}deg) rotateY(${t.y}deg) scale(${t.on ? 1.015 : 1})` }}>
+        {children}
+        <div className="pointer-events-none absolute inset-0 rounded-3xl transition-opacity duration-300" aria-hidden
+          style={{ opacity: t.on ? 1 : 0, background: `radial-gradient(circle at ${t.gx}% ${t.gy}%, rgba(255,255,255,0.45), transparent 45%)` }} />
       </div>
     </div>
   );
 }
 
+/** Counts from `from` to `to` once it's on screen; people who asked for less motion see the final number. */
+function CountUp({ to, from = 0, decimals = 0, duration = 1300 }: { to: number; from?: number; decimals?: number; duration?: number }) {
+  const [ref, seen] = useInView<HTMLSpanElement>();
+  const [v, setV] = useState(from);
+  useEffect(() => {
+    if (!seen) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setV(to);
+    let raf = 0;
+    const start = performance.now();
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / duration);
+      setV(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [seen, from, to, duration]);
+  return <span ref={ref} className="tabular-nums">{v.toFixed(decimals)}</span>;
+}
+
+/** Steps through a little story once it's on screen (step goes 1, 2, 3... at the given times), holds the end,
+ *  then plays it again. People who asked for less motion see the end straight away. */
+function useStory(times: number[], hold = 4000) {
+  const [ref, seen] = useInView<HTMLDivElement>();
+  const [step, setStep] = useState(0);
+  const key = times.join(",");
+  useEffect(() => {
+    if (!seen) return;
+    const at = key.split(",").map(Number);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setStep(at.length);
+    let timers: number[] = [];
+    const play = () => {
+      setStep(0);
+      timers = at.map((t, i) => window.setTimeout(() => setStep(i + 1), t));
+      timers.push(window.setTimeout(play, at[at.length - 1] + hold));
+    };
+    play();
+    return () => timers.forEach(clearTimeout);
+  }, [seen, key, hold]);
+  return [ref, step] as const;
+}
+
+const QUERY = "route planning software";
+
+/** A buyer's search: the query types itself, competitors fill the top, and you turn up at #6. */
 function SerpMock() {
-  const row = (n: number, domain: string, you?: boolean) => (
-    <div className={cx("flex items-center gap-3 rounded-lg px-3 py-2 text-[14px]", you ? "bg-white ring-2 ring-rose-300" : "")}>
+  const [ref, step] = useStory([150, 1300, 1550, 1800, 2200]);
+  const row = (n: number, domain: string, show: boolean, you?: boolean) => (
+    <div className={cx("flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] transition-all duration-500 ease-out",
+      show ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
+      you && (show ? "scale-100 bg-white ring-2 ring-rose-300" : "scale-95"))}>
       <span className={cx("w-4 font-semibold", you ? "text-rose-600" : "text-stone-400")}>{n}</span>
       <span className={cx("flex-1", you ? "font-semibold text-ink" : "text-stone-600")}>{domain}</span>
-      {you && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[12px] font-semibold text-rose-700">You</span>}
+      {you && <span className={cx("rounded-full bg-rose-50 px-2 py-0.5 text-[12px] font-semibold text-rose-700 transition-transform delay-300 duration-300", show ? "scale-100" : "scale-0")}>You</span>}
     </div>
   );
   return (
-    <div>
+    <div ref={ref}>
       <div className="mb-2 flex h-9 items-center gap-2 rounded-full bg-white px-3.5 text-[13.5px] text-stone-700 ring-1 ring-line">
-        <Search size={14} className="text-stone-400" />route planning software
+        <Search size={14} className="shrink-0 text-stone-400" />
+        <span className="overflow-hidden whitespace-nowrap transition-[max-width] ease-linear"
+          style={{ maxWidth: step >= 1 ? "14em" : "0em", transitionDuration: step >= 1 ? "1000ms" : "0ms", transitionTimingFunction: `steps(${QUERY.length})` }}>
+          {QUERY}
+        </span>
+        <span className={cx("-ml-1.5 h-4 w-px bg-stone-500", step >= 2 ? "opacity-0" : "animate-pulse")} />
       </div>
-      {row(1, "routeco.com")}
-      {row(2, "optidrive.io")}
-      <div className="pl-10 text-[12px] leading-3 tracking-[0.3em] text-stone-300">···</div>
-      {row(6, "fleetwise.com", true)}
+      {row(1, "routeco.com", step >= 2)}
+      {row(2, "optidrive.io", step >= 3)}
+      <div className={cx("pl-10 text-[12px] leading-3 tracking-[0.3em] text-stone-300 transition-opacity duration-300", step >= 4 ? "opacity-100" : "opacity-0")}>···</div>
+      {row(6, "fleetwise.com", step >= 5, true)}
     </div>
   );
 }
 
+/** Asking an AI assistant: the question goes in, it thinks, it recommends your competitors, and you're not in it. */
 function ChatMock() {
+  const [ref, step] = useStory([200, 800, 2100, 2800]);
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-brand-600 px-3.5 py-2 text-[13.5px] leading-snug text-white">
+    <div ref={ref} className="flex flex-col gap-2.5">
+      <div className={cx("ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-brand-600 px-3.5 py-2 text-[13.5px] leading-snug text-white transition-all duration-500 ease-out",
+        step >= 1 ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0")}>
         Best route planning software?
       </div>
-      <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-white px-3.5 py-2.5 text-[13.5px] leading-snug text-stone-700 ring-1 ring-line">
-        Try <b className="font-semibold text-ink">Routeco</b> or <b className="font-semibold text-ink">OptiDrive</b>.
+      <div className={cx("grid max-w-[85%] transition-all duration-500 ease-out [&>*]:[grid-area:1/1]", step >= 2 ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0")}>
+        <div className={cx("flex h-[38px] w-16 items-center justify-center gap-1 rounded-2xl rounded-bl-md bg-white ring-1 ring-line transition-opacity duration-300", step === 2 ? "opacity-100" : "opacity-0")}>
+          {[0, 150, 300].map((d) => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-stone-400" style={{ animationDelay: `${d}ms` }} />)}
+        </div>
+        <div className={cx("rounded-2xl rounded-bl-md bg-white px-3.5 py-2.5 text-[13.5px] leading-snug text-stone-700 ring-1 ring-line transition-opacity duration-300", step >= 3 ? "opacity-100" : "opacity-0")}>
+          Try <b className="font-semibold text-ink">Routeco</b> or <b className="font-semibold text-ink">OptiDrive</b>.
+        </div>
       </div>
-      <span className="mt-1 inline-flex items-center gap-1.5 self-start rounded-full bg-rose-50 px-2.5 py-1 text-[12.5px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">
+      <span className={cx("mt-1 inline-flex items-center gap-1.5 self-start rounded-full bg-rose-50 px-2.5 py-1 text-[12.5px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 transition-all duration-300 ease-out",
+        step >= 4 ? "scale-100 opacity-100" : "scale-75 opacity-0")}>
         <X size={12} strokeWidth={3} />You&apos;re not mentioned
       </span>
     </div>
@@ -378,7 +499,7 @@ function ChatMock() {
 }
 
 /** You next to competitors, as bars that grow in when seen. Width is a percentage; "you" is in red. */
-function Bars({ rows }: { rows: [string, number, string, boolean?][] }) {
+function Bars({ rows }: { rows: [string, number, ReactNode, boolean?][] }) {
   const [ref, seen] = useInView<HTMLDivElement>();
   return (
     <div ref={ref} className="flex flex-col gap-4">
@@ -398,23 +519,28 @@ function Bars({ rows }: { rows: [string, number, string, boolean?][] }) {
   );
 }
 
-/** One way of dealing with gaps, in two words: what you get, and what's left for you. */
+/** One way of dealing with gaps, in two words: what you get, and what's left for you. Ours sparkles on hover. */
 function Way({ who, gives, then, us }: { who: string; gives: string; then: string; us?: boolean }) {
-  return (
-    <div className={cx("relative overflow-hidden rounded-3xl px-7 py-8 text-center",
-      us ? "bg-brand-600 shadow-[0_30px_80px_-20px_rgba(91,127,230,0.6)] ring-1 ring-white/20" : "bg-white/[0.04] ring-1 ring-inset ring-white/10")}>
-      {us && <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-white/15 blur-2xl" />}
-      <div className={cx("relative flex items-center justify-center gap-2 text-[14px] font-semibold", us ? "text-white/80" : "text-white/45")}>
+  const body = (
+    <div className="px-7 py-8">
+      <div className={cx("flex items-center justify-center gap-2 text-[14px] font-semibold", us ? "text-white/80" : "text-white/45")}>
         {us && <BrandMark size={18} />}{who}
       </div>
-      <p className={cx("display relative mt-3 text-[44px] leading-none", us ? "text-white" : "text-white/70")}>{gives}</p>
-      <p className={cx("relative mt-4 inline-flex items-center gap-2 text-[15px]", us ? "text-white" : "text-white/50")}>
+      <p className={cx("display mt-3 text-[44px] leading-none", us ? "text-white" : "text-white/70")}>{gives}</p>
+      <p className={cx("mt-4 inline-flex items-center gap-2 text-[15px]", us ? "text-white" : "text-white/50")}>
         <span className={cx("grid h-5 w-5 shrink-0 place-items-center rounded-full", us ? "bg-white text-brand-600" : "bg-white/10 text-white/50")}>
           {us ? <Check size={12} strokeWidth={3} /> : <X size={12} strokeWidth={3} />}
         </span>
         {then}
       </p>
     </div>
+  );
+  if (!us) return <div className="rounded-3xl bg-[#1d2314] text-center ring-1 ring-inset ring-white/10">{body}</div>;
+  return (
+    <PixelCard bare noFocus theme="dark" colors={["#ffffff", "#e9ecd5", "#bcc685"]} gap={8} speed={35} opacity={0.55} radius={24}
+      className="rounded-3xl bg-brand-600 text-center shadow-[0_30px_80px_-20px_rgba(140,154,75,0.55)] ring-1 ring-white/20">
+      {body}
+    </PixelCard>
   );
 }
 
@@ -438,7 +564,7 @@ function WebsiteStart({ signedIn, onDark }: { signedIn: boolean; onDark?: boolea
           className="h-11 w-full bg-transparent text-[16px] text-ink outline-none placeholder:text-stone-400" />
       </label>
       <button className={cx("inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-5 text-[15px] font-semibold text-white transition",
-        onDark ? "bg-ink hover:bg-black" : "bg-brand-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-8px_rgba(30,64,175,0.8)] hover:bg-brand-700")}>
+        onDark ? "bg-ink hover:bg-black" : "bg-brand-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_20px_-8px_rgba(85,107,47,0.7)] hover:bg-brand-700")}>
         Show me my gaps <ArrowRight size={16} />
       </button>
     </form>
@@ -553,7 +679,7 @@ function GrowMock() {
     <div ref={ref}>
       <div className="flex items-baseline justify-between">
         <span className="text-[12.5px] text-muted">Google rank</span>
-        <span className="text-[13.5px] font-semibold"><span className="text-rose-600">#6</span> <span className="text-stone-400">→</span> <span className="text-emerald-600">#3</span></span>
+        <span className="text-[13.5px] font-semibold"><span className="text-rose-600">#6</span> <span className="text-stone-400">→</span> <span className="text-emerald-600">#<CountUp from={6} to={3} duration={1800} /></span></span>
       </div>
       <svg viewBox="0 0 200 80" className="mt-3 w-full overflow-visible text-emerald-500">
         <path d="M4 70 C 40 66, 60 60, 90 48 S 150 22, 196 10" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"

@@ -158,15 +158,15 @@ export function EarnedSuggestions({ perms, onChange, busy }: { perms: Permission
   return (
     <div className="space-y-2">
       {items.map((p) => (
-        <div key={p.key} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-sky-50 px-3 py-2.5 text-[13px] text-sky-950 ring-1 ring-inset ring-sky-200">
-          <Sparkles size={15} className="shrink-0 text-sky-600" />
+        <div key={p.key} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-brand-50 px-3 py-2.5 text-[13px] text-brand-900 ring-1 ring-inset ring-brand-200">
+          <Sparkles size={15} className="shrink-0 text-brand-600" />
           <span className="min-w-0 flex-1"><b>{p.label}:</b> {p.suggestion!.reason}</span>
           <span className="flex gap-1.5">
             <button disabled={busy} onClick={() => onChange(p.key, p.suggestion!.mode)}
-              className="rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50">
+              className="rounded-md bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
               Switch to {MODE_WORDS[p.suggestion!.mode].short.toLowerCase()}
             </button>
-            <button onClick={() => setHidden([...hidden, p.key])} className="rounded-md px-2 py-1 text-xs font-semibold text-sky-800 hover:bg-sky-100">Not now</button>
+            <button onClick={() => setHidden([...hidden, p.key])} className="rounded-md px-2 py-1 text-xs font-semibold text-brand-800 hover:bg-brand-100">Not now</button>
           </span>
         </div>
       ))}

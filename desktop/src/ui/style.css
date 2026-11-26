@@ -1,6 +1,6 @@
 :root {
-  --brand: #1e40af; --brand-dark: #1e3a8a; --brand-soft: #eff4ff; --ink: #0c111d; --muted: #667085;
-  --line: #eaecf0; --canvas: #f9fafb; --green: #12b76a; --amber: #f79009; --red: #d92d20;
+  --brand: #556b2f; --brand-dark: #455824; --brand-soft: #f5f6ec; --ink: #151a0e; --muted: #6b6f5c;
+  --line: #e9eadf; --canvas: #f8f8f3; --green: #12b76a; --amber: #f79009; --red: #d92d20;
 }
 * { box-sizing: border-box; }
 body { margin: 0; font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
