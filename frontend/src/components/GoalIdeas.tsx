@@ -25,7 +25,7 @@ export function GoalIdeas({ org, goals, onChanged }: { org: OrgInfo | null | und
   return (
     <div className="space-y-10">
       {recommended && (
-        <section className="space-y-3">
+        <section className="space-y-3 rounded-3xl border border-line bg-white/60 p-5">
           <div>
             <h2 className="flex items-center gap-2 text-lg font-bold"><Search size={18} className="text-brand-600" /> Recommended for {org!.org.name}</h2>
             <p className="text-sm text-muted">
@@ -34,7 +34,7 @@ export function GoalIdeas({ org, goals, onChanged }: { org: OrgInfo | null | und
             </p>
           </div>
           <Opportunities profile={org!.org.profile} org={org} goals={goals} orgName={org!.org.name} canStart
-            onStart={setStarting} onOpen={setPanel} titled={false} />
+            onStart={setStarting} onOpen={setPanel} titled={false} preview={2} />
         </section>
       )}
 

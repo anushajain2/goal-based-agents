@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, Bot, Check, Flag, Lightbulb, Loader2, Plug, Search, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Lightbulb, Loader2, Plug, Search, TrendingUp } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, ScoreRow, usd, Visibility } from "@/lib/api";
 import { TeamTag } from "./team";
@@ -31,20 +31,30 @@ function factsOf(f: { points?: string[]; evidence: string }): string[] {
 const weeks = (w: number) => (w >= 8 && w % 4 === 0 ? `${w / 4} months` : `${w} week${w === 1 ? "" : "s"}`);
 
 /** "What you're missing out on": how customers find you, and gaps with the goals that fix them. */
-export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, canStart, titled = true }: {
+export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, canStart, titled = true, preview }: {
   profile: CompanyProfile | null | undefined; org: OrgInfo | null | undefined; goals: Campaign[] | null | undefined; orgName: string;
   onStart: (goals: Campaign[]) => void; onOpen: (goal: Campaign) => void; canStart: boolean;
   titled?: boolean;  // false where the page title already says it (onboarding)
+  preview?: number;  // show only this many findings until "Show all" (Goal ideas)
 }) {
   const found = profile?.opportunities;
   const has = !!found && (found.findings.length > 0 || (found.unlock || []).length > 0 || (found.scorecard || []).length > 0);
   const [made, setMade] = useState<Record<string, string>>({});  // "finding:step" -> goal made just now
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   useEffect(() => {  // arriving from Home's "Turn on fixes" link
     if (has && window.location.hash === "#missing") document.getElementById("missing")?.scrollIntoView({ behavior: "smooth" });
   }, [has]);
   if (!found || !has) return null;
+  const collapsed = !!preview && !expanded;
+  const shownFindings = collapsed ? found.findings.slice(0, preview) : found.findings;
+  const hiddenCount = found.findings.length - shownFindings.length;
+  const extras = [
+    found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) ? "how customers find you" : "",
+    (found.scorecard || []).length > 0 ? "you vs competitors" : "",
+    (found.unlock || []).length > 0 ? "what connecting your tools unlocks" : "",
+  ].filter(Boolean);
   const byId = new Map((goals || []).map((g) => [g.id, g]));
   const firstSteps = found.findings.map((f) => (f.goal_id ? byId.get(f.goal_id) : undefined))
     .filter((g): g is Campaign => !!g && g.status === "draft" && g.can_manage !== false);
@@ -81,7 +91,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
         )}
       </div>
       {err && <ErrorNote>{err}</ErrorNote>}
-      {(found.checks || []).some((c) => c.why) && (
+      {!collapsed && (found.checks || []).some((c) => c.why) && (
         <div className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
           <span className="text-muted">What we checked, and why:</span>
           {found.checks!.map((c) => (
@@ -91,11 +101,11 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
         </div>
       )}
 
-      {found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) && <Findable v={found.visibility} name={orgName} />}
-      {(found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} />}
+      {!collapsed && found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) && <Findable v={found.visibility} name={orgName} />}
+      {!collapsed && (found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} />}
 
       <div className="space-y-4">
-        {found.findings.map((f, i) => {
+        {shownFindings.map((f, i) => {
           const steps = f.milestones || [];
           const goal = f.goal_id ? byId.get(f.goal_id) : undefined;
           const facts = factsOf(f);
@@ -158,8 +168,21 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
         })}
       </div>
 
-      {(found.unlock || []).length > 0 && (
+      {!collapsed && (found.unlock || []).length > 0 && (
         <Unlock groups={found.unlock!} org={org} goals={goals || []} canStart={canStart} onStart={onStart} onOpen={onOpen} />
+      )}
+
+      {preview && (hiddenCount > 0 || extras.length > 0) && (
+        <button onClick={() => setExpanded(!expanded)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 bg-white/70 px-4 py-3 text-[13.5px] font-semibold text-brand-700 transition hover:border-stone-400 hover:bg-white">
+          {expanded ? <>Show less <ChevronUp size={15} /></> : (
+            <>
+              Show all{hiddenCount > 0 ? ` ${found.findings.length} findings` : ""}
+              {extras.length > 0 && <span className="font-normal text-muted">{hiddenCount > 0 ? ", plus " : ": "}{extras.join(", ")}</span>}
+              <ChevronDown size={15} />
+            </>
+          )}
+        </button>
       )}
     </section>
   );
@@ -186,18 +209,28 @@ function Unlock({ groups, org, goals, canStart, onStart, onOpen }: {
       setBusy(null);
     }
   }
+  const row = useRef<HTMLDivElement>(null);
+  const scroll = (dir: number) => row.current?.scrollBy({ left: dir * 300, behavior: "smooth" });
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[var(--shadow-card)]">
-      <div className="border-b border-line px-5 py-3.5">
-        <div className="flex items-center gap-2 text-[15px] font-semibold"><Plug size={16} className="text-brand-600" /> Connect to unlock</div>
-        <div className="text-[12.5px] text-muted">The rest of what you&apos;re missing is in your own tools. Connect one and Oton checks it, then fixes what it finds, with your OK.</div>
+      <div className="flex items-start gap-3 px-5 pb-2 pt-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-[15px] font-semibold"><Plug size={16} className="text-brand-600" /> Connect to unlock</div>
+          <div className="text-[12.5px] text-muted">More of what you&apos;re missing is in your own tools. Connect one and Oton checks it, then fixes what it finds, with your OK.</div>
+        </div>
+        {sorted.length > 1 && (
+          <div className="hidden shrink-0 gap-1 sm:flex">
+            <button onClick={() => scroll(-1)} aria-label="Previous teams" className="grid h-8 w-8 place-items-center rounded-full border border-line text-stone-500 hover:bg-stone-50 hover:text-ink"><ChevronLeft size={16} /></button>
+            <button onClick={() => scroll(1)} aria-label="More teams" className="grid h-8 w-8 place-items-center rounded-full border border-line text-stone-500 hover:bg-stone-50 hover:text-ink"><ChevronRight size={16} /></button>
+          </div>
+        )}
       </div>
-      {err && <div className="px-5 pt-3"><ErrorNote>{err}</ErrorNote></div>}
-      <div className="-mb-px -mr-px grid sm:grid-cols-2 lg:grid-cols-3">
+      {err && <div className="px-5 pt-1"><ErrorNote>{err}</ErrorNote></div>}
+      <div ref={row} className="flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-5 pt-2 [scrollbar-width:thin]">
         {sorted.map((g) => {
           const titles = [...new Set(g.checks.map((c) => c.title))];
           return (
-            <div key={g.team_kind} className="border-b border-r border-line p-4">
+            <div key={g.team_kind} className="w-[270px] shrink-0 snap-start rounded-xl bg-canvas p-3.5 ring-1 ring-inset ring-line">
               <div className="flex items-center justify-between gap-2">
                 <TeamTag name={teamName(g.team_kind, org)} />
                 {!has(g.team_kind) && <Link href="/team" className="text-[12px] font-semibold text-brand-700 hover:underline">Add team</Link>}
@@ -209,7 +242,7 @@ function Unlock({ groups, org, goals, canStart, onStart, onOpen }: {
                   return (
                     <li key={title}>
                       <div className="text-[13.5px] font-semibold leading-snug">{title}</div>
-                      <div className="text-[12px] leading-snug text-muted">{options[0].how}</div>
+                      <div className="line-clamp-2 text-[12px] leading-snug text-muted" title={options[0].how}>{options[0].how}</div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         {live ? (
                           <button onClick={() => (live.status === "draft" && canStart ? onStart([live]) : onOpen(live))}
