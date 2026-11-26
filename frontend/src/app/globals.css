@@ -3,41 +3,7 @@
 @import "@fontsource-variable/jetbrains-mono";
 
 @theme {
-  /* Clean white with one cobalt accent. Amber ("signal") means "needs attention"; green means on track / done. */
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c3d0fb;
-  --color-brand-300: #9cb1f6;
-  --color-brand-400: #5b7fe6;
-  --color-brand-500: #1e40af;
-  --color-brand-600: #1e40af;
-  --color-brand-700: #1e3a8a;
-  --color-brand-800: #1b3178;
-  --color-brand-900: #172a63;
-  --color-signal-50: #fffaeb;
-  --color-signal-100: #fef0c7;
-  --color-signal-200: #fedf89;
-  --color-signal-300: #fec84b;
-  --color-signal-400: #fdb022;
-  --color-signal-500: #f79009;
-  --color-signal-600: #dc6803;
-  --color-signal-700: #b54708;
-  --color-signal-800: #93370d;
-  --color-signal-900: #7a2e0e;
-  --color-ink: #0c111d;
-  --color-muted: #667085;
-  --color-line: #eaecf0;
-  --color-canvas: #f9fafb;
-  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04);
-  --shadow-pop: 0 24px 48px -16px rgb(16 24 40 / 0.22), 0 2px 6px rgb(16 24 40 / 0.05);
-}
-
-/* The homepage, for now: olive instead of cobalt. Every brand-*, ink, canvas, line and muted utility inside it
-   picks these up, so the app keeps its blue until it moves over too. */
-.theme-olive {
+  /* Clean white with one olive accent. Amber ("signal") means "needs attention"; green means on track / done. */
   --color-brand-50: #f5f6ec;
   --color-brand-100: #e9ecd5;
   --color-brand-200: #d6dcb0;
@@ -48,10 +14,25 @@
   --color-brand-700: #455824;
   --color-brand-800: #37461d;
   --color-brand-900: #2b3717;
+  --color-signal-50: #fffaeb;
+  --color-signal-100: #fef0c7;
+  --color-signal-200: #fedf89;
+  --color-signal-300: #fec84b;
+  --color-signal-400: #fdb022;
+  --color-signal-500: #f79009;
+  --color-signal-600: #dc6803;
+  --color-signal-700: #b54708;
+  --color-signal-800: #93370d;
+  --color-signal-900: #7a2e0e;
   --color-ink: #151a0e;
   --color-muted: #6b6f5c;
   --color-line: #e9eadf;
   --color-canvas: #f8f8f3;
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04);
+  --shadow-pop: 0 24px 48px -16px rgb(16 24 40 / 0.22), 0 2px 6px rgb(16 24 40 / 0.05);
 }
 
 html,

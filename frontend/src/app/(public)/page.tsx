@@ -32,7 +32,7 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="theme-olive min-h-screen overflow-x-hidden bg-white text-ink">
+    <div className="min-h-screen overflow-x-hidden bg-white text-ink">
       <header className="sticky top-0 z-30 border-b border-line/60 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-8 px-5 py-3.5">
           <Logo />

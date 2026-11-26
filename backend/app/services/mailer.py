@@ -32,7 +32,7 @@ def _message(to: str, code: str) -> EmailMessage:
     msg.add_alternative(
         f"""<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:420px;margin:auto;padding:24px">
   <p style="font-size:15px;color:#1c2b33">Your Autopilot sign-in code is</p>
-  <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#1d4ed8;margin:12px 0">{code}</p>
+  <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#556b2f;margin:12px 0">{code}</p>
   <p style="font-size:13px;color:#65676b">It expires in 10 minutes. If you didn't try to sign in, you can ignore
   this email; nobody can sign in without the code.</p>
 </div>""",

@@ -11,7 +11,7 @@ const PALETTE: [string, string][] = [
   ["#fdf5dc", "#a16207"],
   ["#e6f6f8", "#0e7490"],
   ["#f0f1f5", "#475467"],
-  ["#eef2ff", "#1e3a8a"],
+  ["#f0f2e4", "#4d5a26"],
 ];
 
 /** "Outbound Agent" -> "O", "People & Hiring Agent" -> "PH". */

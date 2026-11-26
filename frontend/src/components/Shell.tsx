@@ -21,7 +21,7 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings, match: (p: string) => p.startsWith("/settings") },
 ];
 
-/** The Autopilot mark: a cobalt tile with a target and the path that hits it. */
+/** The Autopilot mark: an olive tile with a target and the path that hits it. */
 export function BrandMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden className="shrink-0">
