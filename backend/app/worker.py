@@ -29,7 +29,7 @@ from app.config import get_settings
 from app.db import session_scope
 from app.observability import check_and_init
 from app.models import AgentRun, Campaign, CampaignStatus, LeadReview, OrgSetup, RunStatus, utcnow
-from app.services import activity, targets
+from app.services import activity, autonomy, targets
 from app.services.events import notify
 
 log = logging.getLogger("autopilot.worker")
@@ -81,6 +81,18 @@ async def schedule_due_cycles() -> int:
             created += 1
             await notify(s, campaign.id, "run")
     return created
+
+
+async def release_heads_ups(tasks: set) -> None:
+    """Heads-ups whose time is up go ahead; queued calls (approved early or released) are made."""
+    async with session_scope() as s:
+        await autonomy.release_due(s)
+    async with session_scope() as s:
+        claimed = await autonomy.claim_queued(s)
+    for request_id in claimed:
+        task = asyncio.create_task(autonomy.run_queued(request_id))
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
 
 
 async def roll_over_targets() -> int:
@@ -263,6 +275,7 @@ async def main() -> None:
             await recover_stale_runs()
             await recover_stale_setups()
             await schedule_due_cycles()
+            await release_heads_ups(tasks)
             if not last_rollover or utcnow() - last_rollover > timedelta(minutes=1):
                 last_rollover = utcnow()
                 await roll_over_targets()

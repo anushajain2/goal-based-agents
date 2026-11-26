@@ -69,7 +69,7 @@ function NeedsYouPage() {
     <div className="space-y-4">
       <PageHeader
         title="Needs you"
-        subtitle="AI employees show their work here. Nothing goes out until a person says yes."
+        subtitle="AI employees show their work here. Anything that needs a yes waits for one; heads-ups go ahead unless you stop them."
         actions={
           <div className="inline-flex rounded-xl bg-stone-100 p-1 text-[13px] font-semibold">
             {tabs.map(([t, label]) => (
@@ -104,7 +104,10 @@ function NeedsYouPage() {
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <Badge tone={tab === "done" ? (r.status === "approved" ? "green" : "gray") : k.tone}>
-                            {tab === "done" ? (r.status === "approved" ? (r.kind === "question" ? "Answered" : "Approved") : r.kind === "question" ? "Skipped" : "Declined") : k.label}
+                            {tab === "done"
+                              ? (r.auto_approve_at ? (r.status === "approved" ? "Went ahead" : "Stopped")
+                                : r.status === "approved" ? (r.kind === "question" ? "Answered" : "Approved") : r.kind === "question" ? "Skipped" : "Declined")
+                              : r.auto_approve_at ? "Heads-up" : k.label}
                           </Badge>
                           <span className="truncate text-[11.5px] text-muted">{r.agent_name}</span>
                         </span>

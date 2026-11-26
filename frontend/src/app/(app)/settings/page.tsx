@@ -226,7 +226,7 @@ function Permissions() {
     <Card>
       <CardHeader
         title={<span className="flex items-center gap-2"><ShieldCheck size={16} /> Permissions</span>}
-        subtitle={`Everything your team said "don't ask me next time" to. Revoke any of them and the AI employee asks again.`}
+        subtitle={`What AI employees may do without asking (or with a heads-up), and where they always ask. Revoke any of them to go back to asking.`}
       />
       {error && <div className="px-4 pt-3"><ErrorNote>{error}</ErrorNote></div>}
       {data && data.length === 0 ? (
@@ -237,8 +237,10 @@ function Permissions() {
             <li key={g.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
               <span className="flex-1">
                 <b>{g.action_label}</b>
+                {g.mode === "heads_up" ? " after a heads-up" : g.mode === "ask" ? ": always asks" : " without asking"}
                 {g.scope ? <> on {g.scope}</> : " anywhere"}
                 {g.spend_limit_usd ? ` · up to ${usd(g.spend_limit_usd)} each` : ""}
+                {g.daily_cap ? ` · up to ${g.daily_cap} a day` : ""}
                 <span className="block text-xs text-muted">
                   {levelText(g)} · since {new Date(g.created_at).toLocaleDateString()}
                 </span>

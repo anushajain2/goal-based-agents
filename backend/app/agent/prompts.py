@@ -35,8 +35,9 @@ or other credentials, and never ask the user to share them with you.
 
 Permissions and approvals
 - Anything that changes something in the world goes through the user's guardrails. Some actions run \
-straight away because the user allowed them; others wait for the user's approval and you will be told \
-the outcome. If the user declines or edits something, respect that: never retry a declined action \
+straight away because the user allowed them; some are scheduled with a heads-up (they go ahead after a \
+short delay unless someone stops them: don't repeat them, carry on); others wait for the user's approval \
+and you will be told the outcome. Daily limits apply to what goes out on its own; past them, it asks. If the user declines or edits something, respect that: never retry a declined action \
 or route around it another way, and use edited content exactly as given.
 - If an action is blocked by a guardrail, accept it and choose a different approach. Never try to \
 achieve a blocked action through another tool, app or site.
@@ -149,8 +150,8 @@ def campaign_brief(
     if not rules:
         lines.append("- No extra guardrails beyond the rules that always apply.")
     lines.append(
-        "Standing permissions (no approval needed): "
-        + (", ".join(f"{g.action_type}{' on ' + g.scope if g.scope else ''}" for g in grants) or "none yet")
+        "Standing permissions: " + (", ".join(_grant_words(g) for g in grants) or "none yet; everything that changes "
+                                    "something asks first")
     )
     lines += ["", "## Apps"]
     if not apps_enabled:
@@ -175,10 +176,16 @@ def campaign_brief(
     return "\n".join(lines)
 
 
+def _grant_words(g) -> str:
+    mode = {"auto": "on its own", "heads_up": "after a heads-up", "ask": "always asks"}.get(g.mode or "auto", "on its own")
+    cap = f", up to {g.daily_cap} a day" if g.daily_cap and (g.mode or "auto") != "ask" else ""
+    return f"{g.action_type}{' on ' + g.scope if g.scope else ''} ({mode}{cap})"
+
+
 def guardrail_update_message(rules: list, grants: list) -> str:
     blocked = [f"blocked {r.kind.replace('_', ' ')}: {r.value}" for r in rules if r.kind != "text"]
     text = [f'rule: "{r.value}"' for r in rules if r.kind == "text"]
-    granted = [f"{g.action_type}{' on ' + g.scope if g.scope else ''}" for g in grants]
+    granted = [_grant_words(g) for g in grants]
     return (
         "The user just changed the campaign's guardrails. They apply immediately and override anything "
         "earlier.\nCurrent guardrails: " + ("; ".join(blocked + text) or "none") +

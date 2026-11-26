@@ -4,6 +4,10 @@ This is the "soft" layer of guardrails. Hard blocks (action types, apps, sites) 
 enforced in code by services/policy.py; free-text rules like "never mention competitors"
 can only be judged by reading the content, so a separate Claude call reviews every
 non-read action before it runs. It is a strong check, not a guarantee.
+
+The same call says whether the content is sensitive (pricing, legal or health claims,
+competitors, complaints, news). That never blocks anything; it only means an action that would
+have gone out on its own asks a person first. The reviewer can only make things stricter.
 """
 
 from __future__ import annotations
@@ -30,8 +34,10 @@ _SCHEMA = {
             "violates": {"type": "boolean"},
             "rule": {"type": "string"},
             "explanation": {"type": "string"},
+            "sensitive": {"type": "boolean"},
+            "sensitive_reason": {"type": "string"},
         },
-        "required": ["violates", "rule", "explanation"],
+        "required": ["violates", "rule", "explanation", "sensitive", "sensitive_reason"],
         "additionalProperties": False,
     },
 }
@@ -41,7 +47,11 @@ _SYSTEM = (
     "behalf. Decide whether the action clearly breaks any of the rules listed. Judge only "
     "against the rules; do not judge strategy or quality. If no rule is broken, set "
     'violates=false and rule="". If one is, set violates=true, quote that rule in `rule`, '
-    "and explain in one short sentence."
+    "and explain in one short sentence.\n\n"
+    "Separately, set sensitive=true if the content touches any of: prices, discounts or refunds; legal, medical, "
+    "financial or safety claims; a competitor by name; a customer complaint or an angry person; news, politics, "
+    "tragedies or other charged topics; or personal data about someone. Then give sensitive_reason in a few words "
+    '(e.g. "It mentions pricing"). Otherwise sensitive=false and sensitive_reason="".'
 )
 
 
@@ -51,6 +61,8 @@ class RuleVerdict:
     rule: str
     explanation: str
     uncertain: bool = False  # reviewer could not decide -> ask the user instead of blocking
+    sensitive: bool = False  # touches a sensitive topic -> ask instead of going ahead on its own
+    sensitive_reason: str = ""
 
 
 async def check_action(
@@ -83,7 +95,9 @@ async def check_action(
     text = next((b.get("text", "") for b in result.content if b.get("type") == "text"), "")
     try:
         data = json.loads(text)
-        return RuleVerdict(bool(data["violates"]), str(data.get("rule", "")), str(data.get("explanation", "")))
+        return RuleVerdict(bool(data["violates"]), str(data.get("rule", "")), str(data.get("explanation", "")),
+                           sensitive=bool(data.get("sensitive", False)),
+                           sensitive_reason=str(data.get("sensitive_reason") or ""))
     except (ValueError, KeyError):
         # Fail closed: an unreadable verdict never lets the action through silently; the
         # pipeline turns `uncertain` into a request for the user's approval.

@@ -42,6 +42,7 @@ def request_json(r: UserRequest, campaign_name: str | None = None) -> dict:
         "action_label": at.label if at else None, "scope": r.scope, "title": r.title, "rationale": r.rationale,
         "preview": r.preview, "est_spend_usd": _f(r.est_spend_usd), "decision_note": r.decision_note,
         "edited_fields": r.edited_fields, "remember": r.remember,
+        "auto_approve_at": r.auto_approve_at.isoformat() if r.auto_approve_at else None,
         "decided_at": r.decided_at.isoformat() if r.decided_at else None, "created_at": r.created_at.isoformat(),
     }
 
@@ -51,7 +52,8 @@ def grant_json(g: PermissionGrant, campaign_name: str | None = None) -> dict:
     return {
         "id": g.id, "campaign_id": g.campaign_id, "campaign_name": campaign_name, "action_type": g.action_type,
         "action_label": at.label if at else g.action_type, "scope": g.scope,
-        "spend_limit_usd": _f(g.spend_limit_usd), "created_at": g.created_at.isoformat(),
+        "spend_limit_usd": _f(g.spend_limit_usd), "mode": g.mode or "auto", "daily_cap": g.daily_cap,
+        "source": g.source, "created_at": g.created_at.isoformat(),
     }
 
 

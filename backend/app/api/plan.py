@@ -2,8 +2,11 @@
 
     GET  /api/estimate                         budget suggestion for a schedule (sessions x cost)
     POST /api/campaigns/{id}/playbook          the goal's plan of steps (made once, or remade)
-    GET  /api/campaigns/{id}/permissions       per kind of action: on its own / ask first / never
+    GET  /api/campaigns/{id}/permissions       per kind of action: on its own / heads-up / ask first / never
     PUT  /api/campaigns/{id}/permissions/{t}   change that for this goal
+    GET  /api/campaigns/{id}/autonomy          recommended autonomy presets for this goal
+    POST /api/campaigns/{id}/autonomy          apply one (with changes), usually when starting the goal
+    POST /api/campaigns/{id}/autonomy/flag     "this shouldn't have gone out": that kind asks first again
     GET  /api/campaigns/{id}/readiness         tools to connect + approvals, shown before starting
     POST /api/sites/signed-in                  "I signed in to this site in Agent Chrome"
 """
@@ -14,7 +17,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.llm import MeteredClaude
@@ -25,10 +28,8 @@ from app.models import (
     Campaign,
     Deliverable,
     Department,
-    ExclusionRule,
     Integration,
     McpServer,
-    PermissionGrant,
     RequestKind,
     RequestStatus,
     SiteSignIn,
@@ -36,7 +37,7 @@ from app.models import (
     utcnow,
 )
 from app.org import Member, approvers, current_member, get_goal, goal_department
-from app.services import activity, estimate, permissions
+from app.services import activity, autonomy, estimate, permissions
 from app.services.events import notify
 from app.services.policy import ACTION_TYPES, domain_of
 from app.services.rule_check import BUILT_IN_RULES
@@ -136,8 +137,9 @@ async def get_permissions(campaign_id: str, s: AsyncSession = Depends(get_sessio
 
 
 class ModeIn(BaseModel):
-    mode: str = Field(pattern="^(auto|ask|never)$")
+    mode: str = Field(pattern="^(auto|heads_up|ask|never)$")
     spend_limit_usd: float | None = Field(default=None, gt=0)
+    daily_cap: int | None = Field(default=None, ge=1, le=1000)
 
 
 @router.put("/campaigns/{campaign_id}/permissions/{action_type}")
@@ -151,31 +153,79 @@ async def set_permission(campaign_id: str, action_type: str, body: ModeIn,
         raise HTTPException(400, f'"{t.label}" never changes anything outside Autopilot, so it doesn\'t need approval.')
     if body.mode == "auto" and action_type == "spend_money" and not body.spend_limit_usd:
         raise HTTPException(400, "Say how much it may spend per action without asking.")
-    # Replace this goal's own setting; department and organization settings stay as they are.
-    await s.execute(delete(ExclusionRule).where(ExclusionRule.campaign_id == campaign_id,
-                                                ExclusionRule.kind == "action_type", ExclusionRule.value == action_type))
-    for g in (await s.execute(select(PermissionGrant).where(
-            PermissionGrant.campaign_id == campaign_id, PermissionGrant.action_type == action_type,
-            PermissionGrant.scope.is_(None), PermissionGrant.revoked_at.is_(None)))).scalars():
-        g.revoked_at = utcnow()
-    if body.mode == "never":
-        s.add(ExclusionRule(campaign_id=campaign_id, org_id=c.org_id, kind="action_type", value=action_type))
-    elif body.mode == "auto" and t.default == "ask":
-        s.add(PermissionGrant(campaign_id=campaign_id, org_id=c.org_id, action_type=action_type,
-                              granted_by=me.user.id,
-                              spend_limit_usd=Decimal(str(body.spend_limit_usd)) if body.spend_limit_usd else None))
-    await s.flush()
+    if body.mode == "heads_up" and action_type == "spend_money":
+        raise HTTPException(400, "Spending asks first, or goes ahead under a per-action limit; it has no heads-up.")
+    if t.default == "auto":  # only "never" (or back to the default) for things that change nothing outside
+        if body.mode == "never":
+            await autonomy.set_goal_mode(s, c, action_type, "never", granted_by=me.user.id)
+        else:
+            await autonomy.clear_goal_setting(s, campaign_id, action_type)
+            await s.flush()
+    else:
+        # Replace this goal's own setting; department and organization settings stay as they are.
+        await autonomy.set_goal_mode(
+            s, c, action_type, body.mode, daily_cap=body.daily_cap if body.mode in ("auto", "heads_up") else None,
+            spend_limit_usd=Decimal(str(body.spend_limit_usd)) if body.spend_limit_usd and body.mode == "auto" else None,
+            granted_by=me.user.id)
     current = next(x for x in await permissions.effective(s, campaign_id) if x["key"] == action_type)
-    words = {"auto": "does this on its own", "ask": "asks first", "never": "never does this"}
+    words = {"auto": "does this on its own", "heads_up": "goes ahead after a heads-up", "ask": "asks first",
+             "never": "never does this"}
     c.guardrail_version += 1
     who = me.user.name or me.user.email
-    await activity.log(s, campaign_id, "system", f'"{t.label}": {words[body.mode]} (set by {who})', status="info")
+    cap = f", up to {body.daily_cap} a day" if body.daily_cap and body.mode in ("auto", "heads_up") else ""
+    await activity.log(s, campaign_id, "system", f'"{t.label}": {words[body.mode]}{cap} (set by {who})', status="info")
     await notify(s, campaign_id, "guardrails")
     note = None
-    if current["mode"] != body.mode:
+    if current["mode"] != body.mode and not (t.default == "auto" and body.mode != "never"):
         where = "the whole organization" if current["set_at"] == "org" else "its department"
         note = f'A setting for {where} keeps this at "{words[current["mode"]]}". Change it in Settings → Permissions.'
     return {"permission": current, "note": note}
+
+
+# --- autonomy ------------------------------------------------------------------------------------
+
+@router.get("/campaigns/{campaign_id}/autonomy")
+async def get_autonomy(campaign_id: str, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    return await autonomy.recommend(s, await get_goal(s, me, campaign_id))
+
+
+class Override(BaseModel):
+    mode: str = Field(pattern="^(auto|heads_up|ask|never)$")
+    daily_cap: int | None = Field(default=None, ge=1, le=1000)
+
+
+class AutonomyIn(BaseModel):
+    preset: str = Field(pattern="^(cautious|balanced|fast)$")
+    overrides: dict[str, Override] = Field(default_factory=dict)
+    personal: list[str] = Field(default_factory=list, max_length=20)  # tools that are someone's personal profile
+
+
+@router.post("/campaigns/{campaign_id}/autonomy")
+async def set_autonomy(campaign_id: str, body: AutonomyIn, s: AsyncSession = Depends(get_session),
+                       me: Member = Depends(current_member)):
+    c = await get_goal(s, me, campaign_id, manage=True)
+    try:
+        await autonomy.apply(s, c, body.preset, overrides={k: v.model_dump(exclude_unset=True) for k, v in body.overrides.items()},
+                             personal=body.personal, by=me.user.id)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    return {"preset": c.autonomy_preset, "permissions": await permissions.effective(s, campaign_id)}
+
+
+class FlagIn(BaseModel):
+    action_type: str
+    note: str | None = Field(default=None, max_length=1000)
+
+
+@router.post("/campaigns/{campaign_id}/autonomy/flag")
+async def flag(campaign_id: str, body: FlagIn, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    """Something went out that shouldn't have: that kind of action asks first again on this goal."""
+    c = await get_goal(s, me, campaign_id, manage=True)
+    if body.action_type not in ACTION_TYPES or ACTION_TYPES[body.action_type].default == "auto":
+        raise HTTPException(400, "That kind of action doesn't go out on its own.")
+    who = me.user.name or me.user.email
+    await autonomy.downgrade(s, c, body.action_type, f"{who} flagged one that went out" + (f' ("{body.note}")' if body.note else "") + ".")
+    return {"permissions": await permissions.effective(s, campaign_id)}
 
 
 # --- before starting ---------------------------------------------------------------------------
@@ -218,6 +268,7 @@ async def readiness(campaign_id: str, s: AsyncSession = Depends(get_session), me
         "composio_enabled": hub.enabled,
         "mcp_servers": [{"id": m.id, "name": m.name, "tools": len(m.tools or []), "error": m.last_error} for m in servers],
         "permissions": await permissions.effective(s, campaign_id),
+        "autonomy": await autonomy.recommend(s, c),
         "department": dept, "approvers": people,
         "playbook": c.playbook,
     }

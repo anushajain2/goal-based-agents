@@ -11,18 +11,26 @@ On top of the defaults:
     code. The agent cannot get around them.
   * Free-text rules (exclusion rules of kind text) plus the built-in rules are checked by
     a separate AI reviewer (see services/rule_check.py). That is best-effort, not a proof.
-  * Grants ("approve & don't ask again") turn `ask` into `auto` for one action type,
-    optionally narrowed to one app/site, for one campaign or all of them.
+    The reviewer can only make things stricter (block, or ask instead of going ahead).
+  * Grants change `ask` for one action type, optionally narrowed to one app/site, on one
+    goal, a department or the whole organization. A grant has a mode:
+        auto      - goes ahead without asking ("approve & don't ask again")
+        heads_up  - goes ahead after a short heads-up unless someone stops it
+        ask       - asks every time, overriding looser grants (e.g. a founder's personal
+                    account, or a type that was stopped too often on this goal)
+    When several grants apply, the strictest wins. An auto or heads_up grant may carry a
+    daily cap: past it, the action asks instead (see services/autonomy.py).
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import urlparse
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Agent, Campaign, ExclusionRule, PermissionGrant
@@ -66,7 +74,8 @@ ACTION_TYPES: dict[str, ActionType] = {
         ActionType("research", "Research the web", "Search and read public web pages.", "auto", 0),
         ActionType("read_data", "Read app data", "Read analytics, posts, followers, orders, etc.", "auto", 0),
         ActionType("create_draft", "Create drafts", "Create drafts or private notes that nobody else sees.", "auto", 1),
-        ActionType("engage", "Engage", "Like, follow, repost, reply or comment.", "ask", 3),
+        ActionType("engage", "Like and follow", "Like, follow, repost or bookmark.", "ask", 3),
+        ActionType("reply", "Reply and comment", "Reply to people or comment on posts and threads.", "ask", 4),
         ActionType("publish_post", "Publish posts", "Publish a post, tweet, thread or update publicly.", "ask", 4),
         ActionType("publish_article", "Publish articles", "Publish a blog post, article or page.", "ask", 4),
         ActionType("send_message", "Send messages", "Send emails, DMs or messages to people.", "ask", 5),
@@ -74,12 +83,18 @@ ACTION_TYPES: dict[str, ActionType] = {
         ActionType("delete_content", "Delete content", "Delete or remove posts, files or records.", "ask", 6),
         ActionType("spend_money", "Spend money", "Run ads, buy things or make any payment.", "ask", 7),
         ActionType("propose_code", "Propose code", "Open a pull request on a new branch. Nothing ships until it's merged.", "auto", 2),
+        ActionType("merge_content", "Merge content changes",
+                   "Merge a small pull request that only changes copy, articles or images and passes its checks.", "ask", 5),
         ActionType("merge_code", "Merge code", "Merge a pull request into the main code.", "ask", 6),
         ActionType("other_write", "Other changes", "Any other action that changes something.", "ask", 5),
     ]
 }
 
 READ_ONLY = {"research", "read_data"}
+
+# Grant modes, loosest first. The strictest applicable one wins.
+GRANT_MODES = ("auto", "heads_up", "ask")
+_STRICTNESS = {m: i for i, m in enumerate(GRANT_MODES)}
 
 
 def stricter(a: str, b: str) -> str:
@@ -101,7 +116,8 @@ _RULES: list[tuple[re.Pattern, str]] = [
     (re.compile(r"(DELETE|REMOVE|DESTROY|TRASH|ARCHIVE|UNPUBLISH|PURGE)"), "delete_content"),
     (re.compile(r"(SEND|REPLY_TO_EMAIL|DIRECT_MESSAGE|_DM|MESSAGE_CREATE|CREATE_MESSAGE|POST_MESSAGE|_MAIL_|EMAIL_SEND|FORWARD)"), "send_message"),
     (re.compile(r"(DRAFT)"), "create_draft"),
-    (re.compile(r"(LIKE|FOLLOW|RETWEET|REPOST|REACT|UPVOTE|COMMENT|REPLY|BOOKMARK|SUBSCRIBE|JOIN|STAR)"), "engage"),
+    (re.compile(r"(COMMENT|REPLY)"), "reply"),
+    (re.compile(r"(LIKE|FOLLOW|RETWEET|REPOST|REACT|UPVOTE|BOOKMARK|SUBSCRIBE|JOIN|STAR)"), "engage"),
     (re.compile(r"(ARTICLE|BLOG|PAGE|STORY|NEWSLETTER).*(CREATE|PUBLISH|POST)|(CREATE|PUBLISH|POST).*(ARTICLE|BLOG|PAGE|STORY|NEWSLETTER)"), "publish_article"),
     (re.compile(r"(TWEET|POST|PUBLISH|SHARE|UPLOAD|THREAD|CREATION_OF_A_POST|MEDIA_CREATE)"), "publish_post"),
     (re.compile(r"(UPDATE|EDIT|PATCH|SET_|MODIFY|CHANGE|PROFILE|SETTINGS|RENAME)"), "modify_account"),
@@ -171,6 +187,38 @@ def text_rules(rules: list[ExclusionRule]) -> list[str]:
     return [r.value for r in rules if r.kind == "text"]
 
 
+def _grant_matches(grant: PermissionGrant, action_type: str, scope: str | None,
+                   est_spend_usd: Decimal | None) -> bool:
+    if grant.scope and (not scope or grant.scope.lower() != scope.lower()):
+        return False
+    mode = grant.mode or "auto"
+    if action_type == "spend_money" and mode != "ask":
+        if grant.spend_limit_usd is None or est_spend_usd is None:
+            return False
+        if Decimal(est_spend_usd) > Decimal(grant.spend_limit_usd):
+            return False
+    return True
+
+
+def strictest(grants: list[PermissionGrant]) -> PermissionGrant | None:
+    """Of several grants that apply, the strictest wins (ask > heads_up > auto); on a tie, the
+    one with a daily cap (and the lower cap)."""
+    if not grants:
+        return None
+    return max(grants, key=lambda g: (_STRICTNESS.get(g.mode or "auto", 0),
+                                      g.daily_cap is not None, -(g.daily_cap or 0)))
+
+
+async def grants_for(session: AsyncSession, campaign_id: str, action_type: str) -> list[PermissionGrant]:
+    return list((await session.execute(
+        select(PermissionGrant).where(
+            PermissionGrant.action_type == action_type,
+            PermissionGrant.revoked_at.is_(None),
+            applies_to(PermissionGrant, campaign_id),
+        )
+    )).scalars())
+
+
 async def find_grant(
     session: AsyncSession,
     campaign_id: str,
@@ -178,34 +226,34 @@ async def find_grant(
     scope: str | None,
     est_spend_usd: Decimal | None = None,
 ) -> PermissionGrant | None:
-    grants = (
-        await session.execute(
-            select(PermissionGrant).where(
-                PermissionGrant.action_type == action_type,
-                PermissionGrant.revoked_at.is_(None),
-                applies_to(PermissionGrant, campaign_id),
-            )
+    grants = await grants_for(session, campaign_id, action_type)
+    return strictest([g for g in grants if _grant_matches(g, action_type, scope, est_spend_usd)])
+
+
+async def used_today(session: AsyncSession, campaign_id: str, action_type: str) -> int:
+    """How many times this goal did this kind of action without asking in the last 24 hours."""
+    from app.models import AutonomousAction, utcnow
+
+    return (await session.execute(
+        select(func.count()).select_from(AutonomousAction).where(
+            AutonomousAction.campaign_id == campaign_id, AutonomousAction.action_type == action_type,
+            AutonomousAction.created_at > utcnow() - timedelta(hours=24),
         )
-    ).scalars()
-    for grant in grants:
-        if grant.scope and (not scope or grant.scope.lower() != scope.lower()):
-            continue
-        if action_type == "spend_money":
-            if grant.spend_limit_usd is None or est_spend_usd is None:
-                continue
-            if Decimal(est_spend_usd) > Decimal(grant.spend_limit_usd):
-                continue
-        return grant
-    return None
+    )).scalar_one()
 
 
 @dataclass
 class Decision:
-    outcome: str  # "allow" | "ask" | "block"
+    outcome: str  # "allow" | "heads_up" | "ask" | "block"
     action_type: str
     reason: str = ""
     grant_id: str | None = None
     rule_id: str | None = None
+
+    @property
+    def autonomous(self) -> bool:
+        """Goes ahead without a person saying yes first (a grant, not a default like research)."""
+        return self.outcome in ("allow", "heads_up") and self.grant_id is not None
 
 
 async def decide(
@@ -218,7 +266,8 @@ async def decide(
     est_spend_usd: Decimal | None = None,
     rules: list[ExclusionRule] | None = None,
 ) -> Decision:
-    """Hard blocks first, then default policy, then grants. (AI rule check runs separately.)"""
+    """Hard blocks first, then default policy, then grants, then daily caps. (AI rule check runs
+    separately, and can only make the outcome stricter.)"""
     if action_type not in ACTION_TYPES:
         action_type = "other_write"
     rules = rules if rules is not None else await exclusions_for(session, campaign_id)
@@ -228,6 +277,18 @@ async def decide(
     if ACTION_TYPES[action_type].default == "auto":
         return Decision("allow", action_type, "Allowed by default.")
     grant = await find_grant(session, campaign_id, action_type, app or (domain_of(site) if site else None), est_spend_usd)
-    if grant:
-        return Decision("allow", action_type, "You allowed this without asking.", grant_id=grant.id)
-    return Decision("ask", action_type, "Needs your approval.")
+    if not grant:
+        return Decision("ask", action_type, "Needs your approval.")
+    mode = grant.mode or "auto"
+    if mode == "ask":
+        why = {"downgrade": "It was stopped or flagged recently, so it asks first again.",
+               "personal": "This is a personal account, so it always asks first."}.get(grant.source or "", "Set to ask first.")
+        return Decision("ask", action_type, why, grant_id=grant.id)
+    if grant.daily_cap is not None and await used_today(session, campaign_id, action_type) >= grant.daily_cap:
+        label = ACTION_TYPES[action_type].label.lower()
+        return Decision("ask", action_type,
+                        f"It already did {grant.daily_cap} \"{label}\" on its own in the last 24 hours (the daily limit), so it's asking you.",
+                        grant_id=grant.id)
+    if mode == "heads_up":
+        return Decision("heads_up", action_type, "Goes ahead after a heads-up unless someone stops it.", grant_id=grant.id)
+    return Decision("allow", action_type, "You allowed this without asking.", grant_id=grant.id)

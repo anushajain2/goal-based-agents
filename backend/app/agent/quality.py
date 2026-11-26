@@ -39,12 +39,13 @@ CHECKLISTS: dict[str, list[str]] = {
         "Accurate; claims are true and sourced where it matters",
         "A clear next step for the reader",
     ],
-    "engage": [
+    "reply": [
         "Adds something: an insight, an answer or a genuine question; not 'Great post!'",
         "Relevant to what was said; reads naturally",
         "Not salesy; no links or pitches unless asked",
     ],
 }
+CHECKLISTS["engage"] = CHECKLISTS["reply"]  # likes and follows have no text; an old-style comment still does
 GENERIC = [
     "Clear and correct for its purpose",
     "In the company's voice; no hype or made-up facts",

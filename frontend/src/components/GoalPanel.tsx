@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { api, Campaign, Playbook, usd } from "@/lib/api";
-import { StepList, teamName, usePermissions } from "./GoalPlan";
+import { goesOut, StepList, stepModeOf, teamName, usePermissions } from "./GoalPlan";
 import { TargetHistory, TargetLine } from "./Target";
 import { AgentAvatar } from "./team";
 import { Button } from "./ui";
@@ -19,7 +19,7 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
   useEffect(() => {
     api<Playbook>(`/api/campaigns/${goal.id}/playbook`, { method: "POST" }).then(setBook).catch(() => setBook(null));
   }, [goal.id]);
-  const modeOf = (k: string) => perms?.action_types.find((p) => p.key === k)?.mode ?? "ask";
+  const modeOf = stepModeOf(perms);
   const team = perms ? teamName(perms) : "your team";
   const basis = goal.budget_basis;
   const draft = goal.status === "draft" && goal.can_manage !== false;
@@ -68,7 +68,10 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
             <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">How it works</h3>
             {book && perms ? <StepList steps={book.steps} modeOf={modeOf} team={team} /> : <p className="text-sm text-muted">Working out the steps…</p>}
             <p className="mt-3 flex items-start gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[12.5px] text-emerald-900">
-              <Lock size={14} className="mt-0.5 shrink-0" /> Nothing goes out without a yes from {team}. You see each message, post or payment first and can edit it.
+              <Lock size={14} className="mt-0.5 shrink-0" />
+              {perms?.action_types.some(goesOut)
+                ? <>You chose what goes out without a yes; everything else waits for {team}, who sees each message, post or payment first and can edit it.</>
+                : <>Nothing goes out without a yes from {team}. You see each message, post or payment first and can edit it.</>}
             </p>
           </section>
 
