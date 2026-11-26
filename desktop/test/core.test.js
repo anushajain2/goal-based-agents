@@ -1,5 +1,5 @@
 "use strict";
-// The helper core against a fake Autopilot server and a fake Chrome (no real browser needed).
+// The helper core against a fake Oton server and a fake Chrome (no real browser needed).
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("http");
@@ -75,7 +75,7 @@ test("relays DevTools messages, even ones sent while Chrome is still starting", 
   assert.equal(reply.c, 1);
   assert.deepEqual(JSON.parse(reply.d), { id: 1, result: { echo: "Browser.getVersion" } });
 
-  // Pausing closes open channels and tells Autopilot.
+  // Pausing closes open channels and tells Oton.
   core.setPaused(true);
   const msgs = [await nextJson(autopilotSide), await nextJson(autopilotSide)];
   assert.ok(msgs.some((m) => m.t === "closed" && m.c === 1));
@@ -88,7 +88,7 @@ test("relays DevTools messages, even ones sent while Chrome is still starting", 
   fakeChrome.srv.close();
 });
 
-test("a computer removed in Autopilot stops trying to connect", async () => {
+test("a computer removed in Oton stops trying to connect", async () => {
   const api = await server((ws) => ws.close(4401));
   const core = new HelperCore({ server: api.url, token: "aph_old", profileDir: "/tmp/unused" });
   core.start();

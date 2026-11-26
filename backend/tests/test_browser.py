@@ -1,4 +1,4 @@
-"""Autopilot Chrome against a real Chrome (headless here) and a local test page."""
+"""Oton Chrome against a real Chrome (headless here) and a local test page."""
 
 import http.server
 import shutil
@@ -91,7 +91,7 @@ async def test_snapshot_guard_and_authorized_post(site):
     assert out.is_error and "never type passwords" in out.content
 
     # Typing a draft is fine; clicking Post without authorization is blocked by the guard.
-    out = await ex.call("browser_type", {"ref": refs["What's happening?"], "text": "Hello from Autopilot"}, "t3")
+    out = await ex.call("browser_type", {"ref": refs["What's happening?"], "text": "Hello from Oton"}, "t3")
     assert not out.is_error
     out = await ex.call("browser_click", {"ref": refs["Post"]}, "t4")
     assert out.is_error and "browser_declare_action" in out.content
@@ -102,13 +102,13 @@ async def test_snapshot_guard_and_authorized_post(site):
 
     # Declare (auto-allowed by the grant) -> authorization -> the click goes through.
     out = await ex.call("browser_declare_action", {"action_type": "publish_post", "title": "Post hello",
-                                                   "site": "127.0.0.1", "content": "Hello from Autopilot"}, "t6")
+                                                   "site": "127.0.0.1", "content": "Hello from Oton"}, "t6")
     assert "authorization_id=" in out.content, out.content
     auth_id = out.content.split("authorization_id=")[1].split()[0]
     snap = (await ex.call("browser_snapshot", {}, "t7")).content
     post_ref = next(int(l.split("]")[0][1:]) for l in snap.splitlines() if 'button "Post"' in l)
     out = await ex.call("browser_click", {"ref": post_ref, "authorization_id": auth_id}, "t8")
-    assert not out.is_error and "POSTED:Hello from Autopilot" in out.content
+    assert not out.is_error and "POSTED:Hello from Oton" in out.content
 
     # Screenshots work (used for approval previews).
     shot = (await ex.call("browser_screenshot", {}, "t9")).content

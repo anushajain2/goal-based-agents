@@ -35,7 +35,7 @@ export default function HomePage() {
   const researchBanner = researching && (
     <Link href="/setup" className="flex items-center gap-3 rounded-xl border border-brand-500/30 bg-brand-50/60 px-4 py-3 text-sm hover:bg-brand-50">
       <Sparkles size={16} className="animate-pulse text-brand-600" />
-      <span className="flex-1">Autopilot is researching {setup?.org.name} to suggest goals for every team.</span>
+      <span className="flex-1">Oton is researching {setup?.org.name} to suggest goals for every team.</span>
       <span className="font-semibold text-brand-600">See progress →</span>
     </Link>
   );
@@ -105,7 +105,7 @@ export default function HomePage() {
                       <EmployeeAvatar size={32} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[14px] font-medium">{r.kind === "question" ? r.preview.question || r.title : r.title}</span>
-                        <span className="block truncate text-[12px] text-muted">{r.campaign_name || "Autopilot"} · {timeAgo(r.created_at)}</span>
+                        <span className="block truncate text-[12px] text-muted">{r.campaign_name || "Oton"} · {timeAgo(r.created_at)}</span>
                       </span>
                       <Badge tone={k.tone}>{k.label}</Badge>
                       <ArrowRight size={15} className="shrink-0 text-stone-300" />
@@ -116,7 +116,7 @@ export default function HomePage() {
             ) : (
               <Card className="flex items-center gap-3 px-4 py-4 text-[14px] text-muted">
                 <span className="grid h-8 w-8 place-items-center rounded-full bg-emerald-50 text-emerald-600"><Check size={16} /></span>
-                You&apos;re all caught up. Autopilot will ask here before anything important.
+                You&apos;re all caught up. Oton will ask here before anything important.
               </Card>
             )}
           </section>
@@ -203,7 +203,7 @@ function FirstRun({ onPick, org }: { onPick: (id: string) => void; org: OrgInfo 
     <div className="space-y-8">
       <div className="rounded-3xl bg-brand-600 p-10 text-white shadow-[var(--shadow-pop)]">
         <EmployeeAvatar size={56} />
-        <h1 className="mt-4 text-3xl font-bold tracking-tight">{org ? `Autopilot is ready to work for ${org.org.name}` : "Meet Autopilot"}</h1>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight">{org ? `Oton is ready to work for ${org.org.name}` : "Meet Oton"}</h1>
         <p className="mt-2 max-w-2xl text-white/85">
           Give it a goal with a clear finish line and a budget, like &quot;book 20 qualified meetings&quot; or &quot;get 500 waitlist signups&quot;. It plans,
           does the work, asks the right people on your team before anything important, and logs every step so you always know what it did and what it cost.

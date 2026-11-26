@@ -1,4 +1,4 @@
-"""Autopilot Chrome: your installed Chrome, with its own profile, controlled over CDP.
+"""Oton Chrome: your installed Chrome, with its own profile, controlled over CDP.
 
 * The profile lives in data/agent-chrome-profile, so sign-ins persist across restarts.
   You sign in once per site; the agent never sees or types passwords.
@@ -144,12 +144,12 @@ class ChromeUnavailable(Exception):
 
 
 async def ensure_agent_chrome() -> str:
-    """Make sure Autopilot Chrome is running with remote control on; return the CDP URL."""
+    """Make sure Oton Chrome is running with remote control on; return the CDP URL."""
     if await cdp_ready():
         return cdp_url()
     if manual_mode_active():
         raise ChromeUnavailable(
-            "Autopilot Chrome is in manual sign-in mode. Finish signing in and click Done in Autopilot."
+            "Oton Chrome is in manual sign-in mode. Finish signing in and click Done in Oton."
         )
     chrome = find_chrome()
     if not chrome:
@@ -161,7 +161,7 @@ async def ensure_agent_chrome() -> str:
         if await cdp_ready():
             return cdp_url()
         await asyncio.sleep(0.2)
-    raise ChromeUnavailable("Autopilot Chrome did not start (is another Chrome using the same profile?).")
+    raise ChromeUnavailable("Oton Chrome did not start (is another Chrome using the same profile?).")
 
 
 async def start_manual_signin(url: str) -> None:

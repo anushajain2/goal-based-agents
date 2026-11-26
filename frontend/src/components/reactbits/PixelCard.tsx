@@ -2,13 +2,13 @@
  * PixelCard, from React Bits (https://reactbits.dev, github.com/DavidHDev/react-bits).
  * Copyright (c) 2026 David Haz. MIT + Commons Clause License Condition v1.0: free to use as part of
  * this website; the component itself may not be sold, sublicensed or redistributed on its own.
- * Local changes are marked "Autopilot:".
+ * Local changes are marked "Oton:".
  */
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties, type FocusEvent, type ReactNode } from 'react';
 
-// Autopilot: no fixed size or centring, so the card takes the size and layout of what it wraps.
+// Oton: no fixed size or centring, so the card takes the size and layout of what it wraps.
 const CARD =
   'group relative overflow-hidden rounded-[var(--pixel-card-radius,24px)] isolate outline-none select-none [-webkit-tap-highlight-color:transparent] [&>:not(canvas):not([data-rim])]:relative [&>:not(canvas):not([data-rim])]:z-[1]';
 
@@ -44,7 +44,7 @@ export interface PixelCardProps {
   introDelay?: number;
   noFocus?: boolean;
   theme?: 'dark' | 'light';
-  /** Autopilot: skip the card's own background and rim, for wrapping a card that is already styled. */
+  /** Oton: skip the card's own background and rim, for wrapping a card that is already styled. */
   bare?: boolean;
   radius?: number;
   className?: string;

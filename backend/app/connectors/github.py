@@ -53,14 +53,14 @@ def content_only(files: list[dict], checks: str) -> tuple[bool, str]:
 
 def safe_branch(name: str) -> str:
     name = re.sub(r"[^A-Za-z0-9._/-]+", "-", name.strip().lower()).strip("-/.")
-    return ("autopilot/" + name)[:80] if not name.startswith("autopilot/") else name[:80]
+    return ("oton/" + name)[:80] if not name.startswith("oton/") else name[:80]
 
 
 class GitHub:
     def __init__(self, token: str, repo: str):
         self.repo = repo.strip().strip("/")
         self.headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
-                        "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "autopilot"}
+                        "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "oton"}
 
     async def _call(self, method: str, path: str, **kw) -> Any:
         async with httpx.AsyncClient(timeout=30, transport=TRANSPORT) as client:

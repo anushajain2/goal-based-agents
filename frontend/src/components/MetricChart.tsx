@@ -10,7 +10,7 @@ type Point = { value: number; recorded_at: string };
 export function MetricChart({ points, label }: { points: Point[]; label: string }) {
   const [hover, setHover] = useState<number | null>(null);
   if (points.length === 0) {
-    return <div className="grid h-44 place-items-center text-sm text-muted">No readings of “{label}” yet. Autopilot records it every cycle.</div>;
+    return <div className="grid h-44 place-items-center text-sm text-muted">No readings of “{label}” yet. Oton records it every cycle.</div>;
   }
   const W = 640;
   const H = 180;

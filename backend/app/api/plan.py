@@ -8,7 +8,7 @@
     POST /api/campaigns/{id}/autonomy          apply one (with changes), usually when starting the goal
     POST /api/campaigns/{id}/autonomy/flag     "this shouldn't have gone out": that kind asks first again
     GET  /api/campaigns/{id}/readiness         tools to connect + approvals, shown before starting
-    POST /api/sites/signed-in                  "I signed in to this site in Autopilot Chrome"
+    POST /api/sites/signed-in                  "I signed in to this site in Oton Chrome"
 """
 
 from __future__ import annotations
@@ -150,7 +150,7 @@ async def set_permission(campaign_id: str, action_type: str, body: ModeIn,
     if not t:
         raise HTTPException(404, "Unknown kind of action")
     if body.mode == "ask" and t.default == "auto":
-        raise HTTPException(400, f'"{t.label}" never changes anything outside Autopilot, so it doesn\'t need approval.')
+        raise HTTPException(400, f'"{t.label}" never changes anything outside Oton, so it doesn\'t need approval.')
     if body.mode == "auto" and action_type == "spend_money" and not body.spend_limit_usd:
         raise HTTPException(400, "Say how much it may spend per action without asking.")
     if body.mode == "heads_up" and action_type == "spend_money":

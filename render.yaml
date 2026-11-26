@@ -1,4 +1,4 @@
-# Render Blueprint: the whole hosted Autopilot in one file.
+# Render Blueprint: the whole hosted Oton in one file.
 #   Dashboard -> New -> Blueprint -> pick this repo. Render creates everything below and asks
 #   for the values marked `sync: false` (they're never stored in git). See docs/DEPLOY.md.
 #
@@ -51,7 +51,7 @@ envVarGroups:
         sync: false
       - key: SMTP_PASSWORD
         sync: false
-      - key: SMTP_FROM # e.g. Autopilot <login@yourdomain.com>
+      - key: SMTP_FROM # e.g. Oton <login@yourdomain.com>
         sync: false
       # Sign in with Google / GitHub (optional; callback URLs in docs/DEPLOY.md)
       - key: GOOGLE_CLIENT_ID

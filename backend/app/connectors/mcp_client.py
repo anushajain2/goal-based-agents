@@ -1,6 +1,6 @@
 """A small client for MCP (Model Context Protocol) servers over Streamable HTTP.
 
-Autopilot only needs two things from a server: its list of tools, and calling one. That is
+Oton only needs two things from a server: its list of tools, and calling one. That is
 three JSON-RPC requests (initialize, tools/list, tools/call), whose replies come back either as
 JSON or as a short server-sent-event stream. Calling tools from here, instead of letting the
 model provider call them, is what lets every call pass the approval gate first.
@@ -66,7 +66,7 @@ class McpClient:
             self._http = httpx.AsyncClient(timeout=TIMEOUT, transport=TRANSPORT)
         result = await self._rpc("initialize", {
             "protocolVersion": PROTOCOL_VERSION, "capabilities": {},
-            "clientInfo": {"name": "autopilot", "version": "1.0"},
+            "clientInfo": {"name": "oton", "version": "1.0"},
         })
         self.server_info = result.get("serverInfo") or {}
         self.headers["MCP-Protocol-Version"] = result.get("protocolVersion") or PROTOCOL_VERSION

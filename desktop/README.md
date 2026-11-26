@@ -1,7 +1,7 @@
-# Autopilot Helper (desktop app)
+# Oton Helper (desktop app)
 
-Lets AI employees use websites in a separate Chrome window on your computer, when Autopilot runs
-in the cloud. Install it, connect it once from Autopilot (Connections → Desktop helper), and it
+Lets AI employees use websites in a separate Chrome window on your computer, when Oton runs
+in the cloud. Install it, connect it once from Oton (Connections → Desktop helper), and it
 sits in the menu bar / system tray.
 
 - **Your own browser is never touched.** The helper starts Chrome with its own profile. AI employees
@@ -11,18 +11,18 @@ sits in the menu bar / system tray.
   itself. Each work session gets its own window, opened without coming forward. Only "Sign in to a site" opens a normal window,
   because you asked for it. Website steps wait while it's open, and closing it ends signing in.
 - **The rules stay on the server.** Reading pages, clicking, and the guard that makes "Post", "Send",
-  "Buy" and similar wait for a person's approval all run in Autopilot. The helper only carries
-  messages between Autopilot and Chrome.
-- **It connects out; nothing listens.** One outgoing secure WebSocket to Autopilot. Chrome's control
+  "Buy" and similar wait for a person's approval all run in Oton. The helper only carries
+  messages between Oton and Chrome.
+- **It connects out; nothing listens.** One outgoing secure WebSocket to Oton. Chrome's control
   port only listens on 127.0.0.1.
 - **Laptop closed?** Website steps wait and run when it's back; everything else keeps going.
-- **Pause** any time from the tray or window. **Disconnect** here or in Autopilot; removing it in
-  Autopilot revokes its token at once.
+- **Pause** any time from the tray or window. **Disconnect** here or in Oton; removing it in
+  Oton revokes its token at once.
 
 ## How it fits together
 
 ```
- Autopilot worker ──(private network)── Autopilot API ◀──wss── Helper ──localhost── Chrome (own profile)
+ Oton worker ──(private network)── Oton API ◀──wss── Helper ──localhost── Chrome (own profile)
    browser tools,                         relay per                  starts Chrome,
    click guard, approvals                 session channel            passes DevTools messages
 ```
@@ -38,25 +38,25 @@ Files:
 ```bash
 cd desktop
 npm install
-npm test          # core tests against a fake Autopilot and a fake Chrome
+npm test          # core tests against a fake Oton and a fake Chrome
 npm start         # the app (Electron)
 ```
 
 Without Electron, for example on a server:
 
 ```bash
-node src/cli.js pair "<pairing link from Autopilot>" --name "Office iMac"
+node src/cli.js pair "<pairing link from Oton>" --name "Office iMac"
 node src/cli.js run            # add --headless on a machine without a screen
 ```
 
-Running Autopilot locally on port 8000 with `AGENT_CHROME=false` lets you try the helper against
+Running Oton locally on port 8000 with `AGENT_CHROME=false` lets you try the helper against
 your own backend (the pairing link points at http://localhost:8000).
 
 ## Release installers
 
 When `version` in `desktop/package.json` hasn't been released yet, pushing to `main` makes GitHub Actions
 build macOS (Apple silicon and Intel), Windows and Linux installers and publish them as release
-`helper-v<version>`. The **Download** button in Autopilot points to the latest release. Other changes
+`helper-v<version>`. The **Download** button in Oton points to the latest release. Other changes
 under `desktop/` only build (to check they still work).
 
 For the next release, bump `version` in `package.json` and push. Without signing certificates, macOS asks

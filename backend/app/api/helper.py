@@ -126,7 +126,7 @@ async def pair(body: PairIn, request: Request, s: AsyncSession = Depends(get_ses
     auth._throttle(f"helper-pair:{ip}", 10, 600, "Too many tries. Wait a few minutes and get a new code.")
     redeemed = await helpers.redeem(s, body.code, body.name, body.platform, body.version)
     if not redeemed:
-        raise HTTPException(400, "That code didn't work. Codes last 10 minutes and work once; get a new one in Autopilot.")
+        raise HTTPException(400, "That code didn't work. Codes last 10 minutes and work once; get a new one in Oton.")
     device, token = redeemed
     org = await s.get(Organization, device.org_id)
     await s.commit()
@@ -136,7 +136,7 @@ async def pair(body: PairIn, request: Request, s: AsyncSession = Depends(get_ses
 
 @router.get("/pair/{code}")
 async def pair_hint(code: str):
-    return {"message": "This is a pairing link for the Autopilot desktop helper. Open the helper and paste it there."}
+    return {"message": "This is a pairing link for the Oton desktop helper. Open the helper and paste it there."}
 
 
 # --- the helper's connection ------------------------------------------------------------------------
@@ -247,7 +247,7 @@ async def send_to_helper(s: AsyncSession, org_id: str, msg: dict) -> HelperDevic
     device = await helpers.online_device(s, org_id)
     conn = hub.get(device.id) if device else None
     if not device or not conn:
-        raise HTTPException(409, "Your desktop helper isn't connected. Open the Autopilot helper on your computer "
+        raise HTTPException(409, "Your desktop helper isn't connected. Open the Oton helper on your computer "
                                  "(and un-pause it), then try again.")
     await conn.send(msg)
     return device

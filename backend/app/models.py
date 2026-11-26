@@ -61,7 +61,7 @@ class RunStatus(str, enum.Enum):
 
 class RequestKind(str, enum.Enum):
     action = "action"  # "I'm going to post this - can I go ahead?"
-    login = "login"  # "Please sign in to X in Autopilot Chrome"
+    login = "login"  # "Please sign in to X in Oton Chrome"
     connect = "connect"  # "Please connect your HubSpot account" (Composio OAuth link)
     question = "question"  # "Which customers should I ask for a case study?" - needs an answer
     review = "review"  # "Here's a PRD - approve it (and hand it to Engineering)?" - work to review
@@ -193,7 +193,7 @@ class OrgSetup(Base):
 class McpServer(Base):
     """A custom tool server (Model Context Protocol) the organization connected.
 
-    Its tools are called by Autopilot itself (not by Anthropic's servers), so every call goes
+    Its tools are called by Oton itself (not by Anthropic's servers), so every call goes
     through the same approval gate as everything else.
     """
 
@@ -213,7 +213,7 @@ class McpServer(Base):
 
 
 class SiteSignIn(Base):
-    """Someone signed in to a site in Autopilot Chrome for the organization's AI employees."""
+    """Someone signed in to a site in Oton Chrome for the organization's AI employees."""
 
     __tablename__ = "site_sign_ins"
 
@@ -225,7 +225,7 @@ class SiteSignIn(Base):
 
 
 class HelperDevice(Base):
-    """A computer running the Autopilot desktop helper: AI employees use websites in a separate
+    """A computer running the Oton desktop helper: AI employees use websites in a separate
     Chrome window on it. It connects out to the API with its own token (stored hashed)."""
 
     __tablename__ = "helper_devices"

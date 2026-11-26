@@ -46,7 +46,7 @@ export default function SetupPage() {
       <div className="mx-auto max-w-2xl">
         <Card className="p-6">
           <h1 className="text-xl font-bold">Research {name} and set up your goals</h1>
-          <p className="mt-1 text-sm text-muted">Autopilot reads your website and researches your company, then suggests goals that fit each team.</p>
+          <p className="mt-1 text-sm text-muted">Oton reads your website and researches your company, then suggests goals that fit each team.</p>
           <RetryForm info={info} onStarted={load} label="Start research" />
         </Card>
       </div>
@@ -243,7 +243,7 @@ function RetryForm({ info, onStarted, label }: { info: SetupInfo; onStarted: () 
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   if (!info.can_research) {
-    return <p className="mt-3 rounded-md bg-signal-50 px-3 py-2 text-sm text-signal-900">Add <code>ANTHROPIC_API_KEY</code> to the <code>.env</code> file and restart Autopilot to research your company.</p>;
+    return <p className="mt-3 rounded-md bg-signal-50 px-3 py-2 text-sm text-signal-900">Add <code>ANTHROPIC_API_KEY</code> to the <code>.env</code> file and restart Oton to research your company.</p>;
   }
   return (
     <form className="mt-4 space-y-3" onSubmit={async (e) => {

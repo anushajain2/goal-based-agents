@@ -191,7 +191,7 @@ def fake_github(calls: list, files: list[dict], checks: str = "success") -> Fast
         if path == "repos/acme/site/pulls/9":
             return {"number": 9, "title": "Launch post", "html_url": "https://github.com/acme/site/pull/9", "state": "open",
                     "merged": state["merged"], "additions": 80, "deletions": 0, "changed_files": len(files),
-                    "head": {"ref": "autopilot/launch", "sha": "abc123"}}
+                    "head": {"ref": "oton/launch", "sha": "abc123"}}
         if path == "repos/acme/site/pulls/9/files":
             return [{"filename": f["path"], "status": "added", "additions": f.get("additions", 10), "deletions": 0} for f in files]
         if path == "repos/acme/site/commits/abc123/check-runs":

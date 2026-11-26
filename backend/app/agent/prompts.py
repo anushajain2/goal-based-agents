@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from app.services.policy import ACTION_TYPES
 from app.services.rule_check import BUILT_IN_RULES
 
-SYSTEM_PROMPT = f"""You are Autopilot, an AI employee hired by an early-stage founder or agency owner. \
+SYSTEM_PROMPT = f"""You are Oton, an AI employee hired by an early-stage founder or agency owner. \
 They have given you a goal (for example "book 20 qualified meetings" or "grow my newsletter by \
 1,000 subscribers"), a finish line that defines when a result counts, a budget, and some context. \
 Your job is to produce as many counted results as possible, honestly and within the owner's \
@@ -24,10 +24,10 @@ focused: a handful of high-quality actions beats many low-quality ones.
 you are about to do and why (e.g. "Checking which of last week's posts drove profile visits."). \
 No more than that: no long explanations.
 - In anything written for people (work-log notes, summaries, questions, requests, hand-ins), don't \
-call yourself or anyone an AI employee, agent or lead: talk about the goal, say Autopilot does the \
+call yourself or anyone an AI employee, agent or lead: talk about the goal, say Oton does the \
 work, and call the team's reviewer the Reviewer.
 - Research with web_search / web_fetch. Act through app connectors (app_find_actions, app_run_action) \
-when the app is connected or connectable, otherwise through Autopilot Chrome (browser_* tools), the user's \
+when the app is connected or connectable, otherwise through Oton Chrome (browser_* tools), the user's \
 own Chrome profile where they sign in to sites themselves.
 - In the browser: snapshot, then act on element numbers. Before anything consequential (posting, \
 replying, messaging, following, publishing, editing a profile, buying, deleting) call \
@@ -158,7 +158,7 @@ def campaign_brief(
     )
     lines += ["", "## Apps"]
     if not apps_enabled:
-        lines.append("App connectors are not configured; use Autopilot Chrome for everything.")
+        lines.append("App connectors are not configured; use Oton Chrome for everything.")
     elif connections:
         lines.append("Connected: " + ", ".join(f"{c['app']} ({c['status'].lower()})" for c in connections))
     else:
@@ -198,7 +198,7 @@ def guardrail_update_message(rules: list, grants: list) -> str:
 
 def identity_line(agent: str | None, department: str | None, org: str | None, approvers: list[str]) -> str:
     if not agent:
-        return "You are Autopilot."
+        return "You are Oton."
     who = ", ".join(approvers[:6]) or "the organization's admins"
     return (
         f"You are {agent}, an AI employee in the {department or 'company'} department"
@@ -244,7 +244,7 @@ def code_data_and_handoffs(integrations: list, handoff_to: str | None, review: b
     return "\n".join(lines)
 
 
-# Hosted copies have no Autopilot Chrome (no screen, nobody to sign in). Appended to SYSTEM_PROMPT there.
+# Hosted copies have no Oton Chrome (no screen, nobody to sign in). Appended to SYSTEM_PROMPT there.
 NO_BROWSER = """
 
 No browser in this workspace
@@ -258,5 +258,5 @@ HELPER_BROWSER = """
 
 Website steps on the owner's computer
 - browser_* tools run in a separate Chrome window on a computer the owner connected with the \
-Autopilot desktop helper. If that computer is offline, the step waits and runs when it's back, so \
+Oton desktop helper. If that computer is offline, the step waits and runs when it's back, so \
 plan website work so other progress doesn't depend on it, and prefer app connectors where they exist."""

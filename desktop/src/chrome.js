@@ -85,7 +85,7 @@ async function waitForPort(profileDir, proc) {
   let exited = false;
   proc.once("exit", () => { exited = true; });
   for (let i = 0; i < 150; i++) {
-    if (exited) throw new Error("Chrome closed right away. Is another window already using the Autopilot profile?");
+    if (exited) throw new Error("Chrome closed right away. Is another window already using the Oton profile?");
     try {
       const [port, wsPath] = fs.readFileSync(portFile, "utf8").trim().split(/\r?\n/);
       if (port && wsPath) return { port: Number(port), wsUrl: `ws://127.0.0.1:${port}${wsPath}` };

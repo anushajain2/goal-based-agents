@@ -19,7 +19,7 @@ Meta's rules, and how this keeps the experience good within them:
     those). Free text is only ever an answer, an edit, a reason or a comment on a request.
 
 What still needs the app, and why: spending money, merging code and deleting things (a
-thumb-tap shouldn't do those), and signing in to a website (that happens in Autopilot Chrome).
+thumb-tap shouldn't do those), and signing in to a website (that happens in Oton Chrome).
 Those arrive with the details and a link straight to the request.
 
 Every button carries a signed token bound to the request and the person, and replies are only
@@ -77,26 +77,26 @@ MAX_CHUNKS = 3
 TEMPLATES: dict[str, dict] = {
     "autopilot_approval": {
         "body": "{{1}} is waiting for your OK on the goal \"{{2}}\".\n\nWhat it wants to do: {{3}}\n\n{{4}}\n\n"
-                "Tap a button to decide here, or open Autopilot.",
-        "example": ["Autopilot", "Grow our audience", "Post a routing tip on X",
+                "Tap a button to decide here, or open Oton.",
+        "example": ["Oton", "Grow our audience", "Post a routing tip on X",
                     "Tip: batch stops by zone before 9am. Also waiting: 2 more."],
         "buttons": ["Approve", "Show details", "Decline"],
     },
     "autopilot_heads_up": {
         "body": "Heads-up from {{1}} on the goal \"{{2}}\": it will {{3}} in about {{4}} minutes unless you stop it.\n\n"
                 "{{5}}\n\nTap Stop it to cancel, or Show details to see or change it first.",
-        "example": ["Autopilot", "Grow our audience", "post a routing tip on X", "30",
+        "example": ["Oton", "Grow our audience", "post a routing tip on X", "30",
                     "Tip: batch stops by zone before 9am."],
         "buttons": ["Stop it", "Show details", "Send now"],
     },
     "autopilot_question": {
         "body": "{{1}} has a question about the goal \"{{2}}\":\n\n{{3}}\n\nTap Answer to reply here, or Skip to let it decide.",
-        "example": ["Autopilot", "Book 20 meetings", "Which three customers should I ask for a case study?"],
+        "example": ["Oton", "Book 20 meetings", "Which three customers should I ask for a case study?"],
         "buttons": ["Answer", "Skip"],
     },
     "autopilot_waiting": {
         "body": "{{1}} needs you on the goal \"{{2}}\": {{3}}\n\n{{4}}",
-        "example": ["Autopilot", "Ship the export", "Merge pull request #9", "Tap Show me for the details."],
+        "example": ["Oton", "Ship the export", "Merge pull request #9", "Tap Show me for the details."],
         "buttons": ["Show me"],
     },
 }
@@ -231,7 +231,7 @@ def start_link(user: User) -> dict:
     code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(6))
     user.whatsapp_link_code_hash = _code_hash(code)
     user.whatsapp_link_code_expires_at = utcnow() + LINK_CODE_TTL
-    text = f"Connect my Autopilot account: {code}"
+    text = f"Connect my Oton account: {code}"
     number = _digits(get_settings().whatsapp_business_number or "")
     return {"code": code, "url": f"https://wa.me/{number}?text={quote(text)}", "text": text,
             "expires_at": user.whatsapp_link_code_expires_at.isoformat()}
@@ -329,10 +329,10 @@ def editable(req: UserRequest) -> list[str]:
 
 
 async def _who(s: AsyncSession, req: UserRequest) -> tuple[str, Campaign]:
-    """Who's asking, as people see it: Autopilot (the goal is named alongside), or the team's Reviewer."""
+    """Who's asking, as people see it: Oton (the goal is named alongside), or the team's Reviewer."""
     c = await s.get(Campaign, req.campaign_id)
     lead = (req.preview or {}).get("lead")
-    return (f"the {lead}" if lead else "Autopilot"), c
+    return (f"the {lead}" if lead else "Oton"), c
 
 
 def _upper_first(text: str) -> str:
@@ -361,7 +361,7 @@ async def card(s: AsyncSession, out: Out, req: UserRequest, *, note: str = "") -
             return body
         chunks = [content[i:i + TEXT_MAX - 100] for i in range(0, len(content), TEXT_MAX - 100)]
         for i, chunk in enumerate(chunks[:MAX_CHUNKS]):
-            more = f"\n\n… the rest is in Autopilot: {app_link(req)}" if i == MAX_CHUNKS - 1 and len(chunks) > MAX_CHUNKS else ""
+            more = f"\n\n… the rest is in Oton: {app_link(req)}" if i == MAX_CHUNKS - 1 and len(chunks) > MAX_CHUNKS else ""
             await out.text(chunk + more, req.id)
         return "\n\n".join(x for x in [intro, "_The full text is in the message above._", tail] if x)
 
@@ -383,8 +383,8 @@ async def card(s: AsyncSession, out: Out, req: UserRequest, *, note: str = "") -
         reason = app_only(req)
         if reason:
             body = "\n\n".join(x for x in [intro, _cut(content, 600), qline,
-                                            f"*{reason}, so it's decided in Autopilot.*"] if x)
-            await out.link(body, "Open in Autopilot", app_link(req), request_id=req.id, header=f"{label}")
+                                            f"*{reason}, so it's decided in Oton.*"] if x)
+            await out.link(body, "Open in Oton", app_link(req), request_id=req.id, header=f"{label}")
             return
         body = await with_long(intro, content, qline)
         if req.auto_approve_at:
@@ -463,13 +463,13 @@ async def card(s: AsyncSession, out: Out, req: UserRequest, *, note: str = "") -
         return
 
     if req.kind == RequestKind.login.value:
-        body = (f"{agent} needs you to sign in to *{p.get('site') or req.scope}* in Autopilot Chrome, the AI's own Chrome window "
+        body = (f"{agent} needs you to sign in to *{p.get('site') or req.scope}* in Oton Chrome, the AI's own Chrome window "
                 f"on your computer, for \"{goal}\". Sign in there, then tap below." + (f"\n\n{why}" if why else ""))
         await out.buttons(body, [(payload("ok", req.id, uid), "I've signed in"), (payload("no", req.id, uid), "Not now")],
                           request_id=req.id, header="Sign in")
         return
 
-    await out.link(f"{agent} needs you: *{req.title}*\n_{goal}_", "Open in Autopilot", app_link(req), request_id=req.id)
+    await out.link(f"{agent} needs you: *{req.title}*\n_{goal}_", "Open in Oton", app_link(req), request_id=req.id)
 
 
 def _template_preview(req: UserRequest) -> tuple[str, bool]:
@@ -502,7 +502,7 @@ async def template_for(s: AsyncSession, out: Out, req: UserRequest, more: int) -
         await out.template("autopilot_question", [_flat(agent, 60), goal, _flat((req.preview or {}).get("question") or req.title, 700)],
                            [payload("sh", req.id, uid), payload("skip", req.id, uid)], req.id)
         return
-    extra = (app_only(req) + ", so it's decided in Autopilot.") if app_only(req) else "Tap Show me for the details."
+    extra = (app_only(req) + ", so it's decided in Oton.") if app_only(req) else "Tap Show me for the details."
     await out.template("autopilot_waiting", [_flat(agent, 60), goal, _flat(req.title, 200), _flat(extra + also, 300)],
                        [payload("sh", req.id, uid)], req.id)
 
@@ -540,7 +540,7 @@ async def send_next(s: AsyncSession, out: Out, *, exclude: set[str] | None = Non
 async def show_queue(s: AsyncSession, out: Out) -> None:
     queue = await pending_for(s, out.user)
     if not queue:
-        await out.text("Nothing is waiting on you right now. New requests from Autopilot will show up here.")
+        await out.text("Nothing is waiting on you right now. New requests from Oton will show up here.")
         return
     if len(queue) == 1:
         await card(s, out, queue[0])
@@ -679,14 +679,14 @@ async def _inbound(s: AsyncSession, msg: dict) -> None:
         return
     if not user:
         await _post({"to": _digits(number), "type": "text", "text": {"body": (
-            "This number isn't connected to Autopilot yet. In Autopilot, open Settings → WhatsApp and tap "
+            "This number isn't connected to Oton yet. In Oton, open Settings → WhatsApp and tap "
             "Connect WhatsApp to get your code.")}})
         return
     user.whatsapp_last_inbound_at = utcnow()
     out = Out(s, user)
     member = await load_member(s, user)
     if not member:
-        await out.text("You're not part of an organization in Autopilot any more, so there's nothing to show here.")
+        await out.text("You're not part of an organization in Oton any more, so there's nothing to show here.")
         return
     if tapped:
         parsed = parse_payload(tapped, user.id)
@@ -720,7 +720,7 @@ async def _maybe_link(s: AsyncSession, number: str, text: str) -> bool:
         out = Out(s, user)
         await out.text(
             f"You're connected{', ' + user.name.split()[0] if user.name else ''}. Approvals, heads-ups and questions from "
-            "Autopilot will come here, with everything you need to decide. Tap the buttons, or reply to a message to "
+            "Oton will come here, with everything you need to decide. Tap the buttons, or reply to a message to "
             "answer or comment. Send \"list\" to see what's waiting, or \"stop\" to disconnect.")
         await show_queue(s, out)
         return True
@@ -940,10 +940,10 @@ async def _text(s: AsyncSession, out: Out, member: Member, text: str, context_id
     low = text.strip().lower().strip(".!")
     if low in STOP_WORDS:
         unlink(out.user)
-        await out.text("Disconnected. You won't get anything from Autopilot here. Reconnect any time in Settings → WhatsApp.")
+        await out.text("Disconnected. You won't get anything from Oton here. Reconnect any time in Settings → WhatsApp.")
         return
     if low in ("help", "?"):
-        await out.text("Here you can approve, decline, edit and answer what Autopilot sends you. Tap the buttons, "
+        await out.text("Here you can approve, decline, edit and answer what Oton sends you. Tap the buttons, "
                        "or reply to a message to answer it or add a comment. Send \"list\" to see what's waiting, or "
                        "\"stop\" to disconnect.")
         return
@@ -963,7 +963,7 @@ async def _text(s: AsyncSession, out: Out, member: Member, text: str, context_id
             if quoted and quoted is not req:
                 req, st = quoted, {}
     if not req:
-        await out.buttons("I can only take answers, edits and comments on what Autopilot sent you. "
+        await out.buttons("I can only take answers, edits and comments on what Oton sent you. "
                           "Reply to one of its messages, or see what's waiting.",
                           [(payload("ls", "-", out.user.id), "What's waiting")])
         return
@@ -1002,7 +1002,7 @@ async def _text(s: AsyncSession, out: Out, member: Member, text: str, context_id
                            (payload("cx", "-", out.user.id), "Cancel")], request_id=req.id)
         return
     if app_only(req):
-        await out.link("This one is decided in Autopilot. Your comment wasn't sent; add it there.", "Open in Autopilot",
+        await out.link("This one is decided in Oton. Your comment wasn't sent; add it there.", "Open in Oton",
                        app_link(req), request_id=req.id)
         return
     # A reply to a request card: a comment, or new text for it.

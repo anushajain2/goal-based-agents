@@ -1,8 +1,8 @@
 # WhatsApp approvals
 
 People can approve, edit, stop and answer what their AI employees send them from WhatsApp. Each
-message has everything needed to decide, so they rarely need to open Autopilot. This page is for
-whoever runs Autopilot: you set up **one** WhatsApp Business number for the whole platform (like the
+message has everything needed to decide, so they rarely need to open Oton. This page is for
+whoever runs Oton: you set up **one** WhatsApp Business number for the whole platform (like the
 Composio key), and then every user connects their own phone in **Settings → WhatsApp**.
 
 Code: `backend/app/services/whatsapp.py` (messages, delivery, replies), `backend/app/api/whatsapp.py`
@@ -35,7 +35,7 @@ Needs you inbox).
 - **Earned trust**: after approving several of the same kind unchanged, it offers to switch that kind
   of action to a heads-up (or to "on its own") for the goal. It never changes this by itself.
 
-Still decided in Autopilot, with the details and a link straight to the request: **spending money,
+Still decided in Oton, with the details and a link straight to the request: **spending money,
 merging code and deleting things**. A tap on a phone shouldn't do those.
 
 ## Meta's rules, and how they're handled
@@ -79,7 +79,7 @@ merging code and deleting things**. A tap on a phone shouldn't do those.
 5. **Templates.** Run `python -m app.cli whatsapp-templates` from `backend/` (on Render: the API's
    Shell). It submits the four utility templates below for review, which usually takes minutes. Check
    them in WhatsApp Manager → Message templates.
-6. **Try it**: in Autopilot, Settings → WhatsApp → Connect WhatsApp, then send the message it fills in.
+6. **Try it**: in Oton, Settings → WhatsApp → Connect WhatsApp, then send the message it fills in.
 
 ## Templates
 

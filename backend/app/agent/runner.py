@@ -317,7 +317,7 @@ class CycleRunner:
                 )
 
     async def _browser_mode(self, org_id: str | None) -> str:
-        """"local" (Autopilot Chrome on this computer), "helper" (a paired desktop helper) or "none"."""
+        """"local" (Oton Chrome on this computer), "helper" (a paired desktop helper) or "none"."""
         if self.settings.agent_chrome_enabled:
             return "local"
         async with session_scope() as s:

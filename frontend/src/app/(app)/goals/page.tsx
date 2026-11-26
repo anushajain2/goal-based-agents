@@ -100,7 +100,7 @@ export default function GoalsPage() {
           <Empty icon={<Target size={36} />} title={shown === "live" ? "Nothing live yet" : "Nothing here"}>
             {shown === "live" && counts.suggested
               ? <button onClick={() => setTab("suggested")} className="font-semibold text-brand-600">See the {counts.suggested} suggested goals →</button>
-              : <Link href="/goals/new" className="font-semibold text-brand-600">Give Autopilot a goal →</Link>}
+              : <Link href="/goals/new" className="font-semibold text-brand-600">Give Oton a goal →</Link>}
           </Empty>
         ) : (
           <div className="overflow-x-auto">

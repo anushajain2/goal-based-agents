@@ -39,7 +39,7 @@ function gainWords(r: AutonomyRow, mode: Mode, cap: number | null, minutes: numb
 }
 
 /**
- * How much Autopilot does on its own, chosen when goals start: three presets (one
+ * How much Oton does on its own, chosen when goals start: three presets (one
  * recommended, with the reason), every kind of action with what it means for speed, daily
  * limits, and which accounts are someone's personal profile. Everything can change later.
  */

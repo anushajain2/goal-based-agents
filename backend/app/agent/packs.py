@@ -5,7 +5,7 @@ what it does on its own, what it asks a person about first, the tools it uses, a
 goal. A pack is a type of company (B2B startup, agency, e-commerce brand...) with the roles that
 usually matter most at each size, in priority order.
 
-At setup Autopilot reads the company's website and researches it; Claude then decides which type
+At setup Oton reads the company's website and researches it; Claude then decides which type
 of company it is and how big (org_setup.classify_company), and the planner personalises
 everything starting from that pack: the functions and AI employees companies like this usually
 need at this stage. Without a Claude key nothing can decide, so the starter team uses the general

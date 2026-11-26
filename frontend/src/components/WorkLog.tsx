@@ -282,7 +282,7 @@ export function WorkLog({
     return out;
   }, [items, sessions, byId]);
 
-  if (!items.length) return <p className="px-4 py-12 text-center text-sm text-muted">Nothing here yet. Everything Autopilot does will show up here as it happens.</p>;
+  if (!items.length) return <p className="px-4 py-12 text-center text-sm text-muted">Nothing here yet. Everything Oton does will show up here as it happens.</p>;
 
   return (
     <div className="space-y-4">

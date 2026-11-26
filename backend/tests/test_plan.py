@@ -110,7 +110,7 @@ async def test_permissions_match_what_the_policy_engine_enforces():
         await c.put(f"/api/campaigns/{g['id']}/permissions/send_message", json={"mode": "ask"})
         assert await decided("send_message") == "ask"
 
-        # Things that change nothing outside Autopilot can't be made to "ask first"; spending needs a limit.
+        # Things that change nothing outside Oton can't be made to "ask first"; spending needs a limit.
         assert (await c.put(f"/api/campaigns/{g['id']}/permissions/research", json={"mode": "ask"})).status_code == 400
         assert (await c.put(f"/api/campaigns/{g['id']}/permissions/spend_money", json={"mode": "auto"})).status_code == 400
         r = await c.put(f"/api/campaigns/{g['id']}/permissions/spend_money", json={"mode": "auto", "spend_limit_usd": 20})

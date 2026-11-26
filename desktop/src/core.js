@@ -1,7 +1,7 @@
-// The desktop helper's core: pairing, the connection to Autopilot, and the bridge to Chrome.
+// The desktop helper's core: pairing, the connection to Oton, and the bridge to Chrome.
 //
-// It connects *out* to Autopilot (nothing listens for incoming connections on this computer),
-// and Autopilot drives a separate Chrome window through that connection. Everything the AI
+// It connects *out* to Oton (nothing listens for incoming connections on this computer),
+// and Oton drives a separate Chrome window through that connection. Everything the AI
 // employee does (reading pages, clicking, the rule that "Post"/"Send"/"Buy" needs a person's
 // approval) is decided on the server; this file only carries messages and starts Chrome.
 //
@@ -32,7 +32,7 @@ function parsePairKey(input) {
 /** Swap a pairing key for this computer's own token. */
 async function pair(key, { name, platform, version } = {}) {
   const parsed = parsePairKey(key);
-  if (!parsed) throw new Error("That doesn't look like a pairing link. Copy it again from Autopilot (Connections page).");
+  if (!parsed) throw new Error("That doesn't look like a pairing link. Copy it again from Oton (Connections page).");
   let res;
   try {
     res = await fetch(`${parsed.server}/api/helper/pair`, {
@@ -41,7 +41,7 @@ async function pair(key, { name, platform, version } = {}) {
       body: JSON.stringify({ code: parsed.code, name, platform, version }),
     });
   } catch (e) {
-    throw new Error(`Couldn't reach Autopilot at ${parsed.server}. Check your internet connection.`);
+    throw new Error(`Couldn't reach Oton at ${parsed.server}. Check your internet connection.`);
   }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.detail || `Pairing failed (${res.status}).`);
@@ -52,7 +52,7 @@ async function pair(key, { name, platform, version } = {}) {
 class HelperCore extends EventEmitter {
   /**
    * @param {object} o
-   * @param {string} o.server      Autopilot API address, e.g. https://autopilot-api-xxxx.onrender.com
+   * @param {string} o.server      Oton API address, e.g. https://autopilot-api-xxxx.onrender.com
    * @param {string} o.token       this computer's token (from pair())
    * @param {string} o.profileDir  folder for the helper's own Chrome profile
    * @param {string} [o.chromePath] Chrome to use (found automatically otherwise)
@@ -137,7 +137,7 @@ class HelperCore extends EventEmitter {
     this._send({ t, paused: this.paused || !!this.manual });
   }
 
-  // --- connection to Autopilot ---------------------------------------------------------------
+  // --- connection to Oton ---------------------------------------------------------------
 
   _connect() {
     if (this._stopped) return;
@@ -161,7 +161,7 @@ class HelperCore extends EventEmitter {
     });
     ws.on("unexpected-response", (req, res) => {
       // The handshake was refused. 401/403: this computer's token no longer works (removed in
-      // Autopilot). Anything else (e.g. 502 while Autopilot deploys): try again shortly.
+      // Oton). Anything else (e.g. 502 while Oton deploys): try again shortly.
       try { req.destroy(); } catch {}
       if (this.ws !== ws) return;
       this.ws = null;
@@ -186,7 +186,7 @@ class HelperCore extends EventEmitter {
 
   _removed() {
     this._stopped = true;
-    this._set({ state: "removed", error: "This computer was removed in Autopilot. Pair it again to use it." });
+    this._set({ state: "removed", error: "This computer was removed in Oton. Pair it again to use it." });
     this.emit("removed");
   }
 
@@ -217,7 +217,7 @@ class HelperCore extends EventEmitter {
         this._maybeRestart();
         return;
       }
-      case "open_url": // "sign in to a site" from Autopilot: a normal, visible window
+      case "open_url": // "sign in to a site" from Oton: a normal, visible window
         return this._manualSignin(msg.url);
       case "manual_signin":
         return this._manualSignin(msg.url);

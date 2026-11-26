@@ -1,12 +1,12 @@
 {
   "name": "autopilot-helper",
-  "productName": "Autopilot Helper",
+  "productName": "Oton Helper",
   "version": "0.1.0",
-  "description": "Lets your Autopilot AI employees use websites in a separate Chrome window on this computer.",
+  "description": "Lets your Oton AI employees use websites in a separate Chrome window on this computer.",
   "main": "src/main.js",
   "private": true,
   "license": "UNLICENSED",
-  "author": "Autopilot",
+  "author": "Oton",
   "scripts": {
     "start": "electron .",
     "helper": "node src/cli.js",
@@ -22,7 +22,7 @@
   },
   "build": {
     "appId": "com.autopilot.helper",
-    "productName": "Autopilot Helper",
+    "productName": "Oton Helper",
     "files": [
       "src/**/*",
       "assets/**/*",
@@ -34,7 +34,7 @@
     },
     "protocols": [
       {
-        "name": "Autopilot",
+        "name": "Oton",
         "schemes": [
           "autopilot"
         ]
@@ -78,7 +78,7 @@
       "category": "Utility",
       "icon": "assets/icon.png"
     },
-    "artifactName": "Autopilot-Helper-${version}-${os}-${arch}.${ext}",
+    "artifactName": "Oton-Helper-${version}-${os}-${arch}.${ext}",
     "publish": null
   },
   "repository": {

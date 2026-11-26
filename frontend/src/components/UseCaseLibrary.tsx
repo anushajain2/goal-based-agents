@@ -84,7 +84,7 @@ export function UseCaseCard({ uc, onPick, cta = "Start this goal" }: { uc: UseCa
   );
 }
 
-/** Browse every goal Autopilot can work on. */
+/** Browse every goal Oton can work on. */
 export function UseCaseLibrary({ onPick, onCustom }: { onPick: (uc: UseCase) => void; onCustom?: () => void }) {
   const [cat, setCat] = useState<string>("all");
   const [q, setQ] = useState("");

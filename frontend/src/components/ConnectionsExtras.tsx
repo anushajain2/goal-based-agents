@@ -38,7 +38,7 @@ export function McpServers() {
       <Card>
         <CardHeader
           title={<span className="flex items-center gap-2"><Server size={16} /> Your own tools (MCP servers)</span>}
-          subtitle="Connect internal systems or tools that offer an MCP server. Autopilot calls them itself, so anything that changes something waits for approval like every other action."
+          subtitle="Connect internal systems or tools that offer an MCP server. Oton calls them itself, so anything that changes something waits for approval like every other action."
           action={admin && !adding ? <Button size="sm" onClick={() => setAdding(true)}><Plus size={14} /> Add server</Button> : undefined}
         />
         <div className="space-y-3 p-4">
@@ -122,8 +122,8 @@ export function AgentChrome() {
   return (
     <Card>
       <CardHeader
-        title={<span className="flex items-center gap-2"><Chrome size={16} /> Autopilot Chrome</span>}
-        subtitle="Your installed Chrome with its own profile. Sign in to a site once and Autopilot can use it; it never sees your passwords."
+        title={<span className="flex items-center gap-2"><Chrome size={16} /> Oton Chrome</span>}
+        subtitle="Your installed Chrome with its own profile. Sign in to a site once and Oton can use it; it never sees your passwords."
       />
       <div className="space-y-4 p-4 text-sm">
         <div className="flex flex-wrap items-center gap-4">
@@ -138,7 +138,7 @@ export function AgentChrome() {
 
         {status?.manual_signin_mode && (
           <div className="rounded-md bg-stone-50 p-3">
-            <p>Autopilot Chrome is open without remote control so you can sign in normally. When you&apos;re done, click Done. Autopilot picks up the saved sign-in.</p>
+            <p>Oton Chrome is open without remote control so you can sign in normally. When you&apos;re done, click Done. Oton picks up the saved sign-in.</p>
             <Button className="mt-2" variant="primary" size="sm" onClick={() => call("/api/browser/manual-signin/done")}>
               Done signing in
             </Button>
@@ -149,7 +149,7 @@ export function AgentChrome() {
           <div className="mb-1.5 text-[13px] font-semibold">Sign in to a site ahead of time</div>
           <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); if (url.trim()) call("/api/browser/open", { url: url.trim() }); }}>
             <Input className="min-w-60 flex-1" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="e.g. x.com/login" />
-            <Button type="submit"><ExternalLink size={14} /> Open in Autopilot Chrome</Button>
+            <Button type="submit"><ExternalLink size={14} /> Open in Oton Chrome</Button>
             <Button type="button" variant="ghost" onClick={() => url.trim() && call("/api/browser/manual-signin", { url: url.trim() })} title="For sites like Google that block sign-in in a remote-controlled browser">
               <KeyRound size={14} /> Manual sign-in mode
             </Button>
@@ -157,7 +157,7 @@ export function AgentChrome() {
         </div>
 
         <div>
-          <div className="mb-1.5 text-[13px] font-semibold">Sites you signed in to for Autopilot</div>
+          <div className="mb-1.5 text-[13px] font-semibold">Sites you signed in to for Oton</div>
           {conns && conns.sites.length === 0 && <p className="text-muted">None yet.</p>}
           <ul className="flex flex-wrap gap-2">
             {(conns?.sites || []).map((s) => (
@@ -173,7 +173,7 @@ export function AgentChrome() {
   );
 }
 
-/** Hosted Autopilot: Autopilot uses websites in a Chrome window on a computer you connect. */
+/** Hosted Oton: Oton uses websites in a Chrome window on a computer you connect. */
 export function DesktopHelper({ downloadUrl }: { downloadUrl?: string }) {
   const [pairing, setPairing] = useState<Pairing | null>(null);
   const { data: devices, reload } = useApi<HelperDevice[]>("/api/helper/devices", { live: false, pollMs: pairing ? 2500 : 15000 });
@@ -209,7 +209,7 @@ export function DesktopHelper({ downloadUrl }: { downloadUrl?: string }) {
     <Card>
       <CardHeader
         title={<span className="flex items-center gap-2"><Laptop size={16} /> Desktop helper</span>}
-        subtitle="Lets Autopilot use websites in a separate Chrome window on your computer. Your own browser and passwords stay untouched."
+        subtitle="Lets Oton use websites in a separate Chrome window on your computer. Your own browser and passwords stay untouched."
       />
       <div className="space-y-4 p-4 text-sm">
         {(devices || []).length > 0 && (
@@ -238,7 +238,7 @@ export function DesktopHelper({ downloadUrl }: { downloadUrl?: string }) {
             </li>
             <li className="rounded-lg bg-canvas p-3">
               <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Step 2</div>
-              <div className="mb-2 font-medium">Connect it to Autopilot</div>
+              <div className="mb-2 font-medium">Connect it to Oton</div>
               <Button size="sm" variant="primary" onClick={connect}><Plus size={14} /> Connect a computer</Button>
             </li>
           </ol>
@@ -272,7 +272,7 @@ export function DesktopHelper({ downloadUrl }: { downloadUrl?: string }) {
               <Input className="min-w-60 flex-1" value={site} onChange={(e) => setSite(e.target.value)} placeholder="e.g. linkedin.com" />
               <Button type="submit"><ExternalLink size={14} /> Open on {online.name}</Button>
             </form>
-            {opened && <p className="mt-1.5 text-xs text-muted">A Chrome window opened on {opened}. Sign in there, then close it. Autopilot can then use the site (website steps wait while it&apos;s open).</p>}
+            {opened && <p className="mt-1.5 text-xs text-muted">A Chrome window opened on {opened}. Sign in there, then close it. Oton can then use the site (website steps wait while it&apos;s open).</p>}
           </div>
         )}
         {error && <ErrorNote>{error}</ErrorNote>}

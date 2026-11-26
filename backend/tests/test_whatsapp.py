@@ -104,7 +104,7 @@ async def connect(c, sent) -> dict:
                                              "agent_id": agent_in(org, "Marketing"), "launch": True})
     goal = r.json()["id"]
     link = (await c.post("/api/whatsapp/link")).json()
-    assert link["url"].startswith("https://wa.me/14155550100?text=Connect%20my%20Autopilot%20account")
+    assert link["url"].startswith("https://wa.me/14155550100?text=Connect%20my%20Oton%20account")
     await inbound(c, text=link["text"])
     me = (await c.get("/api/whatsapp/me")).json()
     assert me["connected"] and me["number"].endswith("0123") and "•" in me["number"]
@@ -148,8 +148,8 @@ async def test_connecting_a_number_and_the_webhook_checks(sent):
         assert (await c.get("/api/whatsapp/me")).json() == {**(await c.get("/api/whatsapp/me")).json(), "available": True,
                                                             "connected": False}
         # A wrong code from a stranger links nothing.
-        await inbound(c, text="Connect my Autopilot account: ABCDEF")
-        assert "isn't connected to Autopilot" in texts(sent)[-1]
+        await inbound(c, text="Connect my Oton account: ABCDEF")
+        assert "isn't connected to Oton" in texts(sent)[-1]
 
         link = (await c.post("/api/whatsapp/link")).json()
         await inbound(c, text=link["text"])

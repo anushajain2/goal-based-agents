@@ -1,4 +1,4 @@
-"""The catalog of things Autopilot can check about a company, to show what it's missing out on.
+"""The catalog of things Oton can check about a company, to show what it's missing out on.
 
 Each check says which team would fix it, how it's checked, and which types of company it suits.
 At setup the company's type (decided by Claude, see packs.py) narrows the catalog, then Claude

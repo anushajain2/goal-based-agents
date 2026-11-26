@@ -2,7 +2,7 @@
  * PixelBlast, from React Bits (https://reactbits.dev, github.com/DavidHDev/react-bits).
  * Copyright (c) 2026 David Haz. MIT + Commons Clause License Condition v1.0: free to use as part of
  * this website; the component itself may not be sold, sublicensed or redistributed on its own.
- * Local changes are marked "Autopilot:".
+ * Local changes are marked "Oton:".
  */
 'use client';
 
@@ -1042,7 +1042,7 @@ const PixelBlast = ({
       ref={containerRef}
       className={['relative h-full w-full overflow-hidden', className].filter(Boolean).join(' ')}
       style={style}
-      aria-hidden="true" // Autopilot: decorative, so hidden from screen readers
+      aria-hidden="true" // Oton: decorative, so hidden from screen readers
     >
       <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" aria-hidden="true" />
     </div>

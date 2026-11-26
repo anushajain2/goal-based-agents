@@ -1,4 +1,4 @@
-# Deploying Autopilot on Render
+# Deploying Oton on Render
 
 Everything is described in [`render.yaml`](../render.yaml) (a Render "Blueprint"). Render reads it
 and creates the whole setup. You don't need to run any servers yourself.
@@ -69,7 +69,7 @@ Any SMTP service works. With [Resend](https://resend.com) (or Postmark):
 1. Add and verify `yourdomain.com` (they give you DNS records for SPF/DKIM).
 2. Create an SMTP credential and set:
    `SMTP_HOST=smtp.resend.com`, `SMTP_PORT=587`, `SMTP_USER=resend`,
-   `SMTP_PASSWORD=<the API key>`, `SMTP_FROM=Autopilot <login@yourdomain.com>`.
+   `SMTP_PASSWORD=<the API key>`, `SMTP_FROM=Oton <login@yourdomain.com>`.
 
 Without SMTP, codes only appear in the `autopilot-api` logs. That's fine for a quick private test,
 not for anyone else.
@@ -88,7 +88,7 @@ Put the IDs and secrets in the environment group.
 ### 5. Protect your Claude bill
 
 In the Anthropic console, set a monthly **spend limit** on the key you use here. Each goal also has
-its own budget in Autopilot, but the console limit is your backstop.
+its own budget in Oton, but the console limit is your backstop.
 
 ### 6. Error reports (optional)
 
@@ -121,7 +121,7 @@ low spend limit.
   `AGENT_CHROME=false`. Instead, install the desktop helper (below): AI employees then use websites in
   a separate Chrome window on a computer you connect. Without a connected computer, they work through
   connected apps (Composio, MCP, GitHub, databases) and web research.
-- **Private network MCP servers are blocked** (`ALLOW_PRIVATE_MCP=false`), so nobody can point Autopilot at
+- **Private network MCP servers are blocked** (`ALLOW_PRIVATE_MCP=false`), so nobody can point Oton at
   Render's internal machines.
 - **Production checks.** With `ENVIRONMENT=production`, the API and worker refuse to start without a
   `SECRET_KEY`, a Postgres `DATABASE_URL` and an `https://` `FRONTEND_ORIGIN`. Missing email or Claude

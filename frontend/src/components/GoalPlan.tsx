@@ -174,7 +174,7 @@ export function EarnedSuggestions({ perms, onChange, busy }: { perms: Permission
   );
 }
 
-/** The promise people need to read before they trust Autopilot with their accounts. */
+/** The promise people need to read before they trust Oton with their accounts. */
 export function Assurance({ perms, agent, compact }: { perms: Permissions; agent: string; compact?: boolean }) {
   const team = teamName(perms);
   const exceptions = perms.action_types.filter(goesOut);
@@ -191,7 +191,7 @@ export function Assurance({ perms, agent, compact }: { perms: Permissions; agent
           </p>
           {!compact && (
             <p className="mt-1.5 text-xs text-stone-600">
-              This is enforced by Autopilot itself, not left to the AI: final clicks like Send, Post and Pay are blocked unless an approval covers
+              This is enforced by Oton itself, not left to the AI: final clicks like Send, Post and Pay are blocked unless an approval covers
               them, and every app action is checked against these settings before it runs.
             </p>
           )}
@@ -277,7 +277,7 @@ function CapInput({ p, onChange, disabled }: { p: Permission; onChange: (cap: nu
 export function PermissionsEditor({ perms, onChange, busy }: { perms: Permissions; onChange: (key: string, mode: Mode, dailyCap?: number | null) => void; busy?: boolean }) {
   const team = teamName(perms);
   const groups: { mode: Mode; title: string; hint: string }[] = [
-    { mode: "auto", title: "Does on its own", hint: "Nothing here leaves Autopilot or changes your accounts, unless you moved it here." },
+    { mode: "auto", title: "Does on its own", hint: "Nothing here leaves Oton or changes your accounts, unless you moved it here." },
     { mode: "heads_up", title: "Heads-up, then goes ahead", hint: `${team[0].toUpperCase() + team.slice(1)} sees it first and can edit or stop it.` },
     { mode: "ask", title: `Asks ${team} first`, hint: "It shows exactly what it wants to do and waits for a yes." },
     { mode: "never", title: "Never does", hint: "Blocked outright, whatever it thinks." },
@@ -320,7 +320,7 @@ export function PermissionsEditor({ perms, onChange, busy }: { perms: Permission
 
 /** The whole picture for one goal: the promise, the steps, and every setting behind them. */
 export function GoalPlan({ goal, defaultOpen = true }: { goal: Campaign; defaultOpen?: boolean }) {
-  const agent = "Autopilot";
+  const agent = "Oton";
   const [book, setBook] = useState<Playbook | null>(goal.playbook ?? null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [open, setOpen] = useState(defaultOpen);
@@ -381,7 +381,7 @@ export function GoalPlan({ goal, defaultOpen = true }: { goal: Campaign; default
               <Lock size={14} className="mt-0.5 shrink-0" />
               <span>
                 {out.length ? <b>You decide what goes out without a yes.</b> : <b>Nothing goes out without a yes.</b>} Anything else {agent} wants to send,
-                post, spend or change waits for {teamName(perms)}, with exactly what it wants to do. This is enforced by Autopilot, not left to the AI.
+                post, spend or change waits for {teamName(perms)}, with exactly what it wants to do. This is enforced by Oton, not left to the AI.
                 {out.length > 0 && <span className="mt-1 block text-signal-800">Except: {exceptionWords(out)}</span>}
               </span>
             </p>

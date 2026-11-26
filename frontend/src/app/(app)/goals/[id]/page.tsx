@@ -151,7 +151,7 @@ function GoalPage() {
 
       <GoalPlan goal={c} defaultOpen={c.status === "draft"} />
 
-      {c.status === "out_of_budget" && <ErrorNote>The budget is used up, so Autopilot has stopped working on this goal. Raise the budget in Settings to continue.</ErrorNote>}
+      {c.status === "out_of_budget" && <ErrorNote>The budget is used up, so Oton has stopped working on this goal. Raise the budget in Settings to continue.</ErrorNote>}
 
       {/* Scorecard */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -358,7 +358,7 @@ function GuardrailsTab({ campaignId, canEdit }: { campaignId: string; canEdit: b
   return (
     <div className="space-y-6 p-4">
       <p className="text-sm text-muted">
-        Every kind of action Autopilot could take on this goal, and who decides. Changes apply straight away, even in the middle of a work session.
+        Every kind of action Oton could take on this goal, and who decides. Changes apply straight away, even in the middle of a work session.
         Settings for a whole department or the organization are in Settings → Permissions.
       </p>
       {error && <ErrorNote>{error}</ErrorNote>}
@@ -442,7 +442,7 @@ function SettingsTab({ c, onSaved, onDeleted }: { c: Campaign; onSaved: () => vo
           cycle_hours: Number(form.cycle_hours),
         },
       });
-      setMsg("Saved. Autopilot uses the new settings from its next work session.");
+      setMsg("Saved. Oton uses the new settings from its next work session.");
       onSaved();
     } catch (e) {
       setError((e as Error).message);

@@ -1,4 +1,4 @@
-# Autopilot backend: one image for the API (default command) and the worker
+# Oton backend: one image for the API (default command) and the worker
 # (command: python -m app.worker). Built by Render from render.yaml; also runs locally:
 #   docker build -t autopilot-backend backend
 #   docker run -p 8000:8000 -e ENVIRONMENT=development autopilot-backend

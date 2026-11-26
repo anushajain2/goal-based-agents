@@ -160,9 +160,9 @@ export function HowItsGoing({ c, update }: { c: Campaign; update?: { u: GoalUpda
         </div>
       </div>
       <div className="space-y-4">
-        {update ? <UpdateCard u={update.u} who="Autopilot" at={update.at} className="shadow-[var(--shadow-card)]" /> : (
+        {update ? <UpdateCard u={update.u} who="Oton" at={update.at} className="shadow-[var(--shadow-card)]" /> : (
           <div className="rounded-xl border border-dashed border-line bg-white p-3.5 text-[12.5px] text-muted">
-            Autopilot posts a short update here when there&apos;s news: what it measured, what it learned, and what it&apos;s changing.
+            Oton posts a short update here when there&apos;s news: what it measured, what it learned, and what it&apos;s changing.
           </div>
         )}
         <div className="rounded-2xl border border-line bg-white p-4 shadow-[var(--shadow-card)]">
@@ -175,7 +175,7 @@ export function HowItsGoing({ c, update }: { c: Campaign; update?: { u: GoalUpda
   );
 }
 
-/** In the start flow: what Autopilot will do, before anyone turns it on. */
+/** In the start flow: what Oton will do, before anyone turns it on. */
 /** How the goal gets hit, made on first look (once per goal). */
 function useApproach(goal: Campaign): { a: GoalApproach | null; failed: boolean } {
   const [a, setA] = useState<GoalApproach | null>(goal.approach || null);

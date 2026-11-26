@@ -74,7 +74,7 @@ function TeamPage() {
 
       <PageHeader
         title="Team"
-        subtitle="Your people stay in charge. Autopilot works on each team's goals, and each team's Reviewer keeps suggesting what to do next."
+        subtitle="Your people stay in charge. Oton works on each team's goals, and each team's Reviewer keeps suggesting what to do next."
         actions={admin && (
           <>
             <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3.5 text-sm font-semibold shadow-[0_1px_2px_rgb(16_24_40/0.05)] hover:bg-stone-50"><UserPlus size={15} /> Invite</Link>
@@ -88,7 +88,7 @@ function TeamPage() {
 
       {params.get("basic") && (
         <Card className="border-signal-200 bg-signal-50/60 p-4 text-sm text-signal-900">
-          We started you with the usual team for {org.org.profile?.pack_label ? `a company like yours (${org.org.profile.pack_label})` : "a company like yours"}. To have Autopilot research {org.org.name} and personalise it, add
+          We started you with the usual team for {org.org.profile?.pack_label ? `a company like yours (${org.org.profile.pack_label})` : "a company like yours"}. To have Oton research {org.org.name} and personalise it, add
           <code className="mx-1">ANTHROPIC_API_KEY</code> to the <code>.env</code> file, restart, then use <Link href="/setup" className="font-semibold underline">Research my company</Link>.
         </Card>
       )}

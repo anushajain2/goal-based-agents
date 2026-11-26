@@ -153,7 +153,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
               <p className="flex items-start gap-2 text-sm text-stone-700">
                 <Lock size={15} className="mt-0.5 shrink-0 text-emerald-600" />
                 <span>
-                  Connecting a tool lets Autopilot use it. Anything marked <b className="text-signal-700">needs an OK</b> still waits for a person;
+                  Connecting a tool lets Oton use it. Anything marked <b className="text-signal-700">needs an OK</b> still waits for a person;
                   you choose how much goes out on its own in the next step.
                 </span>
               </p>
@@ -276,7 +276,7 @@ function ToolCard({ n, composio, onChanged }: { n: Need; composio: boolean; onCh
       {!done && opened && (
         <div className="mt-2 flex flex-wrap items-center gap-2 pl-11 text-xs text-muted">
           {n.site && !(composio && n.app) ? (
-            <>Sign in in the Autopilot Chrome window, then
+            <>Sign in in the Oton Chrome window, then
               <Button size="sm" variant="ghost" onClick={async () => { await api("/api/sites/signed-in", { method: "POST", json: { site: n.site } }); onChanged(); }}><Check size={13} /> I&apos;ve signed in</Button></>
           ) : (
             <Button size="sm" variant="ghost" onClick={onChanged}><RefreshCw size={13} /> Check again</Button>

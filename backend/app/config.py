@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # "development" (your computer) or "production" (hosted for others). Production refuses to
     # start without a SECRET_KEY and turns off things that only make sense on one computer.
     environment: str = "development"
-    # Autopilot Chrome: a visible Chrome on the same computer as the worker. Hosted, there is no
+    # Oton Chrome: a visible Chrome on the same computer as the worker. Hosted, there is no
     # screen and no one to sign in, so it's off (websites wait for the desktop helper).
     agent_chrome: bool | None = None  # None = on in development, off in production
     sentry_dsn: str | None = None  # optional error reporting
@@ -107,7 +107,7 @@ class Settings(BaseSettings):
     github_client_id: str | None = None
     github_client_secret: str | None = None
 
-    # --- Autopilot Chrome ---------------------------------------------------------
+    # --- Oton Chrome ---------------------------------------------------------
     chrome_path: str | None = None  # auto-detected when unset
     chrome_profile_dir: Path = REPO_ROOT / "data" / "agent-chrome-profile"
     chrome_debug_port: int = 9333
@@ -128,7 +128,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str | None = None
     smtp_password: str | None = None
-    smtp_from: str | None = None  # e.g. "Autopilot <login@yourdomain.com>"
+    smtp_from: str | None = None  # e.g. "Oton <login@yourdomain.com>"
     smtp_ssl: bool = False  # True for port 465 (implicit TLS); False uses STARTTLS
 
     # --- Misc ---------------------------------------------------------------------
@@ -139,7 +139,7 @@ class Settings(BaseSettings):
     # has its own history (see services/estimate.py).
     est_session_cost_usd: float = 0.30
     # MCP servers on this computer or your network (e.g. http://localhost:8001/mcp). Set to
-    # false when Autopilot is hosted for others, so nobody can point it at internal machines.
+    # false when Oton is hosted for others, so nobody can point it at internal machines.
     allow_private_mcp: bool = True
 
     @property
@@ -186,7 +186,7 @@ class Settings(BaseSettings):
         if not self.smtp_enabled:
             out.append("SMTP_HOST is not set: sign-in codes are only printed in the logs")
         if not self.anthropic_api_key:
-            out.append("ANTHROPIC_API_KEY is not set: Autopilot can't work")
+            out.append("ANTHROPIC_API_KEY is not set: Oton can't work")
         if self.allow_private_mcp:
             out.append("ALLOW_PRIVATE_MCP is on: set it to false so MCP servers can't reach internal hosts")
         return out

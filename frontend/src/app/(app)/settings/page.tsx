@@ -47,7 +47,7 @@ function Staffing() {
   const { data } = useApi<{ models: Record<string, string> }>("/api/status", { live: false });
   return (
     <Card>
-      <CardHeader title="How Autopilot is staffed" subtitle="Each job uses the cheapest Claude model that does it well. Change them in the .env file." />
+      <CardHeader title="How Oton is staffed" subtitle="Each job uses the cheapest Claude model that does it well. Change them in the .env file." />
       <div className="grid gap-3 p-4 sm:grid-cols-3">
         {ROLE_INFO.map((r) => (
           <div key={r.role} className="rounded-lg bg-stone-50 p-3">
@@ -115,7 +115,7 @@ function People() {
     <div id="people" className="scroll-mt-20"><Card>
       <CardHeader
         title={<span className="flex items-center gap-2"><Users size={16} /> People</span>}
-        subtitle="People approve Autopilot's work in their departments. Admins can manage everything and approve for teams with nobody in them."
+        subtitle="People approve Oton's work in their departments. Admins can manage everything and approve for teams with nobody in them."
       />
       <ul className="divide-y divide-line">
         {org.members.map((m) => (
@@ -226,11 +226,11 @@ function Permissions() {
     <Card>
       <CardHeader
         title={<span className="flex items-center gap-2"><ShieldCheck size={16} /> Permissions</span>}
-        subtitle={`What Autopilot may do without asking (or with a heads-up), and where it always asks. Revoke any of them to go back to asking.`}
+        subtitle={`What Oton may do without asking (or with a heads-up), and where it always asks. Revoke any of them to go back to asking.`}
       />
       {error && <div className="px-4 pt-3"><ErrorNote>{error}</ErrorNote></div>}
       {data && data.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-muted">No standing permissions. Autopilot asks before every important action.</p>
+        <p className="px-4 py-6 text-sm text-muted">No standing permissions. Oton asks before every important action.</p>
       ) : (
         <ul className="divide-y divide-line">
           {(data || []).map((g) => (

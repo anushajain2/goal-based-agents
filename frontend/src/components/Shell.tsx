@@ -21,7 +21,7 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings, match: (p: string) => p.startsWith("/settings") },
 ];
 
-/** The Autopilot mark: an olive tile with a target and the path that hits it. */
+/** The Oton mark: an olive tile with a target and the path that hits it. */
 export function BrandMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden className="shrink-0">
@@ -65,7 +65,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const goalCount = ov?.goals.total ?? 0;
   const spent = ov?.spend_this_month.total ?? 0;
   const budget = ov?.budget_total ?? 0;
-  const orgName = org?.org.name || "Autopilot";
+  const orgName = org?.org.name || "Oton";
 
   const navItem = ({ href, label, icon: Icon, match }: (typeof NAV)[number]) => {
     const on = match(path);

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The helper without a window, for testing and Linux machines:
-//   node src/cli.js pair "<pairing link from Autopilot>" [--name "Office iMac"]
+//   node src/cli.js pair "<pairing link from Oton>" [--name "Office iMac"]
 //   node src/cli.js run [--window hidden|background] [--chrome /path/to/chrome]
 "use strict";
 

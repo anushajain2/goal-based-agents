@@ -67,11 +67,11 @@ export default function WelcomePage() {
       <div className="mx-auto max-w-2xl">
         <div className="mb-8 flex items-center gap-2.5">
           <EmployeeAvatar size={32} />
-          <span className="text-[17px] font-bold tracking-tight">Autopilot</span>
+          <span className="text-[17px] font-bold tracking-tight">Oton</span>
         </div>
         <h1 className="text-3xl font-bold tracking-tight">Tell us about your company</h1>
         <p className="mt-2 text-stone-600">
-          You don&apos;t need to work out where AI fits. Autopilot reads your website, researches your company, then sets up goals
+          You don&apos;t need to work out where AI fits. Oton reads your website, researches your company, then sets up goals
           for the teams that matter most right now, and shows you what you&apos;re missing out on, each gap with a goal to fix it. You review everything before any work starts.
         </p>
 
@@ -98,10 +98,10 @@ export default function WelcomePage() {
           <div>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[13px] font-semibold">Departments</span>
-              <button type="button" onClick={() => setManual(false)} className="text-xs font-semibold text-brand-600">Let Autopilot work them out instead</button>
+              <button type="button" onClick={() => setManual(false)} className="text-xs font-semibold text-brand-600">Let Oton work them out instead</button>
             </div>
             <div className="mb-1 text-[13px] font-semibold">Departments</div>
-            <p className="mb-3 text-xs text-muted">Pick the parts of the business you want Autopilot to work on. You&apos;ll be in all of them to start with.</p>
+            <p className="mb-3 text-xs text-muted">Pick the parts of the business you want Oton to work on. You&apos;ll be in all of them to start with.</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {presets.map((p) => {
                 const on = picked.includes(p.kind);
@@ -114,7 +114,7 @@ export default function WelcomePage() {
                   >
                     <span className={cx("grid h-5 w-5 place-items-center rounded border", on ? "border-brand-500 bg-brand-500 text-white" : "border-stone-300")}>{on && <Check size={13} />}</span>
                     <span className="flex-1 font-semibold">{p.name}</span>
-                    {on && <span className="flex items-center gap-1 text-xs text-brand-700"><Bot size={13} /> Autopilot on</span>}
+                    {on && <span className="flex items-center gap-1 text-xs text-brand-700"><Bot size={13} /> Oton on</span>}
                   </button>
                 );
               })}

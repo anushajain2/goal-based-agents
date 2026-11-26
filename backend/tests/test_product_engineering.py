@@ -141,7 +141,7 @@ def fake_github(calls: list) -> FastAPI:
             return {"number": 7, "html_url": "https://github.com/acme/app/pull/7"}
         if path == "repos/acme/app/pulls/7" and request.method == "GET":
             return {"number": 7, "title": "CSV export", "html_url": "https://github.com/acme/app/pull/7", "state": "open",
-                    "merged": state["merged"], "additions": 40, "deletions": 2, "changed_files": 2, "head": {"ref": "autopilot/csv"}}
+                    "merged": state["merged"], "additions": 40, "deletions": 2, "changed_files": 2, "head": {"ref": "oton/csv"}}
         if path == "repos/acme/app/pulls/7/merge":
             state["merged"] = True
             return {"merged": True, "sha": "merged1", "message": "Pull Request successfully merged"}
@@ -182,7 +182,7 @@ async def test_engineering_opens_prs_on_its_own_but_merging_waits_for_an_enginee
         puts = [p for m, p, _ in gh_calls if m == "PUT" and "/contents/" in p]
         assert puts == ["/repos/acme/app/contents/src/export.py", "/repos/acme/app/contents/src/new.py"]
         ref = next(b for m, p, b in gh_calls if p.endswith("/git/refs"))
-        assert ref["ref"] == "refs/heads/autopilot/csv-export"
+        assert ref["ref"] == "refs/heads/oton/csv-export"
         assert not any(p.endswith("/merge") for _, p, _ in gh_calls)
 
         out = await ex.call("github_merge_pull_request", {"number": 7, "summary": "Tested locally"}, "t3")

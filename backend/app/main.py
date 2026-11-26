@@ -25,7 +25,7 @@ async def lifespan(_app: FastAPI):
     await events.broadcaster.stop()
 
 
-app = FastAPI(title="Autopilot", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Oton", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[get_settings().frontend_origin, "http://localhost:3000", "http://127.0.0.1:3000"],

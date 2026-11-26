@@ -28,7 +28,7 @@ export default function CapabilitiesPage() {
         <p className="mt-1 text-sm text-muted">
           {recommended
             ? `What we found ${org!.org.name} is missing out on, with the goal that fixes each, and more ideas below.`
-            : "Goals founders and agencies use Autopilot for. Pick one to set it up; you can change everything before it starts."}
+            : "Goals founders and agencies use Oton for. Pick one to set it up; you can change everything before it starts."}
         </p>
       </div>
 
@@ -50,7 +50,7 @@ export default function CapabilitiesPage() {
         {recommended && (
           <div>
             <h2 className="text-lg font-bold">More ideas</h2>
-            <p className="text-sm text-muted">{USE_CASES.length} goals Autopilot works well on, across sales, marketing, research, fundraising, hiring and more.</p>
+            <p className="text-sm text-muted">{USE_CASES.length} goals Oton works well on, across sales, marketing, research, fundraising, hiring and more.</p>
           </div>
         )}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

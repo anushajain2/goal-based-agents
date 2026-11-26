@@ -21,17 +21,17 @@ log = logging.getLogger("autopilot.mail")
 def _message(to: str, code: str) -> EmailMessage:
     settings = get_settings()
     msg = EmailMessage()
-    msg["Subject"] = f"{code} is your Autopilot sign-in code"
-    msg["From"] = settings.smtp_from or settings.smtp_user or "Autopilot <no-reply@localhost>"
+    msg["Subject"] = f"{code} is your Oton sign-in code"
+    msg["From"] = settings.smtp_from or settings.smtp_user or "Oton <no-reply@localhost>"
     msg["To"] = to
     msg.set_content(
-        f"Your Autopilot sign-in code is {code}\n\n"
+        f"Your Oton sign-in code is {code}\n\n"
         "It expires in 10 minutes. If you didn't try to sign in, you can ignore this email; "
         "nobody can sign in without the code.\n"
     )
     msg.add_alternative(
         f"""<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:420px;margin:auto;padding:24px">
-  <p style="font-size:15px;color:#1c2b33">Your Autopilot sign-in code is</p>
+  <p style="font-size:15px;color:#1c2b33">Your Oton sign-in code is</p>
   <p style="font-size:32px;font-weight:700;letter-spacing:6px;color:#556b2f;margin:12px 0">{code}</p>
   <p style="font-size:13px;color:#65676b">It expires in 10 minutes. If you didn't try to sign in, you can ignore
   this email; nobody can sign in without the code.</p>
@@ -64,7 +64,7 @@ async def send_login_code(to: str, code: str) -> str:
             "\n\n    Sign-in code for %s: %s\n    (Email isn't set up, so it's shown here instead. "
             "Set SMTP_HOST in .env to email codes.)\n", to, code,
         )
-        print(f"\n>>> Autopilot sign-in code for {to}: {code}  (valid 10 minutes)\n", flush=True)
+        print(f"\n>>> Oton sign-in code for {to}: {code}  (valid 10 minutes)\n", flush=True)
         return "console"
     await asyncio.to_thread(_send_smtp, _message(to, code))
     return "email"
@@ -74,7 +74,7 @@ def _simple(to: str, subject: str, text: str) -> EmailMessage:
     settings = get_settings()
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = settings.smtp_from or settings.smtp_user or "Autopilot <no-reply@localhost>"
+    msg["From"] = settings.smtp_from or settings.smtp_user or "Oton <no-reply@localhost>"
     msg["To"] = to
     msg.set_content(text)
     return msg
@@ -93,10 +93,10 @@ async def _send_or_log(to: str, subject: str, text: str) -> None:
 async def send_invitation(to: str, org_name: str, inviter: str) -> None:
     url = get_settings().frontend_origin.rstrip("/") + "/login"
     await _send_or_log(
-        to, f"{inviter} invited you to {org_name} on Autopilot",
-        f"{inviter} invited you to join {org_name} on Autopilot, where Autopilot works toward the "
+        to, f"{inviter} invited you to {org_name} on Oton",
+        f"{inviter} invited you to join {org_name} on Oton, where Oton works toward the "
         f"company's goals and checks with the right people before doing anything important.\n\n"
-        f"You don't need to know anything about AI. Autopilot does the work and shows it; "
+        f"You don't need to know anything about AI. Oton does the work and shows it; "
         f"you approve, edit or say no.\n\n"
         f"Sign in with this email address to join: {url}\n",
     )
@@ -104,7 +104,7 @@ async def send_invitation(to: str, org_name: str, inviter: str) -> None:
 
 async def send_approval_needed(recipients: list[str], agent: str, department: str, title: str, goal_id: str,
                                goal: str | None = None) -> None:
-    """`agent` is who's asking as people see it: "Autopilot", or a team's Reviewer."""
+    """`agent` is who's asking as people see it: "Oton", or a team's Reviewer."""
     url = get_settings().frontend_origin.rstrip("/") + f"/goals/{goal_id}?tab=work"
     on = f" on the goal \"{goal}\"" if goal else ""
     for to in recipients:

@@ -38,7 +38,7 @@ export default function Landing() {
           <Logo />
           <nav className="hidden gap-7 text-[14.5px] font-medium text-stone-600 md:flex">
             <a href="#checks" className="hover:text-ink">What we check</a>
-            <a href="#why" className="hover:text-ink">Why Autopilot</a>
+            <a href="#why" className="hover:text-ink">Why Oton</a>
             <a href="#how" className="hover:text-ink">How it works</a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
@@ -123,7 +123,7 @@ export default function Landing() {
           <div className="pointer-events-none absolute left-1/2 top-[-200px] h-[500px] w-[900px] max-w-full -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(140,154,75,0.32),transparent)]" />
           <div className="relative mx-auto max-w-5xl">
             <div className="text-center">
-              <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-brand-300">Why Autopilot</div>
+              <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-brand-300">Why Oton</div>
               <h2 className="display mt-3 text-balance text-[38px] leading-[1.04] sm:text-[60px]">
                 <span className="text-white/40">Others tell you what&apos;s wrong.</span>
                 <br />
@@ -133,7 +133,7 @@ export default function Landing() {
             <div className="mt-14 grid gap-4 md:grid-cols-3">
               <Way who="An SEO tool" gives="A score." then="You do the work." />
               <Way who="An agency" gives="A deck." then="You wait and pay." />
-              <Way us who="Autopilot" gives="The fix." then="You just approve it." />
+              <Way us who="Oton" gives="The fix." then="You just approve it." />
             </div>
           </div>
         </div>
@@ -181,7 +181,7 @@ export default function Landing() {
             <Trust icon={<Eye size={18} />} title="Shows its sources" text="Every finding links to the search, page or measurement behind it." />
             <Trust icon={<Hand size={18} />} title="Final yes is yours" text="Sends, posts, payments and changes wait for a person." />
             <Trust icon={<Wallet size={18} />} title="Hard budgets" text="A few dollars a week to start. Never a cent over." />
-            <Trust icon={<ShieldCheck size={18} />} title="No passwords" text="Autopilot never sees or types your passwords." />
+            <Trust icon={<ShieldCheck size={18} />} title="No passwords" text="Oton never sees or types your passwords." />
           </div>
         </div>
       </section>
@@ -210,7 +210,7 @@ function Logo({ small }: { small?: boolean }) {
   return (
     <Link href="/" className="flex items-center gap-2.5">
       <BrandMark size={small ? 22 : 28} />
-      <span className={cx("font-bold tracking-[-0.02em]", small ? "text-[15px] text-ink" : "text-[18px]")}>Autopilot</span>
+      <span className={cx("font-bold tracking-[-0.02em]", small ? "text-[15px] text-ink" : "text-[18px]")}>Oton</span>
     </Link>
   );
 }
@@ -266,7 +266,7 @@ function ScanPreview() {
       <div className="relative overflow-hidden rounded-[18px] border border-[#e4e7ec] bg-white shadow-[0_0_0_8px_rgba(255,255,255,0.7),0_0_0_9px_#eef0f3,0_50px_100px_-40px_rgba(16,24,40,0.35)]">
         <div className="flex h-10 items-center gap-[7px] border-b border-[#f2f4f7] bg-[#fcfcfd] px-4">
           <i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" /><i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" /><i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" />
-          <span className="mx-auto -translate-x-6 rounded-md bg-[#f2f4f7] px-3.5 py-1 text-[12px] text-stone-400">app.autopilot.ai/gaps</span>
+          <span className="mx-auto -translate-x-6 rounded-md bg-[#f2f4f7] px-3.5 py-1 text-[12px] text-stone-400">app.oton.ai/gaps</span>
         </div>
         <div className="px-4 pb-8 pt-6 text-left sm:px-8">
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -589,7 +589,7 @@ function HowStep({ who, effort, title, text, children }: { who: "you" | "us"; ef
       <div className="px-6 py-5">
         <span className={cx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold",
           who === "you" ? "bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100" : "bg-ink text-white")}>
-          {who === "you" ? "You" : <><BrandMark size={13} />Autopilot</>}<span className="opacity-60">·</span>{effort}
+          {who === "you" ? "You" : <><BrandMark size={13} />Oton</>}<span className="opacity-60">·</span>{effort}
         </span>
         <div className="mt-3 text-[18px] font-semibold tracking-[-0.01em]">{title}</div>
         <p className="mt-1 text-[14.5px] text-stone-600">{text}</p>

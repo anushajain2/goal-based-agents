@@ -189,7 +189,7 @@ async def unlock(check_key: str, s: AsyncSession = Depends(get_session), me: Mem
 
     goal_id = await opportunities.unlock_goal(s, me.org_id, me.user.id, check_key)
     if not goal_id:
-        raise HTTPException(404, "Add that team first, then Autopilot can run this check for it.")
+        raise HTTPException(404, "Add that team first, then Oton can run this check for it.")
     await s.commit()
     return {"goal_id": goal_id}
 

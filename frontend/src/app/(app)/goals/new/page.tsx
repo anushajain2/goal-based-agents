@@ -177,7 +177,7 @@ function NewGoal() {
         <div className="mb-5 flex items-center gap-3">
           <EmployeeAvatar size={40} />
           <div>
-            <h1 className="text-2xl font-bold">"What should Autopilot work on?"</h1>
+            <h1 className="text-2xl font-bold">"What should Oton work on?"</h1>
             <p className="text-sm text-muted">Pick a goal with a clear finish line, or describe your own. You can adjust everything on the next steps.</p>
           </div>
         </div>
@@ -236,7 +236,7 @@ function NewGoal() {
               <Field label="The goal" hint="Say it the way you'd brief a new hire: who, what, how many.">
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Book 15 interviews with heads of operations at logistics companies in the UK" />
               </Field>
-              <Field label="What counts as one" hint="Autopilot only counts a result when this is true. Be specific: this is how you'll judge its work.">
+              <Field label="What counts as one" hint="Oton only counts a result when this is true. Be specific: this is how you'll judge its work.">
                 <div className="relative">
                   <Flag size={14} className="absolute left-3 top-3 text-muted" />
                   <Input className="pl-8" value={doneWhen} onChange={(e) => setDoneWhen(e.target.value)} placeholder="e.g. Interview held on calendar with a matching person" />
@@ -246,7 +246,7 @@ function NewGoal() {
                 <Field label="What gets counted" hint="The number shown as progress.">
                   <Input value={metric} onChange={(e) => setMetric(e.target.value)} placeholder="e.g. interviews held" />
                 </Field>
-                <Field label="Target" hint="Goals are ongoing; this is what to reach each period. Autopilot suggests changes as it learns.">
+                <Field label="Target" hint="Goals are ongoing; this is what to reach each period. Oton suggests changes as it learns.">
                   <div className="flex gap-2">
                     <Input type="number" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. 15" />
                     <Select value={period} onChange={(e) => setPeriod(e.target.value as "week" | "month" | "quarter")}>
@@ -269,7 +269,7 @@ function NewGoal() {
               <div>
                 <h2 className="text-lg font-semibold">Budget & schedule</h2>
                 <p className="text-sm text-muted">
-                  The budget covers everything this goal costs: mostly Autopilot&apos;s own AI usage, plus any ads or purchases you allow. It&apos;s a hard
+                  The budget covers everything this goal costs: mostly Oton&apos;s own AI usage, plus any ads or purchases you allow. It&apos;s a hard
                   limit. When it runs out, work pauses. You&apos;ll see the cost of every work session in the work log.
                 </p>
               </div>
@@ -289,7 +289,7 @@ function NewGoal() {
                 <Field label="Deadline (optional)">
                   <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </Field>
-                <Field label="Check in and work on it about every" hint="Autopilot may go a bit sooner or later (half to double this) depending on results.">
+                <Field label="Check in and work on it about every" hint="Oton may go a bit sooner or later (half to double this) depending on results.">
                   <Select value={cycleHours} onChange={(e) => setCycleHours(e.target.value)}>
                     {["1", "3", "6", "12", "24", "48"].map((h) => <option key={h} value={h}>{h} hour{h === "1" ? "" : "s"}</option>)}
                   </Select>
@@ -303,7 +303,7 @@ function NewGoal() {
             <div className="space-y-5">
               <div>
                 <h2 className="text-lg font-semibold">Brief your employee</h2>
-                <p className="text-sm text-muted">The more Autopilot knows, the better its outreach and choices.</p>
+                <p className="text-sm text-muted">The more Oton knows, the better its outreach and choices.</p>
               </div>
               <Field label="About the company, offer and audience" hint="Links, ideal customer, what makes you different, prices, tone of voice, people or companies to avoid.">
                 <Textarea rows={8} value={context} onChange={(e) => setContext(e.target.value)} placeholder={"Company: ...\nWebsite: https://...\nWho we sell to: ...\nWhat we offer: ...\nTone: friendly, concise, no hype\nCalendar link for meetings: ..."} />
@@ -321,7 +321,7 @@ function NewGoal() {
                     );
                   })}
                 </div>
-                <p className="mt-1.5 text-xs text-muted">Leave empty to let Autopilot choose. It uses connected apps where possible, otherwise your Autopilot Chrome.</p>
+                <p className="mt-1.5 text-xs text-muted">Leave empty to let Oton choose. It uses connected apps where possible, otherwise your Oton Chrome.</p>
               </div>
             </div>
           )}
@@ -377,7 +377,7 @@ function NewGoal() {
                 <Item k="Without asking" v={types.filter((t) => t.default === "ask" && effective[t.key] === "auto").map((t) => t.label).join(", ") || "Nothing: it asks first"} />
               </dl>
               <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
-                Next you&apos;ll see Autopilot&apos;s step-by-step plan, connect the tools it needs, and check exactly
+                Next you&apos;ll see Oton&apos;s step-by-step plan, connect the tools it needs, and check exactly
                 what it will ask the {assignee?.department.name || "department"} team about. Nothing runs until you press Start there.
               </p>
             </div>

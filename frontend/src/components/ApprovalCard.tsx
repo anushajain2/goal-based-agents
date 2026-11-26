@@ -21,7 +21,7 @@ export const KIND_BADGE: Record<UserRequest["kind"], { label: string; tone: "amb
 const PROPOSAL_YES: Record<string, string> = { target: "Approve new target", pause: "Pause it", resume: "Restart it", new_goal: "Start this goal", new_agent: "Start this goal" };
 
 /**
- * One thing Autopilot needs from a person: an approval, an answer, a sign-in or an app
+ * One thing Oton needs from a person: an approval, an answer, a sign-in or an app
  * connection. `detail` is the roomy layout used in the Needs you inbox.
  */
 export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserRequest; onDone: () => void; showCampaign?: boolean; detail?: boolean }) {
@@ -40,7 +40,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const agent = "Autopilot";
+  const agent = "Oton";
   const to = req.routed_to_me ? "you" : req.approvers?.join(", ") || "an admin";
   // A heads-up goes ahead on its own at auto_approve_at unless someone stops it.
   const headsUp = req.kind === "action" && !!req.auto_approve_at;
@@ -91,7 +91,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
         {detail && <EmployeeAvatar size={28} />}
         {detail && (
           <span className="mr-1">
-            <span className="block text-[13px] font-semibold text-ink">Autopilot</span>
+            <span className="block text-[13px] font-semibold text-ink">Oton</span>
             <span className="block">{[req.campaign_name && `For ${req.campaign_name}`, req.department_name].filter(Boolean).join(" · ")}</span>
           </span>
         )}
@@ -189,7 +189,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
           {req.preview.details && <p className="text-sm">{req.preview.details}</p>}
           {req.preview.screenshot && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={`${API_URL}/api/screenshots/${req.preview.screenshot}`} alt="Current page in Autopilot Chrome" className="max-h-72 rounded-md border border-line" />
+            <img src={`${API_URL}/api/screenshots/${req.preview.screenshot}`} alt="Current page in Oton Chrome" className="max-h-72 rounded-md border border-line" />
           )}
           {req.est_spend_usd !== null && <p className="text-sm">Will spend up to <b>{usd(req.est_spend_usd)}</b> from this goal&apos;s budget.</p>}
         </div>
@@ -211,11 +211,11 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
       {req.kind === "login" && req.preview.url && (
         <div className={cx("rounded-md bg-stone-50/60 p-3 text-sm", !detail && "mt-3")}>
           <p>
-            Sign in to <b>{req.preview.site}</b> in the <b>Autopilot Chrome</b> window, then click &quot;I&apos;ve signed in&quot;. You stay signed in, so you only do
-            this once per site. Autopilot never sees your password.
+            Sign in to <b>{req.preview.site}</b> in the <b>Oton Chrome</b> window, then click &quot;I&apos;ve signed in&quot;. You stay signed in, so you only do
+            this once per site. Oton never sees your password.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => openInAgentChrome(req.preview.url!)}><ExternalLink size={13} /> Open login page in Autopilot Chrome</Button>
+            <Button size="sm" onClick={() => openInAgentChrome(req.preview.url!)}><ExternalLink size={13} /> Open login page in Oton Chrome</Button>
             <Button size="sm" variant="ghost" onClick={() => openInAgentChrome(req.preview.url!, true)} title="For sites like Google that block sign-in in a remote-controlled browser">
               Site won&apos;t let me sign in? Use manual sign-in mode
             </Button>

@@ -109,12 +109,12 @@ class ToolExecutor:
             await self._step(f"Browser step didn't work: {e}"[:300], channel="browser", status="failed")
             return Outcome(str(e), is_error=True)
         except chrome.ChromeUnavailable as e:
-            await self._log("error", f"Autopilot Chrome unavailable: {e}", status="failed", channel="browser")
-            return Outcome(f"Autopilot Chrome is unavailable: {e}", is_error=True)
+            await self._log("error", f"Oton Chrome unavailable: {e}", status="failed", channel="browser")
+            return Outcome(f"Oton Chrome is unavailable: {e}", is_error=True)
         except HelperOffline as e:
             if not e.paired:
                 return Outcome("No computer is connected for website steps here. Use app connectors or web research, "
-                               "or ask the owner (ask_user) to install the Autopilot desktop helper from the "
+                               "or ask the owner (ask_user) to install the Oton desktop helper from the "
                                "Connections page.", is_error=True)
             # The step waits for the computer and runs as soon as it's back (see runner._resolve_pending).
             await self._log("computer", "Waiting for your computer: this website step runs when the desktop "
@@ -328,7 +328,7 @@ class ToolExecutor:
         # Email the people it's routed to (best effort; the in-app inbox is the source of truth).
         # A heads-up isn't waiting on anyone, so it only shows in the inbox.
         if not auto_approve_at:
-            await send_approval_needed(emails, "Autopilot", dept_name, title, self.campaign_id, goal_name)
+            await send_approval_needed(emails, "Oton", dept_name, title, self.campaign_id, goal_name)
         return request_id
 
     # ------------------------------------------------------------------ app connectors
@@ -757,7 +757,7 @@ class ToolExecutor:
         except Exception:  # noqa: BLE001
             pass
         request_id = await self._create_request(
-            kind=RequestKind.login, tool_use_id=tool_use_id, title=f"Sign in to {site} in Autopilot Chrome",
+            kind=RequestKind.login, tool_use_id=tool_use_id, title=f"Sign in to {site} in Oton Chrome",
             rationale=inp.get("reason", ""), scope=site, preview={"url": inp["login_url"], "site": site},
         )
         return Pending(request_id, {"kind": "login", "site": site, "url": inp["login_url"]})
@@ -773,7 +773,7 @@ class ToolExecutor:
         # Measured only when it was read from a tool this session actually used.
         verified = how == "read_from_tool" and self._was_read(tool)
         label = {"read_from_tool": f"measured in {tool}" if verified else "reported (tool not read this session)",
-                 "counted": "counted by Autopilot", "estimate": "estimated"}.get(how, "reported")
+                 "counted": "counted by Oton", "estimate": "estimated"}.get(how, "reported")
         async with session_scope() as s:
             s.add(MetricSnapshot(campaign_id=self.campaign_id, metric=inp["metric"][:120],
                                  value=float(inp["value"]), source=(inp.get("source") or tool or label)[:200],

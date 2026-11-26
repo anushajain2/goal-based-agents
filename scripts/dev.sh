@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start Autopilot on your computer:  ./scripts/dev.sh
+# Start Oton on your computer:  ./scripts/dev.sh
 # Needs Python 3.11+ (or uv), Node.js 18+ and Google Chrome. Nothing else: the database is a
 # local file (data/autopilot.db). Ctrl+C stops everything.
 set -euo pipefail
@@ -79,5 +79,5 @@ trap cleanup EXIT INT TERM
 (cd backend && .venv/bin/python -m app.worker) & pids+=($!)
 (cd frontend && npm run dev) & pids+=($!)
 
-say "Autopilot is running: open http://localhost:3000  (Ctrl+C to stop)"
+say "Oton is running: open http://localhost:3000  (Ctrl+C to stop)"
 wait

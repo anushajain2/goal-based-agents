@@ -23,7 +23,7 @@
 | **Append-only conversation history.** Guardrail changes mid-run are *appended* as system messages, and the tool list is fixed for a whole run. | Keeps the prompt cache warm (cheaper) and keeps Claude's earlier reasoning valid. |
 | **Budget ledger with reservations.** Each model call reserves its worst-case cost first (in a short transaction holding a row lock), then settles at the real cost from `usage`. | It makes overspending impossible rather than unlikely, even with several workers. |
 | **App connectors through two generic tools** (`app_find_actions`, `app_run_action`), not thousands of app-specific tools. | Keeps the prompt small and stable. Every call goes through our pipeline because we call Composio from our backend; letting the model reach app servers directly would bypass approvals. |
-| **Autopilot Chrome = the user's Chrome with a dedicated profile, controlled over CDP** (Playwright `connect_over_cdp`). Chrome is started detached, so it survives worker restarts. | Chrome 136+ refuses remote control of the default profile, and a separate profile is safer anyway. Sign-ins persist, so each site needs only one login. |
+| **Oton Chrome = the user's Chrome with a dedicated profile, controlled over CDP** (Playwright `connect_over_cdp`). Chrome is started detached, so it survives worker restarts. | Chrome 136+ refuses remote control of the default profile, and a separate profile is safer anyway. Sign-ins persist, so each site needs only one login. |
 | **Pages read as text with numbered elements**; screenshots only on demand and for approval previews. | Cheaper and more reliable than vision-only browsing, which matters because most of the budget is AI usage. |
 | **The click guard runs in code**: commit buttons and submit keys need an authorization from an approved `browser_declare_action` (3 uses, 20 minutes). Password and card fields are never typed into. | Approving an *intent* is practical; approving every click is not. The guard stops the agent drifting from the approved intent, and stops prompt injection on a web page from getting past approvals. |
 | **Manual sign-in mode** relaunches the profile without remote control. | Some sites (e.g. Google) refuse sign-ins in a remote-controlled browser. |
@@ -36,7 +36,7 @@
 3. Policy engine, AI rule reviewer, approvals, standing permissions
 4. Agent loop (persisted, resumable) and workers
 5. Composio connector layer
-6. Autopilot Chrome, browser tools, click guard, sign-in requests
+6. Oton Chrome, browser tools, click guard, sign-in requests
 7. UI: campaigns table, wizard, dashboard, activity log, approvals, guardrails, settings
 8. Tests: ledger, policy, end-to-end cycles with a scripted model, real-Chrome browser tests
 

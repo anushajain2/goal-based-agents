@@ -1,4 +1,4 @@
-# Builds the Autopilot Helper installers (macOS, Windows, Linux).
+# Builds the Oton Helper installers (macOS, Windows, Linux).
 #   Release: bump "version" in desktop/package.json and push to main. If there's no release for that
 #   version yet (helper-v<version>), the installers are built and published as a GitHub release,
 #   which is where the app's "Download" button points (HELPER_DOWNLOAD_URL, default: releases/latest).
@@ -98,9 +98,9 @@ jobs:
         with:
           tag_name: ${{ needs.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: Autopilot Helper ${{ needs.version.outputs.tag }}
+          name: Oton Helper ${{ needs.version.outputs.tag }}
           body: |
-            Download the installer for your computer, open it, then connect it from Autopilot (Connections → Desktop helper).
+            Download the installer for your computer, open it, then connect it from Oton (Connections → Desktop helper).
             - Mac (Apple silicon: M1/M2/M3/M4): the `mac-arm64.dmg`
             - Mac (Intel): the `mac-x64.dmg`
             - Windows: the `.exe`

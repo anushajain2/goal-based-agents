@@ -102,7 +102,7 @@ class ComposioHub:
         return Composio(api_key=self.api_key)
 
     def user_id(self, owner_id: str | None) -> str:
-        """Composio keeps each Autopilot user's connected accounts separate."""
+        """Composio keeps each Oton user's connected accounts separate."""
         return f"autopilot-{owner_id}" if owner_id else self.settings.composio_user_id
 
     async def search_actions(self, query: str, app: str | None = None, limit: int = 8) -> list[AppAction]:

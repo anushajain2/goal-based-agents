@@ -12,7 +12,7 @@ import { Button, cx, Input, Select } from "./ui";
 
 /**
  * Who works with whom: you at the top; for each team, its people, its Reviewer, and the goals
- * Autopilot is working on for it. Approvals for a team's goals go to one person.
+ * Oton is working on for it. Approvals for a team's goals go to one person.
  */
 export function OrgChart({ org, goals, onGoalClick, onChanged }: {
   org: OrgInfo; goals?: Campaign[]; onGoalClick?: (g: Campaign) => void; onChanged?: () => void;

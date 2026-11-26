@@ -1,4 +1,4 @@
-"""Admin commands for a local Autopilot.
+"""Admin commands for a local Oton.
 
     .venv/bin/python -m app.cli delete-user someone@example.com
     .venv/bin/python -m app.cli whatsapp-templates

@@ -42,7 +42,7 @@ export default function WorkPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Work log" subtitle="Everything Autopilot did, decided and asked." />
+      <PageHeader title="Work log" subtitle="Everything Oton did, decided and asked." />
 
       <Card className="flex flex-wrap items-center gap-3 px-4 py-3">
         <div className="w-full sm:w-64">
@@ -65,7 +65,7 @@ export default function WorkPage() {
         </div>
       </Card>
 
-      {byDay.length === 0 && <Card><p className="px-4 py-12 text-center text-sm text-muted">Nothing matches. Activity shows up here as Autopilot works.</p></Card>}
+      {byDay.length === 0 && <Card><p className="px-4 py-12 text-center text-sm text-muted">Nothing matches. Activity shows up here as Oton works.</p></Card>}
       {byDay.map((d) => (
         <Card key={d.day}>
           <div className="flex items-center justify-between border-b border-line px-4 py-2.5">

@@ -17,7 +17,7 @@ type LinkInfo = Me & { code: string; url: string; text: string; expires_at: stri
 const PREF_WORDS: [keyof Prefs, string, string][] = [
   ["approvals", "Approvals", "Posts, messages, articles, hand-ins and suggestions waiting for your OK"],
   ["heads_ups", "Heads-ups", "Things that go out on their own in 30 minutes unless you stop them"],
-  ["questions", "Questions", "When Autopilot needs something only your team knows"],
+  ["questions", "Questions", "When Oton needs something only your team knows"],
 ];
 
 /**
@@ -67,13 +67,13 @@ export function WhatsAppConnect() {
       <div id="whatsapp" />
       <CardHeader
         title={<span className="flex items-center gap-2"><MessageCircle size={16} /> WhatsApp</span>}
-        subtitle="Approve, edit, stop and answer from your phone. Each message has everything you need to decide, so you rarely need to open Autopilot."
+        subtitle="Approve, edit, stop and answer from your phone. Each message has everything you need to decide, so you rarely need to open Oton."
       />
       <div className="space-y-3 p-4 text-sm">
         {error && <ErrorNote>{error}</ErrorNote>}
         {!me.available ? (
           <p className="text-muted">
-            WhatsApp isn&apos;t set up on this Autopilot yet. Whoever runs it adds the platform&apos;s WhatsApp Business number once
+            WhatsApp isn&apos;t set up on this Oton yet. Whoever runs it adds the platform&apos;s WhatsApp Business number once
             (see docs/WHATSAPP.md), then everyone can connect their own phone here.
           </p>
         ) : connected ? (
@@ -95,7 +95,7 @@ export function WhatsAppConnect() {
               ))}
             </div>
             <p className="text-xs text-muted">
-              Spending money, merging code and deleting things come with the details and a link to decide them in Autopilot: a tap on
+              Spending money, merging code and deleting things come with the details and a link to decide them in Oton: a tap on
               a phone shouldn&apos;t do those.
             </p>
           </>

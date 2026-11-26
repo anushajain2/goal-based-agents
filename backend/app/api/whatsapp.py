@@ -48,7 +48,7 @@ async def me(user: User = Depends(current_user)):
 @router.post("/link")
 async def link(s: AsyncSession = Depends(get_session), user: User = Depends(current_user)):
     if not whatsapp.enabled():
-        raise HTTPException(400, "WhatsApp isn't set up on this Autopilot yet.")
+        raise HTTPException(400, "WhatsApp isn't set up on this Oton yet.")
     u = await s.get(User, user.id)
     return {**whatsapp.start_link(u), **_me(u)}
 

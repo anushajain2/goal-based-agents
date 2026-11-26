@@ -99,7 +99,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       <div className="flex flex-col px-6 py-8 sm:px-12">
         <Link href="/" className="flex items-center gap-2.5">
           <EmployeeAvatar size={32} />
-          <span className="text-[17px] font-bold tracking-tight">Autopilot</span>
+          <span className="text-[17px] font-bold tracking-tight">Oton</span>
         </Link>
 
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
@@ -107,7 +107,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             <>
               <h1 className="text-2xl font-bold tracking-tight">{signup ? "Create your account" : "Welcome back"}</h1>
               <p className="mt-1 text-sm text-muted">
-                {signup ? "No password needed. Set up your first goal in a couple of minutes." : "Sign in to see what Autopilot has been working on."}
+                {signup ? "No password needed. Set up your first goal in a couple of minutes." : "Sign in to see what Oton has been working on."}
               </p>
 
               {options?.google && (
@@ -134,7 +134,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                 </Button>
               </form>
               <p className="mt-6 text-center text-sm text-muted">
-                {signup ? "Already have an account?" : "New to Autopilot?"}{" "}
+                {signup ? "Already have an account?" : "New to Oton?"}{" "}
                 <Link href={`/${signup ? "login" : "signup"}${params.get("next") ? `?next=${encodeURIComponent(next)}` : ""}`} className="font-semibold text-brand-600 hover:underline">
                   {signup ? "Sign in" : "Create an account"}
                 </Link>
@@ -156,7 +156,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                 <div className="mt-3 flex gap-2.5 rounded-lg border border-signal-200 bg-signal-50 p-3 text-sm text-signal-900">
                   <Terminal size={16} className="mt-0.5 shrink-0" />
                   <span>
-                    Email sending isn&apos;t set up yet, so your code is shown in the <b>terminal where Autopilot is running</b>. It expires in 10
+                    Email sending isn&apos;t set up yet, so your code is shown in the <b>terminal where Oton is running</b>. It expires in 10
                     minutes.
                   </span>
                 </div>
@@ -194,7 +194,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
           {step === "name" && (
             <>
-              <h1 className="text-2xl font-bold tracking-tight">Welcome to Autopilot</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Welcome to Oton</h1>
               <p className="mt-1 text-sm text-muted">One last thing: what should we call you?</p>
               <form onSubmit={saveName} className="mt-6 space-y-4">
                 <Field label="Your name">
@@ -218,7 +218,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             <Point icon={<Send size={16} />}>We read your website and set up goals for every team.</Point>
             <Point icon={<CheckCircle2 size={16} />}>Nobody needs to learn prompting or where AI fits.</Point>
             <Point icon={<Hand size={16} />}>AI shows its work. People give the final yes.</Point>
-            <Point icon={<Wallet size={16} />}>Autopilot never spends more than the budget you set.</Point>
+            <Point icon={<Wallet size={16} />}>Oton never spends more than the budget you set.</Point>
           </ul>
         </div>
       </div>

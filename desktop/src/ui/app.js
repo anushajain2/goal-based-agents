@@ -21,7 +21,7 @@ function render(s) {
   $("confirm").hidden = !s.pendingLink;
   if (paired) {
     $("headline").textContent = s.paused ? "Paused" : s.state === "connected"
-      ? (s.channels ? "An AI employee is using Chrome" : "Ready for website work") : "Reconnecting to Autopilot…";
+      ? (s.channels ? "An AI employee is using Chrome" : "Ready for website work") : "Reconnecting to Oton…";
     $("sub").textContent = `${s.name}${s.orgName ? " · " + s.orgName : ""}`;
     $("pause").checked = !!s.paused;
     for (const r of document.querySelectorAll("input[name=wm]")) r.checked = r.value === (s.windowMode || "hidden");

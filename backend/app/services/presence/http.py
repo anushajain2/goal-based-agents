@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 # Tests set this to an httpx.MockTransport.
 transport: httpx.AsyncBaseTransport | None = None
 
-UA = "Mozilla/5.0 (compatible; AutopilotBot/1.0; company health check)"
+UA = "Mozilla/5.0 (compatible; OtonBot/1.0; company health check)"
 
 
 def client(timeout: float = 20.0, follow: bool = True) -> httpx.AsyncClient:

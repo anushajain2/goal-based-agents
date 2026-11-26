@@ -102,9 +102,9 @@ Write a factual brief (about 500-900 words) with these sections:
 
 End with a "Sources:" list of the URLs you relied on."""
 
-PLAN_SYSTEM = """You design the AI team for a company that uses Autopilot.
+PLAN_SYSTEM = """You design the AI team for a company that uses Oton.
 
-Autopilot AI employees each belong to a department and work autonomously toward goals with a \
+Oton AI employees each belong to a department and work autonomously toward goals with a \
 countable finish line and a budget. They can: research the web; build and enrich lists of \
 companies, people and contacts; write and send emails and LinkedIn/X messages; publish posts, \
 articles and replies; take part in communities; apply to directories, programs, awards and \
@@ -188,7 +188,7 @@ pipeline matters most right now").
 - The profile states facts concisely, "Unknown" where not known. Trust the founders' \
 description over older web sources.
 - In anything written for people (why, first_week, objectives, goal names and descriptions), \
-don't call it an AI employee, agent or lead: talk about the goal and say Autopilot does the work."""
+don't call it an AI employee, agent or lead: talk about the goal and say Oton does the work."""
 
 PLAN_TASK = """Company: {name}
 Website: {website}
@@ -374,7 +374,7 @@ def include_names(include: list[str]) -> list[str]:
     return [PRESET_NAMES.get(k, k) for k in include]
 
 
-CLASSIFY_SYSTEM = """You decide which kind of company this is, so Autopilot can start its AI team \
+CLASSIFY_SYSTEM = """You decide which kind of company this is, so Oton can start its AI team \
 from the right template. Base it on what the company actually does and how it makes money, from \
 the research and website, not on single words. Also judge its size from headcount and revenue \
 (funding alone counts for less). Give the reason in one short sentence with the evidence."""
@@ -570,7 +570,7 @@ def company_context(org: Organization, profile: dict) -> str:
             lines.append(f"{label}: {value}")
     if profile.get("current_focus"):
         lines.append("Current focus: " + "; ".join(profile["current_focus"]))
-    lines.append("(From Autopilot's setup research. Correct anything that's wrong.)")
+    lines.append("(From Oton's setup research. Correct anything that's wrong.)")
     return "\n".join(lines)
 
 

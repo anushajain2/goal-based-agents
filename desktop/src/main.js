@@ -1,7 +1,7 @@
-// Autopilot Helper: the desktop app (tray icon + a small window).
+// Oton Helper: the desktop app (tray icon + a small window).
 //
-// It keeps one connection open to Autopilot and starts a separate Chrome window when an AI
-// employee needs a website. Pairing: paste the link from Autopilot, or click "Open in the helper"
+// It keeps one connection open to Oton and starts a separate Chrome window when an AI
+// employee needs a website. Pairing: paste the link from Oton, or click "Open in the helper"
 // there (autopilot://pair?key=...). The token is stored encrypted with the OS keychain.
 "use strict";
 
@@ -70,7 +70,7 @@ function state() {
 
 function label(s) {
   if (!s.paired) return "Not connected yet";
-  if (s.state === "removed") return "Removed in Autopilot";
+  if (s.state === "removed") return "Removed in Oton";
   if (s.paused) return "Paused";
   if (s.state === "connected") return s.channels ? "Working in Chrome" : "Ready";
   if (s.state === "connecting") return "Connecting…";
@@ -81,13 +81,13 @@ function refresh() {
   const s = state();
   if (win && !win.isDestroyed()) win.webContents.send("state", s);
   if (tray) {
-    tray.setToolTip(`Autopilot Helper: ${label(s)}`);
+    tray.setToolTip(`Oton Helper: ${label(s)}`);
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: label(s), enabled: false },
       { type: "separator" },
-      { label: "Open Autopilot Helper", click: showWindow },
+      { label: "Open Oton Helper", click: showWindow },
       ...(s.paired && s.state !== "removed" ? [{ label: s.paused ? "Resume" : "Pause", click: () => setPaused(!s.paused) }] : []),
-      ...(s.appUrl ? [{ label: "Open Autopilot", click: () => shell.openExternal(s.appUrl) }] : []),
+      ...(s.appUrl ? [{ label: "Open Oton", click: () => shell.openExternal(s.appUrl) }] : []),
       { type: "separator" },
       { label: "Quit", click: () => { app.isQuitting = true; app.quit(); } },
     ]));
@@ -111,7 +111,7 @@ function startCore() {
   core.on("removed", async () => {
     await core.stop();
     clearConfig();
-    lastError = "This computer was removed in Autopilot. Pair it again to use it.";
+    lastError = "This computer was removed in Oton. Pair it again to use it.";
     core = null;
     refresh();
   });
@@ -157,7 +157,7 @@ function showWindow() {
   }
   win = new BrowserWindow({
     width: 440, height: 760, minHeight: 520, resizable: true, maximizable: false, fullscreenable: false,
-    title: "Autopilot Helper", backgroundColor: "#ffffff", show: false,
+    title: "Oton Helper", backgroundColor: "#ffffff", show: false,
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true },
   });
   win.setMenuBarVisibility(false);

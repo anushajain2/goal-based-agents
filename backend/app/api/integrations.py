@@ -77,13 +77,13 @@ async def use_own_composio(body: ComposioIn, s: AsyncSession = Depends(get_sessi
 def _github_app() -> tuple[str, str]:
     st = get_settings()
     if not (st.github_client_id and st.github_client_secret):
-        raise HTTPException(400, "GitHub sign-in isn't set up on this Autopilot. Use a token instead.")
+        raise HTTPException(400, "GitHub sign-in isn't set up on this Oton. Use a token instead.")
     return st.github_client_id, st.github_client_secret
 
 
 @router.get("/github/sign-in")
 async def github_sign_in(me: Member = Depends(current_member)):
-    """The GitHub page that asks the person to let Autopilot work on their repositories."""
+    """The GitHub page that asks the person to let Oton work on their repositories."""
     require_admin(me)
     client_id, _ = _github_app()
     state = seal(json.dumps({"org": me.org_id, "user": me.user.id, "t": int(time.time())}))

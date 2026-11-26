@@ -2,7 +2,7 @@
  * SoftAurora, from React Bits (https://reactbits.dev, github.com/DavidHDev/react-bits).
  * Copyright (c) 2026 David Haz. MIT + Commons Clause License Condition v1.0: free to use as part of
  * this website; the component itself may not be sold, sublicensed or redistributed on its own.
- * Local changes are marked "Autopilot:".
+ * Local changes are marked "Oton:".
  */
 'use client';
 
