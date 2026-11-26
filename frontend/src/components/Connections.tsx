@@ -32,7 +32,7 @@ export function GitHubForm({ onDone }: { onDone: () => void }) {
       </div>
       <p className="text-[11.5px] text-muted">
         Use a fine-grained token for just this repository with <b>Contents</b> and <b>Pull requests</b> (read and write) and <b>Issues</b> (read).
-        AI employees open pull requests; merging always waits for an engineer.
+        Autopilot opens pull requests; merging always waits for an engineer.
       </p>
       {err && <p className="text-xs text-red-600">{err}</p>}
       <Button size="sm" variant="primary" disabled={busy}>{busy ? "Checking…" : "Connect GitHub"}</Button>
@@ -60,7 +60,7 @@ export function DatabaseForm({ onDone }: { onDone: () => void }) {
       }
     }}>
       <Input required type="password" autoComplete="off" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="postgresql://readonly_user:password@host:5432/db" />
-      <p className="text-[11.5px] text-muted">Read-only: AI employees can only run SELECT queries, and every query runs in a read-only transaction. A read-only user or a replica is best.</p>
+      <p className="text-[11.5px] text-muted">Read-only: Autopilot can only run SELECT queries, and every query runs in a read-only transaction. A read-only user or a replica is best.</p>
       {err && <p className="text-xs text-red-600">{err}</p>}
       <Button size="sm" variant="primary" disabled={busy}>{busy ? "Checking…" : "Connect database"}</Button>
     </form>
@@ -74,12 +74,12 @@ export function CodeAndData() {
   const [err, setErr] = useState<string | null>(null);
   const has = (k: string) => (data || []).find((i) => i.kind === k);
   const rows: { kind: "github" | "postgres"; label: string; icon: React.ReactNode; what: string }[] = [
-    { kind: "github", label: "GitHub", icon: <GitBranch size={16} />, what: "Engineering AI employees read code and open pull requests. Merging asks an engineer." },
-    { kind: "postgres", label: "Database", icon: <Database size={16} />, what: "Product AI employees query it read-only to explain metric changes." },
+    { kind: "github", label: "GitHub", icon: <GitBranch size={16} />, what: "Engineering goals read code and open pull requests. Merging asks an engineer." },
+    { kind: "postgres", label: "Database", icon: <Database size={16} />, what: "Product goals query it read-only to explain metric changes." },
   ];
   return (
     <Card>
-      <CardHeader title="Code & data" subtitle="For Product and Engineering AI employees. Analytics tools connect under App connectors." />
+      <CardHeader title="Code & data" subtitle="For Product and Engineering goals. Analytics tools connect under App connectors." />
       <ul className="divide-y divide-line">
         {rows.map((r) => {
           const i = has(r.kind);

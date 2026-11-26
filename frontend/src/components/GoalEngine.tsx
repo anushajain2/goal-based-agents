@@ -160,9 +160,9 @@ export function HowItsGoing({ c, update }: { c: Campaign; update?: { u: GoalUpda
         </div>
       </div>
       <div className="space-y-4">
-        {update ? <UpdateCard u={update.u} who={c.agent?.name} at={update.at} className="shadow-[var(--shadow-card)]" /> : (
+        {update ? <UpdateCard u={update.u} who="Autopilot" at={update.at} className="shadow-[var(--shadow-card)]" /> : (
           <div className="rounded-xl border border-dashed border-line bg-white p-3.5 text-[12.5px] text-muted">
-            {c.agent?.name || "The AI employee"} posts a short update here when there&apos;s news: what it measured, what it learned, and what it&apos;s changing.
+            Autopilot posts a short update here when there&apos;s news: what it measured, what it learned, and what it&apos;s changing.
           </div>
         )}
         <div className="rounded-2xl border border-line bg-white p-4 shadow-[var(--shadow-card)]">
@@ -175,7 +175,7 @@ export function HowItsGoing({ c, update }: { c: Campaign; update?: { u: GoalUpda
   );
 }
 
-/** In the start flow: what the AI employee will do, before anyone turns it on. */
+/** In the start flow: what Autopilot will do, before anyone turns it on. */
 /** How the goal gets hit, made on first look (once per goal). */
 function useApproach(goal: Campaign): { a: GoalApproach | null; failed: boolean } {
   const [a, setA] = useState<GoalApproach | null>(goal.approach || null);
@@ -223,7 +223,7 @@ export function PlanStory({ goal }: { goal: Campaign }) {
 
       {!a && !failed && (
         <div className="flex items-center gap-2 pl-10 text-[13px] text-muted">
-          <Loader2 size={14} className="animate-spin" /> Working out how {goal.agent?.name || "it"} will hit this goal…
+          <Loader2 size={14} className="animate-spin" /> Working out how to hit this goal…
         </div>
       )}
 
@@ -298,7 +298,7 @@ export function WhatItWillDo({ goal, compact }: { goal: Campaign; compact?: bool
   const { a, failed } = useApproach(goal);
   if (failed) return null;
   if (!a) {
-    return <div className="flex items-center gap-2 rounded-xl bg-canvas px-3 py-3 text-[12.5px] text-muted"><Loader2 size={14} className="animate-spin" /> Working out how {goal.agent?.name || "it"} will hit this goal…</div>;
+    return <div className="flex items-center gap-2 rounded-xl bg-canvas px-3 py-3 text-[12.5px] text-muted"><Loader2 size={14} className="animate-spin" /> Working out how to hit this goal…</div>;
   }
   const creative = a.approaches.filter((x) => x.creative).length;
   const milestones = [...new Set(a.approaches.map((x) => x.milestone))].sort();

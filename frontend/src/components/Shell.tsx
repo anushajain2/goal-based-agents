@@ -62,7 +62,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }
   const pending = ov?.waiting_on_you || 0;
   const state = ov ? (ov.working_on.length ? "working" : pending ? "waiting" : "idle") : undefined;
-  const agents = (org?.departments || []).reduce((n, d) => n + d.agents.length, 0);
+  const goalCount = ov?.goals.total ?? 0;
   const spent = ov?.spend_this_month.total ?? 0;
   const budget = ov?.budget_total ?? 0;
   const orgName = org?.org.name || "Autopilot";
@@ -96,7 +96,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <span className="min-w-0 leading-tight">
             <span className="block truncate text-[14.5px] font-semibold">{orgName}</span>
             <span className="block truncate text-[12px] text-muted">
-              {agents ? `${agents} AI employees` : "Your AI team"}
+              {goalCount ? `${goalCount} goal${goalCount === 1 ? "" : "s"}` : "Workspace"}
               {state === "working" ? " · working" : state === "waiting" ? " · waiting on you" : ""}
             </span>
           </span>

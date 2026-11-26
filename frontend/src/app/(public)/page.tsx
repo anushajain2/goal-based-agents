@@ -97,11 +97,11 @@ export default function Landing() {
             sub="Not a long list of everything that could be better. The few things worth fixing now, ranked, each with the evidence and a first step you can start today." />
           <div className="mt-12 grid gap-4 md:grid-cols-3">
             <Missing team="Marketing" title="Competitors own the searches buyers make" evidence="Rank 6 for “route planning software”. Asked the same question, AI assistants recommend three competitors and not you."
-              steps={[["Start: page 1 for 3 searches", "$30"], ["Full: top 3 for the main search", "~$1,750"]]} fix="Win the searches" agent="Content Agent" />
+              steps={[["Start: page 1 for 3 searches", "$30"], ["Full: top 3 for the main search", "~$1,750"]]} fix="Win the searches" agent="Goal" />
             <Missing team="Support" title="Few reviews where buyers look" evidence="12 G2 reviews at 4.1 stars. Your two main competitors have 180 and 240."
-              fix="Collect reviews from happy customers" agent="Reviews Agent" />
+              fix="Collect reviews from happy customers" agent="Goal" />
             <Missing team="Sales" title="Visitors leave before the page loads" evidence="Mobile speed 41/100, 6.8 seconds to load. Your closest competitor loads in 2.1."
-              fix="Speed up the pages buyers land on" agent="Web Agent" />
+              fix="Speed up the pages buyers land on" agent="Goal" />
           </div>
           <p className="mx-auto mt-6 max-w-2xl text-center text-[13.5px] text-muted">
             Examples. Yours are based on your company and its competitors, with sources. If you&apos;re already doing well on something, we say so.
@@ -173,7 +173,7 @@ export default function Landing() {
             <Trust icon={<Eye size={18} />} title="Shows its sources" text="Every finding links to the search, page or measurement behind it." />
             <Trust icon={<Hand size={18} />} title="Final yes is yours" text="Sends, posts, payments and changes wait for a person." />
             <Trust icon={<Wallet size={18} />} title="Hard budgets" text="A few dollars a week to start. Never a cent over." />
-            <Trust icon={<ShieldCheck size={18} />} title="No passwords" text="Agents never see or type your passwords." />
+            <Trust icon={<ShieldCheck size={18} />} title="No passwords" text="Autopilot never sees or types your passwords." />
           </div>
         </div>
       </section>
@@ -582,7 +582,7 @@ function Missing({ team, title, evidence, estimate, steps, fix, agent }: {
         </ul>
       )}
       <div className="mt-auto flex items-center gap-2 border-t border-line pt-4 text-[13px]">
-        <Avatar name={agent} team={team} size={22} />
+        <Avatar name={team} team={team} size={22} />
         <span className="min-w-0 flex-1 truncate"><span className="text-muted">{agent}:</span> <b className="font-semibold">{fix}</b></span>
         <span className="rounded-md bg-brand-600 px-2 py-1 text-[12px] font-semibold text-white">Fix this</span>
       </div>

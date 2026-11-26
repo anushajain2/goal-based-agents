@@ -51,7 +51,7 @@ function ConnectionsInner() {
     <div className="space-y-8">
       <PageHeader
         title="Connections"
-        subtitle="Connect the accounts your AI employees use, once. Anything that sends, posts, pays or changes still waits for your OK."
+        subtitle="Connect the accounts Autopilot uses, once. Anything that sends, posts, pays or changes still waits for your OK."
         actions={s && s.needed > 0 && <ReadyMeter connected={s.connected} needed={s.needed} />}
       />
 
@@ -64,7 +64,7 @@ function ConnectionsInner() {
         <div className="flex items-center gap-3 rounded-2xl border border-signal-200 bg-gradient-to-r from-signal-50 to-white px-4 py-3 text-[13.5px]">
           <CircleAlert size={18} className="shrink-0 text-signal-600" />
           <span><b className="font-semibold">{s.missing_live} {s.missing_live === 1 ? "tool your live goals use isn't" : "tools your live goals use aren't"} connected yet.</b>{" "}
-            <span className="text-stone-600">They&apos;ll ask in Needs you when they get there, or connect now.</span></span>
+            <span className="text-stone-600">Autopilot will ask in Needs you when it gets there, or connect now.</span></span>
         </div>
       )}
 
@@ -187,7 +187,7 @@ function ToolRow({ t, githubSignIn, admin, onChanged }: { t: ToolStatus; githubS
         <p className="mt-2 pl-14 text-[12.5px] text-muted">Finish signing in in the new tab; this updates when you come back.</p>
       )}
       {opened && !t.can_connect_app && t.site && !done && (
-        <p className="mt-2 pl-14 text-[12.5px] text-muted">Sign in to {t.site} in the Agent Chrome window, then click &quot;I&apos;ve signed in&quot;. Your AI employees never see your password.</p>
+        <p className="mt-2 pl-14 text-[12.5px] text-muted">Sign in to {t.site} in the Agent Chrome window, then click &quot;I&apos;ve signed in&quot;. Autopilot never sees your password.</p>
       )}
       {open && !done && (
         <div className="mt-3 pl-14">
@@ -243,7 +243,7 @@ function AppsCard({ overview, admin, onChanged }: { overview?: ConnectionsOvervi
           <p className="mt-0.5 text-[13px] text-muted">
             {comp?.source === "org" ? <>Using your own Composio key (····{own?.config?.key_hint as string || ""}).</>
               : comp?.enabled ? "Sign in with each app's own login page. Your accounts stay separate from every other company's."
-              : "App connections need a Composio key. Without one, AI employees sign in to sites through Agent Chrome instead."}
+              : "App connections need a Composio key. Without one, Autopilot signs in to sites through Agent Chrome instead."}
           </p>
         </div>
         {admin && comp?.source === "org" && own && (
@@ -322,7 +322,7 @@ function CodeAndDataCards({ githubSignIn, admin, onChanged }: { githubSignIn: bo
 
   return (
     <div className="grid gap-3 lg:grid-cols-2">
-      {card("github", <GitBranch size={18} />, "GitHub", "Engineering AI employees read code and open pull requests. Merging always waits for an engineer.",
+      {card("github", <GitBranch size={18} />, "GitHub", "On Engineering goals, Autopilot reads code and opens pull requests. Merging always waits for an engineer.",
         githubSignIn ? (
           <div className="flex items-center gap-2">
             <Button size="sm" variant="primary" onClick={async () => { setErr(null); try { window.location.href = (await api<{ url: string }>("/api/integrations/github/sign-in")).url; } catch (e) { setErr((e as Error).message); } }}>
@@ -332,7 +332,7 @@ function CodeAndDataCards({ githubSignIn, admin, onChanged }: { githubSignIn: bo
           </div>
         ) : <Button size="sm" variant="primary" onClick={() => setOpen(open === "github" ? null : "github")}>Connect</Button>,
         <GitHubForm onDone={done} />)}
-      {card("postgres", <Database size={18} />, "Database", "Product AI employees query it read-only to explain metric changes.",
+      {card("postgres", <Database size={18} />, "Database", "On Product goals, Autopilot queries it read-only to explain metric changes.",
         <Button size="sm" variant="primary" onClick={() => setOpen(open === "postgres" ? null : "postgres")}>Connect</Button>,
         <DatabaseForm onDone={done} />)}
       {err && <div className="lg:col-span-2"><ErrorNote>{err}</ErrorNote></div>}
@@ -340,7 +340,7 @@ function CodeAndDataCards({ githubSignIn, admin, onChanged }: { githubSignIn: bo
   );
 }
 
-/** After "Sign in with GitHub": pick the repository AI employees work on. */
+/** After "Sign in with GitHub": pick the repository Autopilot works on. */
 function RepoPicker({ onDone }: { onDone: () => void }) {
   const { data: repos, error } = useApi<{ full_name: string; private: boolean }[]>("/api/integrations/github/repos", { live: false });
   const [repo, setRepo] = useState("");
@@ -350,7 +350,7 @@ function RepoPicker({ onDone }: { onDone: () => void }) {
   return (
     <Card className="border-brand-200 p-5 ring-4 ring-brand-50">
       <div className="flex items-center gap-2 text-[15px] font-semibold"><GitBranch size={17} className="text-brand-600" /> Signed in to GitHub. Which repository?</div>
-      <p className="mt-0.5 text-[13px] text-muted">Your Engineering AI employees will read this code and open pull requests on <code>autopilot/…</code> branches.</p>
+      <p className="mt-0.5 text-[13px] text-muted">On Engineering goals, Autopilot will read this code and open pull requests on <code>autopilot/…</code> branches.</p>
       {error ? <div className="mt-3"><ErrorNote>{error}</ErrorNote></div> : !repos ? <p className="mt-3 text-muted">Loading your repositories…</p> : repos.length === 0 ? (
         <p className="mt-3 text-[13px] text-muted">No repositories you can push to. Ask for access, then sign in again.</p>
       ) : (

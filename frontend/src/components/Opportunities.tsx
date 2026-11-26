@@ -163,7 +163,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
   );
 }
 
-/** "Connect to unlock", per team: what connecting a tool lets its AI employee check, on your own data. */
+/** "Connect to unlock", per team: what connecting a tool lets Autopilot check, on your own data. */
 function Unlock({ groups, org, goals, canStart, onStart, onOpen }: {
   groups: NonNullable<NonNullable<CompanyProfile["opportunities"]>["unlock"]>; org: OrgInfo | null | undefined; goals: Campaign[];
   canStart: boolean; onStart: (g: Campaign[]) => void; onOpen: (g: Campaign) => void;
@@ -188,7 +188,7 @@ function Unlock({ groups, org, goals, canStart, onStart, onOpen }: {
     <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[var(--shadow-card)]">
       <div className="border-b border-line px-5 py-3.5">
         <div className="flex items-center gap-2 text-[15px] font-semibold"><Plug size={16} className="text-brand-600" /> Connect to unlock</div>
-        <div className="text-[12.5px] text-muted">The rest of what you&apos;re missing is in your own tools. Connect one and that team&apos;s AI employee checks it, then fixes what it finds, with your OK.</div>
+        <div className="text-[12.5px] text-muted">The rest of what you&apos;re missing is in your own tools. Connect one and Autopilot checks it, then fixes what it finds, with your OK.</div>
       </div>
       {err && <div className="px-5 pt-3"><ErrorNote>{err}</ErrorNote></div>}
       <div className="-mb-px -mr-px grid sm:grid-cols-2 lg:grid-cols-3">

@@ -9,7 +9,6 @@ import { CompanyProfileCard } from "@/components/CompanyProfile";
 import { Opportunities } from "@/components/Opportunities";
 import { GoalPanel } from "@/components/GoalPanel";
 import { StartGoal } from "@/components/StartGoal";
-import { AgentAvatar } from "@/components/team";
 import { Badge, Button, Card, cx, ErrorNote, Field, Input, Textarea } from "@/components/ui";
 import { api, Campaign, CompanyProfile, OrgInfo, SetupInfo, SetupStep, usd, useApi } from "@/lib/api";
 
@@ -46,8 +45,8 @@ export default function SetupPage() {
     return (
       <div className="mx-auto max-w-2xl">
         <Card className="p-6">
-          <h1 className="text-xl font-bold">Research {name} and set up your AI team</h1>
-          <p className="mt-1 text-sm text-muted">Autopilot reads your website and researches your company, then suggests AI employees and goals that fit.</p>
+          <h1 className="text-xl font-bold">Research {name} and set up your goals</h1>
+          <p className="mt-1 text-sm text-muted">Autopilot reads your website and researches your company, then suggests goals that fit each team.</p>
           <RetryForm info={info} onStarted={load} label="Start research" />
         </Card>
       </div>

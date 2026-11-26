@@ -13,7 +13,7 @@ import { ListEditor } from "@/components/Guardrails";
 import { TargetHistory } from "@/components/Target";
 import { StartGoal } from "@/components/StartGoal";
 import { MetricChart } from "@/components/MetricChart";
-import { AgentAvatar } from "@/components/team";
+import { TeamTag } from "@/components/team";
 import { Badge, Button, Card, CardHeader, cx, Empty, ErrorNote, Field, Input, Tabs, Textarea, Select } from "@/components/ui";
 import { CATEGORY_ICON } from "@/components/UseCaseLibrary";
 import { HowItsGoing } from "@/components/GoalEngine";
@@ -83,12 +83,9 @@ function GoalPage() {
             {c.client_name && <Badge tone="violet">for {c.client_name}</Badge>}
           </div>
           <h1 className="text-[28px] font-semibold leading-tight tracking-tight">{c.name}</h1>
-          {c.agent && (
+          {(c.department || agentInfo) && (
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
-              <Link href={`/team/agents/${c.agent.id}`} className="inline-flex items-center gap-1.5 font-semibold hover:underline">
-                <AgentAvatar name={c.agent.name} size={22} /> {c.agent.name}
-              </Link>
-              {c.department && <span className="text-muted">{c.department.name}</span>}
+              {c.department && <Link href="/team" className="hover:opacity-80"><TeamTag name={c.department.name} /></Link>}
               {agentInfo && (
                 <span className="inline-flex items-center gap-1 text-muted">
                   <Hand size={13} /> Approvals go to {agentInfo.approvers.map((p) => p.name || p.email).join(", ") || "admins"}
@@ -154,7 +151,7 @@ function GoalPage() {
 
       <GoalPlan goal={c} defaultOpen={c.status === "draft"} />
 
-      {c.status === "out_of_budget" && <ErrorNote>The budget is used up, so {c.agent?.name || "Autopilot"} has stopped working on this goal. Raise the budget in Settings to continue.</ErrorNote>}
+      {c.status === "out_of_budget" && <ErrorNote>The budget is used up, so Autopilot has stopped working on this goal. Raise the budget in Settings to continue.</ErrorNote>}
 
       {/* Scorecard */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -361,7 +358,7 @@ function GuardrailsTab({ campaignId, canEdit }: { campaignId: string; canEdit: b
   return (
     <div className="space-y-6 p-4">
       <p className="text-sm text-muted">
-        Every kind of action this AI employee could take, and who decides. Changes apply straight away, even in the middle of a work session.
+        Every kind of action Autopilot could take on this goal, and who decides. Changes apply straight away, even in the middle of a work session.
         Settings for a whole department or the organization are in Settings → Permissions.
       </p>
       {error && <ErrorNote>{error}</ErrorNote>}

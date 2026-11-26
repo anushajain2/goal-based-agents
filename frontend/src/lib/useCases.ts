@@ -1,4 +1,4 @@
-// The library of goals Autopilot can be hired for. Each row: [sub-category, goal, counted as done when, fit].
+// The library of goals Autopilot can work on. Each row: [sub-category, goal, counted as done when, fit].
 // Fit: H = great fit, M = good fit, L = limited fit (hard to verify or little outside effort to fund).
 
 export type Fit = "H" | "M" | "L";
@@ -311,7 +311,7 @@ export const CATEGORIES: Category[] = [
       ["Client delivery: influencer", "Source, contract and manage 10 creators per client campaign", "Posts live", "H"],
       ["Client delivery: PR", "Land 3 placements a month per client", "Placements live", "M"],
       ["Client delivery: recruitment", "Fill each client's open role with 5 interviewed candidates", "Interviews held", "H"],
-      ["White-label capacity", "Take on 5 more clients without hiring by running delivery through agents", "Clients served per staff member", "H"],
+      ["White-label capacity", "Take on 5 more clients without hiring by running delivery through Autopilot", "Clients served per staff member", "H"],
       ["Client reporting", "Send every client a results report on the 1st of the month", "Reports delivered on time", "M"],
       ["Client reporting", "Give each client a live view of spend against results", "Dashboard live", "M"],
       ["Client retention", "Renew every retainer ending this quarter", "Renewal signed", "M"],

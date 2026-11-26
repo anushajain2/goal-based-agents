@@ -174,7 +174,7 @@ export function EarnedSuggestions({ perms, onChange, busy }: { perms: Permission
   );
 }
 
-/** The promise people need to read before they trust an AI employee with their accounts. */
+/** The promise people need to read before they trust Autopilot with their accounts. */
 export function Assurance({ perms, agent, compact }: { perms: Permissions; agent: string; compact?: boolean }) {
   const team = teamName(perms);
   const exceptions = perms.action_types.filter(goesOut);
@@ -320,7 +320,7 @@ export function PermissionsEditor({ perms, onChange, busy }: { perms: Permission
 
 /** The whole picture for one goal: the promise, the steps, and every setting behind them. */
 export function GoalPlan({ goal, defaultOpen = true }: { goal: Campaign; defaultOpen?: boolean }) {
-  const agent = goal.agent?.name || "Your AI employee";
+  const agent = "Autopilot";
   const [book, setBook] = useState<Playbook | null>(goal.playbook ?? null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [open, setOpen] = useState(defaultOpen);

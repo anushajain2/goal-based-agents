@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { api, API_URL, num, OrgInfo, PER_PERIOD, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
+import { EmployeeAvatar } from "./Shell";
 import { TargetHistory } from "./Target";
-import { AgentAvatar } from "./team";
 import { Badge, Button, Card, cx, ErrorNote, Input, Select, Textarea } from "./ui";
 
 export const KIND_BADGE: Record<UserRequest["kind"], { label: string; tone: "amber" | "violet" | "blue" | "green"; icon: React.ReactNode }> = {
@@ -18,10 +18,10 @@ export const KIND_BADGE: Record<UserRequest["kind"], { label: string; tone: "amb
   proposal: { label: "Suggestion", tone: "green", icon: <TrendingUp size={12} /> },
 };
 
-const PROPOSAL_YES: Record<string, string> = { target: "Approve new target", pause: "Pause it", resume: "Restart it", new_goal: "Start this goal", new_agent: "Hire & start" };
+const PROPOSAL_YES: Record<string, string> = { target: "Approve new target", pause: "Pause it", resume: "Restart it", new_goal: "Start this goal", new_agent: "Start this goal" };
 
 /**
- * One thing an AI employee needs from a person: an approval, an answer, a sign-in or an app
+ * One thing Autopilot needs from a person: an approval, an answer, a sign-in or an app
  * connection. `detail` is the roomy layout used in the Needs you inbox.
  */
 export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserRequest; onDone: () => void; showCampaign?: boolean; detail?: boolean }) {
@@ -40,7 +40,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const agent = req.agent_name || "Your AI employee";
+  const agent = "Autopilot";
   const to = req.routed_to_me ? "you" : req.approvers?.join(", ") || "an admin";
   // A heads-up goes ahead on its own at auto_approve_at unless someone stops it.
   const headsUp = req.kind === "action" && !!req.auto_approve_at;
@@ -88,18 +88,17 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
   return (
     <Wrapper className={cx(detail ? "space-y-4" : "p-4")}>
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-        {detail && req.agent_name && <AgentAvatar name={req.agent_name} size={28} />}
-        {detail && req.agent_name && (
+        {detail && <EmployeeAvatar size={28} />}
+        {detail && (
           <span className="mr-1">
-            <span className="block text-[13px] font-semibold text-ink">{req.agent_name}</span>
-            <span className="block">{[req.agent_title, req.department_name].filter(Boolean).join(" · ")}</span>
+            <span className="block text-[13px] font-semibold text-ink">Autopilot</span>
+            <span className="block">{[req.campaign_name && `For ${req.campaign_name}`, req.department_name].filter(Boolean).join(" · ")}</span>
           </span>
         )}
         {headsUp && <Badge tone="blue"><Clock size={12} /> Heads-up</Badge>}
         <Badge tone={k.tone}>{k.icon} {req.kind === "action" ? req.action_label || k.label : k.label}</Badge>
         {req.scope && req.kind !== "question" && <Badge>{req.scope}</Badge>}
-        {!detail && req.agent_name && <Badge tone="violet">{req.agent_name}</Badge>}
-        {req.preview.source === "lead" && <Badge tone="blue"><Compass size={12} /> From {req.preview.lead}</Badge>}
+        {req.preview.source === "lead" && <Badge tone="blue"><Compass size={12} /> From the {req.department_name ? `${req.department_name} Reviewer` : "Reviewer"}</Badge>}
         {showCampaign && req.campaign_name && (
           <Link href={`/goals/${req.campaign_id}`} className="font-semibold text-brand-600 hover:underline">{req.campaign_name}</Link>
         )}
@@ -143,11 +142,9 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
           )}
           {req.preview.change.type === "new_agent" && req.preview.change.agent && (
             <div className="flex items-start gap-2.5 rounded-md bg-stone-50/60 p-2.5">
-              <AgentAvatar name={req.preview.change.agent.name} size={30} />
               <div className="min-w-0">
-                <div className="font-semibold">{req.preview.change.agent.name} <span className="font-normal text-muted">· new AI employee{req.preview.change.agent.title ? ` · ${req.preview.change.agent.title}` : ""}</span></div>
+                <div className="font-semibold">{req.campaign_name || "A new goal"} <span className="font-normal text-muted">· new goal</span></div>
                 {req.preview.change.agent.objective && <div className="text-[12.5px] text-stone-700"><b className="text-stone-700">Objective:</b> {req.preview.change.agent.objective}</div>}
-                <div className="text-[12.5px] text-stone-700"><b>First goal:</b> {req.campaign_name}</div>
               </div>
             </div>
           )}
@@ -215,7 +212,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
         <div className={cx("rounded-md bg-stone-50/60 p-3 text-sm", !detail && "mt-3")}>
           <p>
             Sign in to <b>{req.preview.site}</b> in the <b>Agent Chrome</b> window, then click &quot;I&apos;ve signed in&quot;. You stay signed in, so you only do
-            this once per site. The AI employee never sees your password.
+            this once per site. Autopilot never sees your password.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Button size="sm" onClick={() => openInAgentChrome(req.preview.url!)}><ExternalLink size={13} /> Open login page in Agent Chrome</Button>

@@ -42,7 +42,7 @@ export default function WorkPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Work log" subtitle="Everything your AI employees did, decided and asked." />
+      <PageHeader title="Work log" subtitle="Everything Autopilot did, decided and asked." />
 
       <Card className="flex flex-wrap items-center gap-3 px-4 py-3">
         <div className="w-full sm:w-64">

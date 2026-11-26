@@ -17,7 +17,7 @@ export function YourRole() {
     try { localStorage.setItem(KEY, "1"); } catch { /* shows again next time */ }
   };
   const steps: [React.ReactNode, string, string][] = [
-    [<Bot key="b" size={16} />, "AI does the work", "Your AI employees work on the team's goals every day."],
+    [<Bot key="b" size={16} />, "AI does the work", "Autopilot works on your team's goals every day."],
     [<Eye key="e" size={16} />, "It shows its work", "Every draft, step, source and reason, ready to check."],
     [<ThumbsUp key="t" size={16} />, "You make the call", "You choose what goes out on its own; everything else waits for a person's yes."],
   ];

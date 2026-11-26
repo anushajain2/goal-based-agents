@@ -10,14 +10,13 @@ import { BudgetBreakdown } from "./Budget";
 import { DatabaseForm, GitHubForm } from "./Connections";
 import { PlanStory, WhatItWillDo } from "./GoalEngine";
 import { StepList, stepCounts, teamName } from "./GoalPlan";
-import { AgentAvatar } from "./team";
 import { Button, cx, ErrorNote } from "./ui";
 
 type Use = { agent: string; text: string; mode: Mode };
 type Need = ToolNeed & { uses: Use[] };
 
 /**
- * Starting AI employees, in three short steps:
+ * Starting goals, in three short steps:
  *   0. the plan: how each goal gets hit and what it will do (creative approaches too, by milestone),
  *   1. connect the tools they'll use, seeing for each what they do on their own and what needs an OK,
  *   2. choose how much they do without asking (a recommended preset, changeable per kind of action),
@@ -64,7 +63,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
     return mode;
   };
 
-  // Every tool the plans use, with what each AI employee does with it.
+  // Every tool the plans use, with what each goal does with it.
   const needs: Need[] = [];
   for (const g of goals) {
     const r = ready[g.id];
@@ -77,7 +76,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
       if (t.status !== "missing") n.status = t.status;
       for (const st of r.playbook?.steps || []) {
         if (st.tool === t.key && !n.uses.some((u) => u.text === st.text)) {
-          n.uses.push({ agent: g.agent?.name || "AI employee", text: st.text, mode: modeOf(st.action_type, st.tool) });
+          n.uses.push({ agent: g.name, text: st.text, mode: modeOf(st.action_type, st.tool) });
         }
       }
     }
@@ -128,7 +127,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
         </div>
 
         <div className="flex-1 space-y-3 overflow-y-auto p-5">
-          {loading && step > 0 && <p className="flex items-center gap-2 text-sm text-muted"><Loader2 size={15} className="animate-spin" /> Checking what they need…</p>}
+          {loading && step > 0 && <p className="flex items-center gap-2 text-sm text-muted"><Loader2 size={15} className="animate-spin" /> Checking what&apos;s needed…</p>}
           {error && <ErrorNote>{error}</ErrorNote>}
 
           {step === 0 && (goals.length === 1 ? (
@@ -138,7 +137,6 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
               {goals.map((g) => (
                 <li key={g.id} className="rounded-xl border border-line bg-white px-4 py-3">
                   <div className="flex items-center gap-2.5">
-                    {g.agent && <AgentAvatar name={g.agent.name} size={26} />}
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[13.5px] font-semibold">{g.name}</div>
                       {g.first_deliverable && <div className="truncate text-[12px] text-muted">First week: {g.first_deliverable}</div>}
@@ -155,11 +153,11 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
               <p className="flex items-start gap-2 text-sm text-stone-700">
                 <Lock size={15} className="mt-0.5 shrink-0 text-emerald-600" />
                 <span>
-                  Connecting a tool lets them use it. Anything marked <b className="text-signal-700">needs an OK</b> still waits for a person;
+                  Connecting a tool lets Autopilot use it. Anything marked <b className="text-signal-700">needs an OK</b> still waits for a person;
                   you choose how much goes out on its own in the next step.
                 </span>
               </p>
-              {needs.length === 0 && <div className="rounded-xl border border-line bg-white px-4 py-3 text-sm">They only need the web for now. Nothing to connect.</div>}
+              {needs.length === 0 && <div className="rounded-xl border border-line bg-white px-4 py-3 text-sm">It only needs the web for now. Nothing to connect.</div>}
               {needs.map((n) => <ToolCard key={n.key} n={n} composio={composio} onChanged={load} />)}
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-line bg-white px-4 py-2.5 text-xs text-muted">
                 <Server size={14} /> {servers.length ? `Your MCP servers: ${servers.map((s) => s.name).join(", ")}` : "Have your own tools or an MCP server?"}
@@ -174,7 +172,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
                 <AutonomySetup autonomy={autonomies[0]} inPlan={inPlan} choice={choice} onChange={setChoice} multiple={goals.length > 1}
                   team={ready[goals[0].id] ? teamName(ready[goals[0].id]) : "your team"} />
               )}
-              <h3 className="px-1 pt-1 text-[12px] font-bold uppercase tracking-wide text-muted">Who they ask</h3>
+              <h3 className="px-1 pt-1 text-[12px] font-bold uppercase tracking-wide text-muted">Who it asks</h3>
               {agentIds.map((id) => <Routing key={id} agentId={id} org={org} onChanged={reloadOrg} />)}
               <details className="rounded-xl border border-line bg-white">
                 <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
@@ -253,7 +251,7 @@ function ToolCard({ n, composio, onChanged }: { n: Need; composio: boolean; onCh
         <span className={cx("grid h-8 w-8 shrink-0 place-items-center rounded-lg", done ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500")}>{done ? <Check size={16} /> : icon}</span>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold">{n.label}</div>
-          <div className="truncate text-xs text-muted">{agents.join(", ") || "One of the channels you picked"}</div>
+          <div className="truncate text-xs text-muted">{agents.length ? `For ${agents.join(", ")}` : "One of the channels you picked"}</div>
         </div>
         {done ? (
           <span className="text-xs font-semibold text-emerald-700">{n.status === "connected" ? "Connected" : "Signed in"}</span>
@@ -302,7 +300,7 @@ function UseLine({ icon, tone, label, items }: { icon: React.ReactNode; tone: st
   );
 }
 
-/** One AI employee: who it asks, and (for product work) where its PRDs go. All changeable here. */
+/** One team's work: who it asks, and (for product work) where its PRDs go. All changeable here. */
 function Routing({ agentId, org, onChanged }: { agentId: string; org: OrgInfo; onChanged: () => void }) {
   const dept = org.departments.find((d) => d.agents.some((a) => a.id === agentId)) as DepartmentInfo | undefined;
   const a = dept?.agents.find((x) => x.id === agentId) as AgentSummary | undefined;
@@ -329,10 +327,9 @@ function Routing({ agentId, org, onChanged }: { agentId: string; org: OrgInfo; o
   return (
     <div className="rounded-xl border border-line bg-white px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
-        <AgentAvatar name={a.name} size={30} />
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold">{a.name}</div>
-          <div className="text-xs text-muted">{dept.name}</div>
+          <div className="text-sm font-semibold">{dept.name}</div>
+          {a.title && <div className="text-xs text-muted">{a.title}</div>}
         </div>
         <label className="flex items-center gap-1.5 text-xs text-muted">
           <Hand size={12} /> Asks
@@ -344,12 +341,12 @@ function Routing({ agentId, org, onChanged }: { agentId: string; org: OrgInfo; o
         </label>
       </div>
       {showHandoff && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-line pt-2.5 pl-11 text-xs">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-line pt-2.5 text-xs">
           <span className="font-semibold text-stone-700">PRDs go to</span>
           <select disabled={!canEdit} className="rounded-md border border-line bg-white px-2 py-1 font-semibold" value={a.handoff_to_agent_id || ""}
             onChange={(e) => patch({ handoff_to_agent_id: e.target.value || null })}>
             <option value="">{name(manager)} only (no hand-off)</option>
-            {others.map((x) => <option key={x.id} value={x.id}>{x.name} ({x.dept})</option>)}
+            {others.map((x) => <option key={x.id} value={x.id}>{x.dept}{x.title ? ` (${x.title})` : ""}</option>)}
           </select>
           {a.handoff_to_agent_id && (
             <label className="inline-flex items-center gap-1.5">
@@ -374,11 +371,10 @@ function GoalReview({ goal, modeOf, team }: { goal: Campaign; modeOf: (k: string
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} className="flex w-full items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 text-left hover:border-stone-400">
-        {goal.agent && <AgentAvatar name={goal.agent.name} size={28} />}
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold">{goal.name}</span>
           <span className="block text-xs text-muted">
-            {goal.agent?.name}{book ? ` · ${stepCounts(book.steps, modeOf, team || "an OK")}` : ""}
+            {[goal.department?.name, book && stepCounts(book.steps, modeOf, team || "an OK")].filter(Boolean).join(" · ")}
           </span>
         </span>
         <span className="shrink-0 text-sm font-semibold">{usd(goal.budget.total)}</span>
@@ -389,8 +385,7 @@ function GoalReview({ goal, modeOf, team }: { goal: Campaign; modeOf: (k: string
   return (
     <div className="space-y-3 rounded-xl border border-line bg-white p-4">
       <button onClick={() => setOpen(false)} className="flex w-full items-center gap-2 text-left">
-        {goal.agent && <AgentAvatar name={goal.agent.name} size={26} />}
-        <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{goal.name}</div><div className="text-xs text-muted">{goal.agent?.name}</div></div>
+        <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{goal.name}</div><div className="text-xs text-muted">{goal.department?.name}</div></div>
         <ChevronDown size={16} className="shrink-0 rotate-180 text-muted" />
       </button>
       {goal.first_deliverable && (

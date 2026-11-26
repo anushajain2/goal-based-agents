@@ -17,7 +17,7 @@ type LinkInfo = Me & { code: string; url: string; text: string; expires_at: stri
 const PREF_WORDS: [keyof Prefs, string, string][] = [
   ["approvals", "Approvals", "Posts, messages, articles, hand-ins and suggestions waiting for your OK"],
   ["heads_ups", "Heads-ups", "Things that go out on their own in 30 minutes unless you stop them"],
-  ["questions", "Questions", "When an AI employee needs something only your team knows"],
+  ["questions", "Questions", "When Autopilot needs something only your team knows"],
 ];
 
 /**

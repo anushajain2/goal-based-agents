@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { StartGoal } from "@/components/StartGoal";
-import { AgentAvatar } from "@/components/team";
 import { GoalProgress, GoalStatus, ProgressBar } from "@/components/goal";
 import { Badge, Card, cx, Empty, ErrorNote, PageHeader, Select, Toggle } from "@/components/ui";
 import { api, Campaign, OrgInfo, timeAgo, usd, useApi } from "@/lib/api";
@@ -101,7 +100,7 @@ export default function GoalsPage() {
           <Empty icon={<Target size={36} />} title={shown === "live" ? "Nothing live yet" : "Nothing here"}>
             {shown === "live" && counts.suggested
               ? <button onClick={() => setTab("suggested")} className="font-semibold text-brand-600">See the {counts.suggested} suggested goals →</button>
-              : <Link href="/goals/new" className="font-semibold text-brand-600">Give an AI employee a goal →</Link>}
+              : <Link href="/goals/new" className="font-semibold text-brand-600">Give Autopilot a goal →</Link>}
           </Empty>
         ) : (
           <div className="overflow-x-auto">
@@ -133,11 +132,6 @@ export default function GoalsPage() {
                       <td className="max-w-sm px-2 py-3.5">
                         <Link href={`/goals/${c.id}`} className="text-[13.5px] font-semibold text-ink hover:text-brand-600">{c.name}</Link>
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted">
-                          {c.agent && (
-                            <Link href={`/team/agents/${c.agent.id}`} className="inline-flex items-center gap-1.5 hover:text-ink">
-                              <AgentAvatar name={c.agent.name} size={18} /> {c.agent.name}
-                            </Link>
-                          )}
                           {!on && <GoalStatus c={c} />}
                           {c.origin === "setup" && c.status === "draft" && <Badge tone="blue">Suggested</Badge>}
                           {c.pending_requests > 0 && <Badge tone="amber">Needs you</Badge>}

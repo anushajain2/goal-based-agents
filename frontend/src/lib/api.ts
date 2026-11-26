@@ -215,7 +215,7 @@ export type LeadInfo = {
   name: string; enabled: boolean; review_days: number; monthly_cap_usd: number; spent_this_month_usd: number;
   last_review_at: string | null; last: LeadReviewInfo | null;
 };
-/** head = the person on the team its AI employees report to (empty: the owner). */
+/** head = the person on the team its approvals go to (empty: the owner). */
 export type DepartmentInfo = { id: string; name: string; kind: string; head: Person | null; people: Person[]; agents: AgentSummary[]; lead: LeadInfo };
 export type BudgetBasis = {
   per_session_usd: number; sessions: number; cycle_hours: number; days: number; ai_usd: number; paid_spend_usd: number;

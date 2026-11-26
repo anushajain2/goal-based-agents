@@ -6,13 +6,13 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState, useRef } from "react";
 
 import { ApprovalCard, KIND_BADGE } from "@/components/ApprovalCard";
-import { AgentAvatar } from "@/components/team";
+import { EmployeeAvatar } from "@/components/Shell";
 import { Badge, Card, cx, Empty, PageHeader } from "@/components/ui";
 import { OrgInfo, timeAgo, useApi, UserRequest } from "@/lib/api";
 
 type Tab = "mine" | "all" | "done";
 
-/** Everything AI employees need from people: approvals, questions, sign-ins. An inbox, not a feed. */
+/** Everything Autopilot needs from people: approvals, questions, sign-ins. An inbox, not a feed. */
 export default function Page() {
   return (
     <Suspense>
@@ -69,7 +69,7 @@ function NeedsYouPage() {
     <div className="space-y-4">
       <PageHeader
         title="Needs you"
-        subtitle="AI employees show their work here. Anything that needs a yes waits for one; heads-ups go ahead unless you stop them."
+        subtitle="Autopilot shows its work here. Anything that needs a yes waits for one; heads-ups go ahead unless you stop them."
         actions={
           <div className="inline-flex rounded-xl bg-stone-100 p-1 text-[13px] font-semibold">
             {tabs.map(([t, label]) => (
@@ -85,7 +85,7 @@ function NeedsYouPage() {
       {list && list.length === 0 ? (
         <Card>
           <Empty icon={<Inbox size={36} />} title={tab === "done" ? "Nothing decided yet" : "You're all caught up"}>
-            When an AI employee wants to send, post, spend or change something, or needs an answer only your team has, it shows up here.
+            When Autopilot wants to send, post, spend or change something, or needs an answer only your team has, it shows up here.
           </Empty>
         </Card>
       ) : (
@@ -100,7 +100,7 @@ function NeedsYouPage() {
                       onClick={() => { setSelected(r.id); setMobileDetail(true); }}
                       className={cx("flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-stone-50", r.id === selected && "bg-brand-50/70 hover:bg-brand-50")}
                     >
-                      {r.agent_name ? <AgentAvatar name={r.agent_name} size={30} /> : <span className="h-[30px] w-[30px]" />}
+                      <EmployeeAvatar size={30} />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <Badge tone={tab === "done" ? (r.status === "approved" ? "green" : "gray") : k.tone}>
@@ -109,7 +109,7 @@ function NeedsYouPage() {
                                 : r.status === "approved" ? (r.kind === "question" ? "Answered" : "Approved") : r.kind === "question" ? "Skipped" : "Declined")
                               : r.auto_approve_at ? "Heads-up" : k.label}
                           </Badge>
-                          <span className="truncate text-[11.5px] text-muted">{r.agent_name}</span>
+                          <span className="truncate text-[11.5px] text-muted">{r.department_name}</span>
                         </span>
                         <span className="mt-1 line-clamp-2 block text-[13.5px] font-semibold leading-snug">{r.kind === "question" ? r.preview.question || r.title : r.title}</span>
                         <span className="mt-0.5 block truncate text-[11.5px] text-muted">
@@ -132,7 +132,7 @@ function NeedsYouPage() {
                   <div className="mt-5 border-t border-line pt-3 text-sm">
                     <span className="text-muted">For the goal </span>
                     <Link href={`/goals/${current.campaign_id}`} className="font-semibold text-brand-600 hover:underline">{current.campaign_name}</Link>
-                    {current.agent_id && <><span className="text-muted"> · </span><Link href={`/team/agents/${current.agent_id}`} className="text-brand-600 hover:underline">about {current.agent_name}</Link></>}
+                    {current.department_name && <><span className="text-muted"> · </span><Link href="/team" className="text-brand-600 hover:underline">{current.department_name} team</Link></>}
                   </div>
                 )}
               </Card>

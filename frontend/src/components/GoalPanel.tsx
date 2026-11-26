@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { api, Campaign, Playbook, usd } from "@/lib/api";
 import { goesOut, StepList, stepModeOf, teamName, usePermissions } from "./GoalPlan";
 import { TargetHistory, TargetLine } from "./Target";
-import { AgentAvatar } from "./team";
+import { EmployeeAvatar } from "./Shell";
 import { Button } from "./ui";
 
 /** One goal, explained in the order people want to know it: what you get, how, what it costs. */
@@ -28,9 +28,9 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
     <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={onClose}>
       <aside className="flex h-full w-full max-w-md flex-col bg-white shadow-xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="flex items-center gap-2.5 border-b border-line px-5 py-3">
-          {goal.agent && <AgentAvatar name={goal.agent.name} size={30} />}
+          <EmployeeAvatar size={30} />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold">{goal.agent?.name}</div>
+            <div className="truncate text-sm font-semibold">Autopilot</div>
             <div className="text-xs text-muted">{goal.department?.name}</div>
           </div>
           <button onClick={onClose} className="rounded p-1 text-muted hover:bg-stone-100" aria-label="Close"><X size={18} /></button>
@@ -48,7 +48,7 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
             <section>
               <h3 className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Target</h3>
               <TargetLine goal={goal} />
-              <p className="mt-1 text-[11.5px] text-muted">An ongoing goal: {goal.agent?.name || "the AI employee"} suggests a new target as results come in, and you approve it.</p>
+              <p className="mt-1 text-[11.5px] text-muted">An ongoing goal: Autopilot suggests a new target as results come in, and you approve it.</p>
               <div className="mt-2"><TargetHistory target={goal.target} /></div>
             </section>
           )}

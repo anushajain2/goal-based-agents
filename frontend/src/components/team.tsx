@@ -2,7 +2,7 @@
 
 import { cx } from "./ui";
 
-/** Soft tints: [background, text]. Each AI employee keeps its colour everywhere. */
+/** Soft tints: [background, text]. Each name keeps its colour everywhere. */
 const PALETTE: [string, string][] = [
   ["#e8f0ff", "#2456d6"],
   ["#fff0e6", "#c2410c"],
@@ -26,7 +26,7 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
-/** A soft colour pair [background, text] that stays the same for a name (a team, an AI employee). */
+/** A soft colour pair [background, text] that stays the same for a name (a team, a goal). */
 export function tintFor(name: string): [string, string] {
   return PALETTE[hash(name) % PALETTE.length];
 }
@@ -41,7 +41,7 @@ export function TeamTag({ name }: { name: string }) {
   );
 }
 
-/** An AI employee's avatar: a monogram on a soft tint, coloured consistently by name. */
+/** An agent's avatar: a monogram on a soft tint, coloured consistently by name. */
 export function AgentAvatar({ name, size = 36, state }: { name: string; size?: number; state?: "working" | "waiting" | "idle" }) {
   const [bg, fg] = PALETTE[hash(name) % PALETTE.length];
   return (

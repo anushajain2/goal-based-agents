@@ -16,7 +16,7 @@ export default function CapabilitiesPage() {
         <div className="max-w-3xl flex-1">
           <h1 className="text-2xl font-bold">What Autopilot can do</h1>
           <p className="mt-1 text-sm text-muted">
-            {USE_CASES.length} goals founders and agencies hire it for, across sales, marketing, research, fundraising, hiring and more. It works best on
+            {USE_CASES.length} goals founders and agencies use it for, across sales, marketing, research, fundraising, hiring and more. It works best on
             goals with a countable finish line. Pick one to set it up; you can change everything before it starts.
           </p>
         </div>
