@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, Eye, Gauge, Globe, Hand, MessageSquare, Plug, Search, ShieldCheck, Sparkles, Star, Wallet, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Eye, Gauge, Globe, Hand, MessageSquare, Plug, Search, ShieldCheck, Sparkles, Star, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -53,8 +53,10 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="relative">
+        {/* The first screen is only the hero: headline, the aurora, the website box. The example scan waits below. */}
+        <div className="relative flex min-h-[calc(100svh-65px)] flex-col">
         <HeroBackdrop lite={lite} />
-        <div className="relative mx-auto max-w-6xl px-5 pt-14 text-center sm:pt-20">
+        <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-5 py-14 text-center">
           <a href="#checks" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 py-1 pl-1 pr-3 text-[13.5px] font-medium text-white/85 backdrop-blur hover:border-white/30">
             <span className="rounded-full bg-white px-2.5 py-0.5 text-[12px] font-semibold text-ink">New</span>
             See if ChatGPT recommends you, or your competitors <ArrowRight size={13} />
@@ -64,14 +66,21 @@ export default function Landing() {
             <br />
             doing that you <Underlined className="text-lime-300">aren&apos;t?</Underlined>
           </h1>
-          <div className="mx-auto mt-24 max-w-[560px] sm:mt-32"><WebsiteStart signedIn={signedIn} onDark /></div>
+          <div className="mx-auto mt-24 w-full max-w-[560px] sm:mt-32 [@media(max-height:760px)]:mt-20"><WebsiteStart signedIn={signedIn} onDark /></div>
           <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[13.5px] text-white/70">
             {["Just your website", "Compared with your competitors", "Sources for every finding"].map((t) => (
               <span key={t} className="inline-flex items-center gap-1.5"><Check size={14} strokeWidth={2.5} className="text-lime-300" />{t}</span>
             ))}
           </div>
         </div>
-        <ScanPreview />
+        <a href="#example" className="relative mx-auto mb-6 flex flex-col items-center gap-1 text-[12.5px] font-medium text-white/45 transition hover:text-white/80">
+          See an example scan <ChevronDown size={16} className="animate-bounce" />
+        </a>
+        </div>
+        <div id="example" className="relative scroll-mt-16 pt-16">
+          <div aria-hidden className="absolute inset-x-0 top-0 h-[320px] bg-ink" />
+          <ScanPreview />
+        </div>
       </section>
 
       {/* What we check */}
@@ -263,7 +272,7 @@ const SCAN: [string, string, string, string, Level][] = [
 /** A still of the scan result: where the company stands next to its competitors, with the biggest gap floating over it. */
 function ScanPreview() {
   return (
-    <div className="relative mx-auto mt-16 max-w-[1160px] px-5" aria-hidden>
+    <div className="relative mx-auto max-w-[1160px] px-5" aria-hidden>
       <div className="relative overflow-hidden rounded-[18px] border border-[#e4e7ec] bg-white shadow-[0_0_0_8px_rgba(255,255,255,0.7),0_0_0_9px_#eef0f3,0_50px_100px_-40px_rgba(16,24,40,0.35)]">
         <div className="flex h-10 items-center gap-[7px] border-b border-[#f2f4f7] bg-[#fcfcfd] px-4">
           <i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" /><i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" /><i className="h-2.5 w-2.5 rounded-full bg-[#e4e7ec]" />
@@ -340,12 +349,13 @@ function Tile({ icon, title, text, children }: { icon: ReactNode; title: string;
 /** The moving background behind the hero: green northern lights on near-black. It ends behind the scan preview. */
 function HeroBackdrop({ lite }: { lite: boolean }) {
   return (
-    <div aria-hidden className="absolute inset-x-0 top-0 h-[940px] overflow-hidden bg-ink">
+    <div aria-hidden className="absolute inset-0 overflow-hidden bg-ink">
       {lite
         ? <div className="h-full w-full bg-[radial-gradient(70%_40%_at_50%_45%,rgba(16,185,129,0.45),transparent)]" />
-        : <SoftAurora color1="#d9f99d" color2="#10b981" brightness={1.1} bandHeight={0.55} />}
-      <div className="pointer-events-none absolute left-1/2 top-[110px] h-[460px] w-[900px] max-w-full -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(0,0,0,0.45),transparent)]" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-ink/60" />
+        : <SoftAurora color1="#d9f99d" color2="#10b981" brightness={1.15} bandHeight={0.45} noiseAmplitude={0.7} />}
+      {/* Shade behind the headline only, so the aurora band below it stays bright. */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(42%_22%_at_50%_33%,rgba(0,0,0,0.5),transparent)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-ink" />
     </div>
   );
 }
