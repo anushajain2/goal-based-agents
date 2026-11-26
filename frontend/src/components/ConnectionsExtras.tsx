@@ -220,7 +220,7 @@ export function DesktopHelper({ downloadUrl }: { downloadUrl?: string }) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{d.name}</span>
                   <span className="block text-xs text-muted">
-                    {d.online ? "Online, ready for website steps" : d.paused ? "Paused" : d.last_seen_at ? `Offline · last seen ${timeAgo(d.last_seen_at)}` : "Not connected yet"}
+                    {d.online ? "Online, ready for website steps" : d.paused ? "Paused or signing in: website steps wait" : d.last_seen_at ? `Offline · last seen ${timeAgo(d.last_seen_at)}` : "Not connected yet"}
                   </span>
                 </span>
                 <Button size="sm" variant="ghost" onClick={() => remove(d)} title="Disconnect this computer"><Trash2 size={14} /></Button>
@@ -272,7 +272,7 @@ export function DesktopHelper({ downloadUrl }: { downloadUrl?: string }) {
               <Input className="min-w-60 flex-1" value={site} onChange={(e) => setSite(e.target.value)} placeholder="e.g. linkedin.com" />
               <Button type="submit"><ExternalLink size={14} /> Open on {online.name}</Button>
             </form>
-            {opened && <p className="mt-1.5 text-xs text-muted">Opened in the helper&apos;s Chrome window on {opened}. Sign in there; AI employees can then use the site.</p>}
+            {opened && <p className="mt-1.5 text-xs text-muted">A Chrome window opened on {opened}. Sign in there, then close it. AI employees can then use the site (website steps wait while it&apos;s open).</p>}
           </div>
         )}
         {error && <ErrorNote>{error}</ErrorNote>}

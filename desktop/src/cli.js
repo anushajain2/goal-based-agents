@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The helper without a window, for testing and Linux machines:
 //   node src/cli.js pair "<pairing link from Autopilot>" [--name "Office iMac"]
-//   node src/cli.js run [--headless] [--chrome /path/to/chrome]
+//   node src/cli.js run [--window hidden|background] [--chrome /path/to/chrome]
 "use strict";
 
 const fs = require("fs");
@@ -28,9 +28,9 @@ async function main() {
   if (cmd === "run") {
     const cfg = JSON.parse(fs.readFileSync(configFile, "utf8"));
     const core = new HelperCore({ ...cfg, version, profileDir: path.join(home, "chrome-profile"),
-                                  chromePath: flag("--chrome"), headless: args.includes("--headless") });
+                                  chromePath: flag("--chrome"), windowMode: flag("--window") || "hidden" });
     core.on("status", (s) => console.log(`[helper] ${s.state}${s.paused ? " (paused)" : ""} · chrome ${s.chrome}` +
-                                         ` · ${s.channels} open${s.error ? " · " + s.error : ""}`));
+                                         ` · ${s.channels} open · window ${s.windowMode}${s.error ? " · " + s.error : ""}`));
     core.on("log", (m) => console.log(`[helper] ${m}`));
     core.on("removed", async () => { await core.stop(); process.exit(2); });
     const quit = async () => { await core.stop(); process.exit(0); };
@@ -39,7 +39,7 @@ async function main() {
     core.start();
     return;
   }
-  console.log("Usage:\n  node src/cli.js pair \"<pairing link>\" [--name NAME]\n  node src/cli.js run [--headless] [--chrome PATH]");
+  console.log("Usage:\n  node src/cli.js pair \"<pairing link>\" [--name NAME]\n  node src/cli.js run [--window hidden|background] [--chrome PATH]");
   process.exit(1);
 }
 

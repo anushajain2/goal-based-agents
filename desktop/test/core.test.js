@@ -98,3 +98,48 @@ test("a computer removed in Autopilot stops trying to connect", async () => {
   assert.equal(api.wss.clients.size, 0);
   api.srv.close();
 });
+
+test("while someone signs in, website steps wait; closing the window resumes them", async () => {
+  const chromeMod = require("../src/chrome");
+  const { spawn } = require("child_process");
+  const realPlain = chromeMod.launchPlain;
+  const realFind = chromeMod.findChrome;
+  chromeMod.findChrome = () => "/fake/chrome";
+  // A stand-in for the visible sign-in window: a process that "closes" after 300 ms.
+  chromeMod.launchPlain = () => spawn(process.execPath, ["-e", "setTimeout(() => {}, 300)"]);
+  let autopilotSide;
+  const api = await server((ws) => { autopilotSide = ws; inbox(ws); });
+  const core = new HelperCore({ server: api.url, token: "aph_test", profileDir: "/tmp/unused" });
+  core.start();
+  await once(api.wss, "connection");
+  assert.deepEqual(await nextJson(autopilotSide), { t: "status", paused: false });
+  autopilotSide.send(JSON.stringify({ t: "open_url", url: "https://linkedin.com/login" }));
+  assert.deepEqual(await nextJson(autopilotSide), { t: "status", paused: true }); // busy: steps wait
+  assert.equal(core.status().chrome, "signing-in");
+  assert.deepEqual(await nextJson(autopilotSide), { t: "status", paused: false }); // window closed
+  assert.equal(core.status().chrome, "closed");
+  await core.stop();
+  chromeMod.launchPlain = realPlain;
+  chromeMod.findChrome = realFind;
+  api.srv.close();
+});
+
+test("changing the window setting never interrupts a step in progress", async () => {
+  const chromeMod = require("../src/chrome");
+  const realStop = chromeMod.stop;
+  const stopped = [];
+  chromeMod.stop = async (c) => { if (c) stopped.push(c.mode); };
+  const core = new HelperCore({ server: "http://127.0.0.1:9", token: "x", profileDir: "/tmp/unused" });
+  core.chrome = { mode: "hidden", proc: { exitCode: null } };
+  core.channels.set(1, { ws: null, queue: [] }); // a step is running
+  await core.setWindowMode("background");
+  assert.deepEqual(stopped, []); // not now
+  assert.equal(core.status().windowMode, "background");
+  core.channels.delete(1);
+  core._maybeRestart(); // the step finished
+  await sleep(10);
+  assert.deepEqual(stopped, ["hidden"]); // restarted; the next step opens Chrome the new way
+  assert.equal(core.chrome, null);
+  chromeMod.stop = realStop;
+  await core.stop();
+});

@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld("helper", {
   state: () => ipcRenderer.invoke("state"),
   pair: (key, name) => ipcRenderer.invoke("pair", key, name),
   pause: (paused) => ipcRenderer.invoke("pause", paused),
+  windowMode: (mode) => ipcRenderer.invoke("window-mode", mode),
   disconnect: () => ipcRenderer.invoke("disconnect"),
   signin: (url) => ipcRenderer.invoke("signin", url),
   signinDone: () => ipcRenderer.invoke("signin-done"),

@@ -46,6 +46,16 @@
     </section>
 
     <section class="card">
+      <div class="title">AI's Chrome window</div>
+      <div class="choices" role="radiogroup">
+        <label class="choice"><input type="radio" name="wm" value="hidden" />
+          <span><b>Invisible</b><small>No window, never on your screen.</small></span></label>
+        <label class="choice"><input type="radio" name="wm" value="background" />
+          <span><b>In the background</b><small>A window you can watch, kept behind yours.</small></span></label>
+      </div>
+    </section>
+
+    <section class="card">
       <div class="title">Sign in to a site</div>
       <div class="muted small">Sign in once in the helper's Chrome window, and AI employees can use that site.</div>
       <form id="signin-form" class="row">
@@ -53,7 +63,7 @@
         <button type="submit">Open</button>
       </form>
       <div id="signing" class="note" hidden>
-        Sign in in the Chrome window that opened, then click Done.
+        Sign in in the Chrome window that opened, then close it or click Done. Website steps wait meanwhile.
         <div class="row"><button id="signin-done" class="primary">Done signing in</button></div>
       </div>
     </section>

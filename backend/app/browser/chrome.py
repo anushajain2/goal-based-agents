@@ -127,6 +127,12 @@ def _base_args(chrome: str) -> list[str]:
         "--no-first-run",
         "--no-default-browser-check",
         "--window-size=1280,900",
+        # Don't announce "controlled by automation" to websites, and keep pages working normally
+        # while the window is behind other windows.
+        "--disable-blink-features=AutomationControlled",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+        "--disable-background-timer-throttling",
     ]
     if settings.browser_headless:
         args += ["--headless=new", "--no-sandbox"]

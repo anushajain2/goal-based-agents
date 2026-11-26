@@ -6,6 +6,10 @@ sits in the menu bar / system tray.
 
 - **Your own browser is never touched.** The helper starts Chrome with its own profile. AI employees
   only reach sites someone signed in to in that window.
+- **It never takes over your screen.** By default the AI's Chrome is invisible (no window at all). Or
+  choose "In the background" to watch it: it opens behind your windows and never comes to the front by
+  itself. Each work session gets its own window, opened without coming forward. Only "Sign in to a site" opens a normal window,
+  because you asked for it. Website steps wait while it's open, and closing it ends signing in.
 - **The rules stay on the server.** Reading pages, clicking, and the guard that makes "Post", "Send",
   "Buy" and similar wait for a person's approval all run in Autopilot. The helper only carries
   messages between Autopilot and Chrome.

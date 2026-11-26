@@ -56,7 +56,7 @@ class HelperCore extends EventEmitter {
    * @param {string} o.token       this computer's token (from pair())
    * @param {string} o.profileDir  folder for the helper's own Chrome profile
    * @param {string} [o.chromePath] Chrome to use (found automatically otherwise)
-   * @param {boolean} [o.headless] for tests and servers only
+   * @param {string} [o.windowMode] "hidden" (default: no window) or "background" (behind your windows)
    * @param {string} [o.version]
    */
   constructor(o) {
@@ -64,6 +64,8 @@ class HelperCore extends EventEmitter {
     this.o = o;
     this.ws = null;
     this.paused = !!o.paused;
+    this.windowMode = chrome.MODES.includes(o.windowMode) ? o.windowMode : "hidden";
+    this._restartWhenIdle = false;
     this.channels = new Map(); // c -> { ws, queue }
     this.chrome = null; // { proc, wsUrl, port }
     this.manual = null; // a plain Chrome window open for signing in
@@ -78,7 +80,8 @@ class HelperCore extends EventEmitter {
 
   status() {
     return { state: this.state, paused: this.paused, error: this.error, device: this.info?.device || null,
-             chrome: this.manual ? "signing-in" : this.chrome ? "running" : "closed", channels: this.channels.size };
+             chrome: this.manual ? "signing-in" : this.chrome ? "running" : "closed", channels: this.channels.size,
+             windowMode: this.windowMode };
   }
 
   _set(patch) {
@@ -97,7 +100,7 @@ class HelperCore extends EventEmitter {
     clearTimeout(this._timer);
     this._closeChannels();
     if (this.ws) { try { this.ws.close(1000); } catch {} this.ws = null; }
-    await chrome.stop(this.chrome?.proc);
+    await chrome.stop(this.chrome);
     await chrome.stop(this.manual);
     this.chrome = null;
     this.manual = null;
@@ -107,8 +110,31 @@ class HelperCore extends EventEmitter {
   setPaused(paused) {
     this.paused = !!paused;
     if (this.paused) this._closeChannels();
-    this._send({ t: "status", paused: this.paused });
+    this._sendStatus();
     this._set({});
+  }
+
+  /** "hidden" or "background". Applies the next time Chrome starts: now if it's idle, otherwise
+   *  as soon as the current website step finishes (never in the middle of someone's work). */
+  async setWindowMode(mode) {
+    if (!chrome.MODES.includes(mode) || mode === this.windowMode) return;
+    this.windowMode = mode;
+    if (this.chrome && this.channels.size === 0) await this._restartChrome();
+    else if (this.chrome) this._restartWhenIdle = true;
+    this._set({});
+  }
+
+  async _restartChrome() {
+    this._restartWhenIdle = false;
+    const c = this.chrome;
+    this.chrome = null;
+    await chrome.stop(c);
+    this._set({});
+  }
+
+  // Website steps can't run while paused or while someone signs in (same Chrome profile).
+  _sendStatus(t = "status") {
+    this._send({ t, paused: this.paused || !!this.manual });
   }
 
   // --- connection to Autopilot ---------------------------------------------------------------
@@ -124,9 +150,9 @@ class HelperCore extends EventEmitter {
     ws.on("open", () => {
       this._retry = 1000;
       this._set({ state: "connected", error: null });
-      this._send({ t: "status", paused: this.paused });
+      this._sendStatus();
       clearInterval(this._ping);
-      this._ping = setInterval(() => this._send({ t: "ping", paused: this.paused }), PING_MS);
+      this._ping = setInterval(() => this._sendStatus("ping"), PING_MS);
     });
     ws.on("message", (raw) => {
       let msg;
@@ -188,10 +214,11 @@ class HelperCore extends EventEmitter {
         this.channels.delete(msg.c);
         if (ch && ch.ws) { try { ch.ws.close(); } catch {} }
         this._set({});
+        this._maybeRestart();
         return;
       }
-      case "open_url":
-        return this._openTab(msg.url);
+      case "open_url": // "sign in to a site" from Autopilot: a normal, visible window
+        return this._manualSignin(msg.url);
       case "manual_signin":
         return this._manualSignin(msg.url);
       case "manual_done":
@@ -212,7 +239,7 @@ class HelperCore extends EventEmitter {
       this._set({ error: "Google Chrome isn't installed. Install it from google.com/chrome, then try again." });
       throw new Error("Chrome not found");
     }
-    this._starting = chrome.launchControlled(path, this.o.profileDir, { headless: this.o.headless })
+    this._starting = chrome.launchControlled(path, this.o.profileDir, { mode: this.windowMode })
       .then((c) => {
         this.chrome = c;
         c.proc.once("exit", () => { if (this.chrome === c) { this.chrome = null; this._set({}); } });
@@ -249,6 +276,7 @@ class HelperCore extends EventEmitter {
         this._send({ t: "closed", c });
         this._set({});
       }
+      this._maybeRestart();
     });
     ws.on("error", (e) => this.emit("log", `chrome channel ${c}: ${e.message}`));
   }
@@ -261,21 +289,25 @@ class HelperCore extends EventEmitter {
     }
   }
 
-  async _openTab(url) {
-    const c = await this.ensureChrome();
-    await fetch(`http://127.0.0.1:${c.port}/json/new?${encodeURI(url)}`, { method: "PUT" });
+  _maybeRestart() {
+    if (this._restartWhenIdle && this.channels.size === 0) this._restartChrome().catch(() => {});
   }
 
   /** Close the remote-controlled window and open the same profile normally (for Google etc.). */
   async _manualSignin(url) {
     this._closeChannels();
-    await chrome.stop(this.chrome?.proc);
+    const c = this.chrome;
     this.chrome = null;
+    await chrome.stop(c);
     await chrome.stop(this.manual);
     const path = chrome.findChrome(this.o.chromePath);
     if (!path) return this._set({ error: "Google Chrome isn't installed." });
-    this.manual = chrome.launchPlain(path, this.o.profileDir, url, { headless: this.o.headless });
-    this.manual.once("exit", () => { this.manual = null; this._set({}); });
+    const proc = chrome.launchPlain(path, this.o.profileDir, url);
+    this.manual = proc;
+    proc.once("exit", () => {  // closing the window ends signing in
+      if (this.manual === proc) { this.manual = null; this._sendStatus(); this._set({}); }
+    });
+    this._sendStatus();
     this._set({});
   }
 
@@ -284,8 +316,10 @@ class HelperCore extends EventEmitter {
   }
 
   async finishSignin() {
-    await chrome.stop(this.manual);
+    const proc = this.manual;
     this.manual = null;
+    await chrome.stop(proc);
+    this._sendStatus();
     this._set({});
   }
 }

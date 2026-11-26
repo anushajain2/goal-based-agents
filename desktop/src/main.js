@@ -62,6 +62,7 @@ function state() {
     appUrl: config?.appUrl || "",
     openAtLogin: app.getLoginItemSettings().openAtLogin,
     error: lastError || s.error || null,
+    windowMode: s.windowMode || config?.windowMode || "hidden",
     version: VERSION,
     pendingLink,
   };
@@ -101,6 +102,7 @@ function startCore() {
     server: config.server,
     token: config.token,
     paused: !!config.paused,
+    windowMode: config.windowMode || "hidden",
     profileDir: path.join(app.getPath("userData"), "chrome-profile"),
     version: VERSION,
   });
@@ -130,7 +132,8 @@ async function doPair(key, name) {
   pendingLink = null;
   const res = await pair(key, { name: name || os.hostname(), platform: process.platform, version: VERSION });
   if (core) await core.stop();
-  config = { server: res.server, token: res.token, name: res.name, orgName: res.orgName, appUrl: res.appUrl, paused: false };
+  config = { server: res.server, token: res.token, name: res.name, orgName: res.orgName, appUrl: res.appUrl, paused: false,
+             windowMode: config?.windowMode || "hidden" };
   saveConfig(config);
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true, openAsHidden: true });
   startCore();
@@ -153,7 +156,7 @@ function showWindow() {
     return;
   }
   win = new BrowserWindow({
-    width: 440, height: 600, resizable: false, maximizable: false, fullscreenable: false,
+    width: 440, height: 760, minHeight: 520, resizable: true, maximizable: false, fullscreenable: false,
     title: "Autopilot Helper", backgroundColor: "#ffffff", show: false,
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true },
   });
@@ -191,6 +194,13 @@ ipcMain.handle("pair", async (_e, key, name) => {
   }
 });
 ipcMain.handle("pause", (_e, paused) => { setPaused(!!paused); return state(); });
+ipcMain.handle("window-mode", async (_e, mode) => {
+  if (!config || !["hidden", "background"].includes(mode)) return state();
+  config.windowMode = mode;
+  saveConfig(config);
+  await core?.setWindowMode(mode);
+  return state();
+});
 ipcMain.handle("disconnect", async () => { await disconnect(); return state(); });
 ipcMain.handle("signin", async (_e, url) => {
   try { await core?.openSignin(url); lastError = null; } catch (e) { lastError = e.message; }

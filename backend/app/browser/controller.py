@@ -163,10 +163,27 @@ class BrowserController:
             return page
         browser = await self._connect()
         context = browser.contexts[0] if browser.contexts else await browser.new_context()
-        page = await context.new_page()
+        page = await self._background_tab(browser, context)
         await page.set_viewport_size({"width": 1280, "height": 860})
         self._pages[run_id] = page
         return page
+
+    @staticmethod
+    async def _background_tab(browser: Browser, context) -> Page:
+        """Each work session gets its own window, created without being brought to the front, so
+        Chrome never jumps in front of someone's work. (A background *tab* would count as hidden:
+        pages stop rendering and some sites behave differently, so it's a window of its own.)"""
+        try:
+            cdp = await browser.new_browser_cdp_session()
+            try:
+                async with context.expect_page(timeout=10000) as info:
+                    await cdp.send("Target.createTarget", {"url": "about:blank", "newWindow": True, "background": True})
+                return await info.value
+            finally:
+                await cdp.detach()
+        except Exception:  # noqa: BLE001 - older Chrome: a normal new tab
+            log.debug("background window failed; opening a normal tab", exc_info=True)
+            return await context.new_page()
 
     async def close_run(self, run_id: str) -> None:
         page = self._pages.pop(run_id, None)

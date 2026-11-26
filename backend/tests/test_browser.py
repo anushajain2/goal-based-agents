@@ -112,7 +112,7 @@ async def test_snapshot_guard_and_authorized_post(site):
 
     # Screenshots work (used for approval previews).
     shot = (await ex.call("browser_screenshot", {}, "t9")).content
-    assert shot[0]["type"] == "image"
+    assert isinstance(shot, list) and shot[0]["type"] == "image", shot
     await get_controller().close_run(run_id)
 
 

@@ -24,6 +24,7 @@ function render(s) {
       ? (s.channels ? "An AI employee is using Chrome" : "Ready for website work") : "Reconnecting to Autopilot…";
     $("sub").textContent = `${s.name}${s.orgName ? " · " + s.orgName : ""}`;
     $("pause").checked = !!s.paused;
+    for (const r of document.querySelectorAll("input[name=wm]")) r.checked = r.value === (s.windowMode || "hidden");
     $("login").checked = !!s.openAtLogin;
     $("signing").hidden = s.chrome !== "signing-in";
     $("open-app").hidden = !s.appUrl;
@@ -45,6 +46,9 @@ $("pair-form").addEventListener("submit", (e) => {
 $("confirm-yes").addEventListener("click", () => act(() => window.helper.pair(current.pendingLink, $("name").value.trim()), $("confirm-yes")));
 $("confirm-no").addEventListener("click", () => act(() => window.helper.dismissLink()));
 $("pause").addEventListener("change", (e) => act(() => window.helper.pause(e.target.checked)));
+for (const r of document.querySelectorAll("input[name=wm]")) {
+  r.addEventListener("change", (e) => act(() => window.helper.windowMode(e.target.value)));
+}
 $("login").addEventListener("change", (e) => act(() => window.helper.openAtLogin(e.target.checked)));
 $("signin-form").addEventListener("submit", (e) => {
   e.preventDefault();
