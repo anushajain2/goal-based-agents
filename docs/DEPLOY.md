@@ -36,9 +36,13 @@ roughly a few dollars each per month. Claude usage is billed separately by Anthr
 1. Sign up at render.com with your GitHub account, and allow it access to this repository.
 2. In the dashboard, choose **New → Blueprint**, pick this repository and the `main` branch.
 3. Render lists the four resources and asks for the values marked `sync: false`. Fill in:
-   - `FRONTEND_ORIGIN`: the address people will open. Use `https://app.yourdomain.com` if you'll add
-     a domain (step 2). Otherwise use the `autopilot-web` URL Render shows
-     (`https://autopilot-web-xxxx.onrender.com`). You can change it later.
+   - `FRONTEND_ORIGIN`: the address people will open. If you already have a domain, use
+     `https://app.yourdomain.com` (step 2). If not, the app's Render address doesn't exist yet, because
+     Render creates `autopilot-web` only after the API is up. Put in a placeholder like
+     `https://example.com`, then replace it with the `autopilot-web` URL
+     (`https://autopilot-web-xxxx.onrender.com`) once that service appears. Until it's replaced,
+     sign-in won't work. Leaving it empty stops the API from starting
+     (`config error: FRONTEND_ORIGIN ...` in its logs).
    - `ANTHROPIC_API_KEY`: required.
    - `SMTP_*`: required for real users, because sign-in codes go by email (see step 3).
    - Leave anything you don't have yet empty. Every optional feature switches itself off without
