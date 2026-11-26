@@ -274,7 +274,10 @@ and score that 1-5 ("pull"). Drop anything vague, generic or minor, even if it's
 given; never change a rank or invent one.
 - Each finding has its number: what it's called, where they are now, and a realistic goal (e.g. \
 "negative reviews answered: 2 of 9 now, 9 of 9 goal"; "page-1 searches: 1 of 6 now, 4 of 6 goal").
-- Write plainly and briefly; direct and helpful, not alarming.
+- Write plainly and briefly; direct and helpful, not alarming. People skim these: the title says the \
+gap in a few words; the points are 2-4 short facts (who, what, how many, when), not a paragraph; \
+"impact" says in one or two plain sentences why it matters to their business (lost deals, revenue, \
+risk), connecting the facts to what they sell.
 - Money: only give an estimate of what the gap costs them when you can state a reasonable \
 assumption, as a range. Never present a guess as a fact.
 - Fixing it: if an existing goal would fix the gap, link it by id. Otherwise propose the work.
@@ -337,8 +340,12 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
             "check": {"type": "string", "enum": check_keys + [""]},
             "team_kind": {"type": "string", "enum": kinds},
             "title": {"type": "string", "description": "The gap in a few words"},
-            "evidence": {"type": "string", "description": "Exactly what was seen, with numbers and dates"},
-            "impact": {"type": "string", "description": "Why it matters for this company, one or two sentences"},
+            "evidence": {"type": "string", "description": "What was seen, in one short sentence"},
+            "points": {"type": "array", "items": {"type": "string"},
+                       "description": "2-4 short bullets of exactly what was seen (names, numbers, dates), "
+                                      "each under 18 words"},
+            "impact": {"type": "string", "description": "Why this matters for this company's business: one or two "
+                                                        "plain sentences, under 35 words"},
             "estimate": {"type": "string", "description": "What the gap costs them, as a range, or ''"},
             "assumption": {"type": "string", "description": "The assumption behind the estimate, or ''"},
             "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
@@ -351,7 +358,7 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
             "new_goal": {"anyOf": [goal, {"type": "null"}]},
             "milestones": {"type": "array", "items": milestone},
         },
-        "required": ["check", "team_kind", "title", "evidence", "impact", "estimate", "assumption", "confidence",
+        "required": ["check", "team_kind", "title", "evidence", "points", "impact", "estimate", "assumption", "confidence",
                      "metric_name", "metric_now", "metric_goal", "pull",
                      "source_urls", "goal_id", "new_goal", "milestones"],
         "additionalProperties": False,
@@ -616,6 +623,7 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
         findings.append({
             "check": f.get("check") or "", "team_kind": f["team_kind"], "title": f["title"][:120],
             "evidence": f["evidence"][:600], "impact": f.get("impact", "")[:400],
+            "points": [str(x)[:200] for x in f.get("points") or [] if str(x).strip()][:4],
             "estimate": f.get("estimate", "")[:120], "assumption": f.get("assumption", "")[:300],
             "confidence": f.get("confidence", "medium"),
             "metric_name": str(f.get("metric_name", ""))[:80], "metric_now": str(f.get("metric_now", ""))[:40],

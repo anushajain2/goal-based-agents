@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bot, Check, ExternalLink, Flag, Loader2, Plug, Search, TrendingUp } from "lucide-react";
+import { ArrowRight, Bot, Check, Flag, Lightbulb, Loader2, Plug, Search, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -21,8 +21,11 @@ function teamName(kind: string, org: OrgInfo | null | undefined) {
   return d?.name || TEAM_NAMES[kind] || kind.charAt(0).toUpperCase() + kind.slice(1).replace(/_/g, " ");
 }
 
-function host(url: string) {
-  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
+/** What we found, as short facts: the scan's bullets, or older scans' paragraph split into sentences. */
+function factsOf(f: { points?: string[]; evidence: string }): string[] {
+  if (f.points && f.points.length) return f.points;
+  const parts = (f.evidence || "").split(/(?<=[.!?])\s+(?=[A-Z0-9"'])/).map((s) => s.trim()).filter(Boolean);
+  return parts.length ? parts.slice(0, 5) : [f.evidence];
 }
 
 const weeks = (w: number) => (w >= 8 && w % 4 === 0 ? `${w / 4} months` : `${w} week${w === 1 ? "" : "s"}`);
@@ -88,44 +91,44 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
       {found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) && <Findable v={found.visibility} name={orgName} />}
       {(found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} />}
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="space-y-4">
         {found.findings.map((f, i) => {
           const steps = f.milestones || [];
           const goal = f.goal_id ? byId.get(f.goal_id) : undefined;
+          const facts = factsOf(f);
           return (
-            <article key={i} className={cx("flex flex-col rounded-2xl border border-line bg-white p-5 shadow-[var(--shadow-card)]", steps.length > 1 && "md:col-span-2")}>
+            <article key={i} className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
               <div className="flex items-center gap-2">
                 <TeamTag name={teamName(f.team_kind, org)} />
                 <span className="text-[11.5px] font-medium text-muted">{CONFIDENCE[f.confidence]}</span>
               </div>
-              <h3 className="mt-3 text-[16px] font-semibold leading-snug tracking-[-0.01em]">{f.title}</h3>
-              {f.metric_name && f.metric_now && (
-                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-canvas px-3 py-2 text-[13px] ring-1 ring-inset ring-line">
-                  <span className="font-medium text-stone-600">{f.metric_name}</span>
-                  <span className="ml-auto inline-flex items-center gap-2">
-                    <span className="text-muted">Now</span><b className="tabular text-[15px] text-red-700">{f.metric_now}</b>
-                    {f.metric_goal && <><ArrowRight size={13} className="text-stone-400" /><span className="text-muted">Goal</span><b className="tabular text-[15px] text-emerald-700">{f.metric_goal}</b></>}
-                  </span>
+              <h3 className="mt-3 max-w-[60ch] text-[19px] font-semibold leading-snug tracking-[-0.015em]">{f.title}</h3>
+
+              <div className="mt-5 text-[11.5px] font-semibold uppercase tracking-wide text-muted">What we found</div>
+              <ul className="mt-2 max-w-[75ch] space-y-2">
+                {facts.map((x, k) => (
+                  <li key={k} className="flex gap-3 text-[14.5px] leading-relaxed text-stone-800">
+                    <span className="mt-[10px] h-1.5 w-1.5 shrink-0 rounded-full bg-stone-400" />
+                    <span>{x}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {f.impact && (
+                <div className="mt-5 max-w-[75ch] rounded-xl border-l-4 border-signal-500 bg-signal-50 px-4 py-3.5">
+                  <div className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-signal-800">
+                    <Lightbulb size={14} /> Why this matters
+                  </div>
+                  <p className="mt-1.5 text-[15px] leading-relaxed text-ink">{f.impact}</p>
+                  {f.estimate && (
+                    <p className="mt-2 text-[13px] text-signal-800">
+                      <b className="font-semibold">{f.estimate}</b>{f.assumption && <span> · {f.assumption}</span>}
+                    </p>
+                  )}
                 </div>
               )}
-              <p className="mt-1.5 text-[13.5px] leading-relaxed text-stone-700">{f.evidence}</p>
-              <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{f.impact}</p>
-              {f.estimate && (
-                <div className="mt-3 rounded-xl bg-brand-50 px-3 py-2 ring-1 ring-inset ring-brand-100">
-                  <div className="flex items-center gap-1.5 text-[13.5px] font-semibold text-brand-700"><TrendingUp size={14} /> {f.estimate}</div>
-                  {f.assumption && <div className="mt-0.5 text-[12px] text-brand-700/80">Estimate: {f.assumption}</div>}
-                </div>
-              )}
-              {f.sources.length > 0 && (
-                <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
-                  {f.sources.map((u) => (
-                    <a key={u} href={u} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-muted hover:text-ink">
-                      <ExternalLink size={11} />{host(u)}
-                    </a>
-                  ))}
-                </div>
-              )}
-              <div className="mt-auto pt-4">
+
+              <div className="mt-6">
                 {steps.length > 1 ? (
                   <Steps steps={steps} total={f.total_usd || 0} goalFor={(si) => byId.get(steps[si].goal_id || made[`${i}:${si}`] || "")}
                     canStart={canStart} busy={busy?.startsWith(`${i}:`) ? Number(busy.split(":")[1]) : null}

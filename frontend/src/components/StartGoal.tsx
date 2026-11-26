@@ -8,7 +8,7 @@ import { AgentSummary, api, Campaign, DepartmentInfo, Mode, OrgInfo, Readiness, 
 import { AutonomyChoice, AutonomySetup, initialChoice, modeFromChoice } from "./AutonomySetup";
 import { BudgetBreakdown } from "./Budget";
 import { DatabaseForm, GitHubForm } from "./Connections";
-import { WhatItWillDo } from "./GoalEngine";
+import { PlanStory, WhatItWillDo } from "./GoalEngine";
 import { StepList, stepCounts, teamName } from "./GoalPlan";
 import { AgentAvatar } from "./team";
 import { Button, cx, ErrorNote } from "./ui";
@@ -132,14 +132,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
           {error && <ErrorNote>{error}</ErrorNote>}
 
           {step === 0 && (goals.length === 1 ? (
-            <>
-              {goals[0].first_deliverable && (
-                <div className="rounded-xl bg-brand-50/60 px-4 py-3 text-[13px] ring-1 ring-inset ring-brand-100">
-                  <b className="font-semibold text-brand-800">In the first week you get:</b> {goals[0].first_deliverable}
-                </div>
-              )}
-              <WhatItWillDo goal={goals[0]} />
-            </>
+            <PlanStory goal={goals[0]} />
           ) : (
             <ul className="space-y-2">
               {goals.map((g) => (

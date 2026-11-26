@@ -316,7 +316,7 @@ export type Milestone = {
 };
 /** Something the company is missing today, found from public information, and the goal that fixes it. */
 export type Opportunity = {
-  team_kind: string; title: string; evidence: string; impact: string; estimate: string; assumption: string;
+  team_kind: string; title: string; evidence: string; points?: string[]; impact: string; estimate: string; assumption: string;
   confidence: "high" | "medium" | "low"; sources: string[]; goal_id: string | null;
   check?: string; milestones?: Milestone[]; total_usd?: number | null;
   metric_name?: string; metric_now?: string; metric_goal?: string; pull?: number;

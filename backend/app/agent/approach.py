@@ -53,7 +53,12 @@ a well-known example, user-generated content, a giveaway. No spam, fake engageme
 claims. For each: what it does in one line, why it fits, the main tool, and which milestone it \
 belongs to when the goal has milestones (else 1).
 3. The first experiment worth running, as a hypothesis with the change and how many attempts to \
-judge it on."""
+judge it on.
+
+The owner reads this before turning it on, so write for a busy person, in plain words: stage names \
+of 1-3 words; the bottleneck's "why" in one short sentence; each approach named in under 6 words and \
+described in under 15 words, saying what it does for them. No jargon or acronyms (say "bid \
+comparison", not "TBE")."""
 
 
 def schema() -> dict:
@@ -62,8 +67,8 @@ def schema() -> dict:
         "unit": {"type": "string", "description": "e.g. 'a week'"}},
         "required": ["name", "benchmark", "unit"], "additionalProperties": False}
     approach = {"type": "object", "properties": {
-        "name": {"type": "string", "description": "A few words, e.g. 'Founder-led X thread series'"},
-        "what": {"type": "string", "description": "What it does, one line"},
+        "name": {"type": "string", "description": "Under 6 words, e.g. 'Founder-led X thread series'"},
+        "what": {"type": "string", "description": "What it does for them, under 15 plain words"},
         "why": {"type": "string"}, "creative": {"type": "boolean"},
         "tool": {"type": "string", "enum": TOOL_CHOICES}, "milestone": {"type": "integer"}},
         "required": ["name", "what", "why", "creative", "tool", "milestone"], "additionalProperties": False}

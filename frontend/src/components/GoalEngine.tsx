@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Beaker, CheckCircle2, ChevronRight, Gauge, Lightbulb, Loader2, Ruler, Sparkles, TrendingUp, XCircle } from "lucide-react";
+import { ArrowRight, Beaker, CheckCircle2, ChevronDown, ChevronRight, Gauge, Lightbulb, Loader2, Ruler, ShieldCheck, Sparkles, TrendingUp, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { api, Campaign, GoalApproach, GoalUpdate, Pace, timeAgo } from "@/lib/api";
@@ -176,7 +176,8 @@ export function HowItsGoing({ c, update }: { c: Campaign; update?: { u: GoalUpda
 }
 
 /** In the start flow: what the AI employee will do, before anyone turns it on. */
-export function WhatItWillDo({ goal, compact }: { goal: Campaign; compact?: boolean }) {
+/** How the goal gets hit, made on first look (once per goal). */
+function useApproach(goal: Campaign): { a: GoalApproach | null; failed: boolean } {
   const [a, setA] = useState<GoalApproach | null>(goal.approach || null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -187,6 +188,114 @@ export function WhatItWillDo({ goal, compact }: { goal: Campaign; compact?: bool
       .catch(() => { if (!stop) setFailed(true); });
     return () => { stop = true; };
   }, [goal.id, a]);
+  return { a, failed };
+}
+
+function Part({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex gap-3.5">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[12px] font-bold text-white">{n}</span>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted">{title}</h3>
+        <div className="mt-2">{children}</div>
+      </div>
+    </section>
+  );
+}
+
+/** The plan shown before turning a goal on, as a short story: what you get, the hard part, how. */
+export function PlanStory({ goal }: { goal: Campaign }) {
+  const { a, failed } = useApproach(goal);
+  const [more, setMore] = useState(false);
+  const firstStep = a ? Math.min(...a.approaches.map((x) => x.milestone)) : 1;
+  const now = a ? a.approaches.filter((x) => x.milestone === firstStep) : [];
+  const later = a ? a.approaches.filter((x) => x.milestone !== firstStep) : [];
+  const top = now.slice(0, 3);
+  const rest = now.slice(3);
+  const hidden = rest.length + later.length;
+  return (
+    <div className="space-y-7 py-1">
+      {goal.first_deliverable && (
+        <Part n={1} title="In week 1 you get">
+          <p className="text-[16px] font-medium leading-relaxed text-ink">{goal.first_deliverable}</p>
+        </Part>
+      )}
+
+      {!a && !failed && (
+        <div className="flex items-center gap-2 pl-10 text-[13px] text-muted">
+          <Loader2 size={14} className="animate-spin" /> Working out how {goal.agent?.name || "it"} will hit this goal…
+        </div>
+      )}
+
+      {a && (
+        <Part n={goal.first_deliverable ? 2 : 1} title="The hard part">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {a.model.stages.map((s, i) => (
+              <span key={s.name} className="inline-flex items-center gap-1.5">
+                <span className={cx("rounded-full px-2.5 py-1 text-[12.5px] font-medium",
+                  s.name === a.model.bottleneck ? "bg-signal-100 text-signal-800 ring-1 ring-inset ring-signal-300" : "bg-canvas text-stone-600 ring-1 ring-inset ring-line")}>
+                  {s.name}
+                </span>
+                {i < a.model.stages.length - 1 && <ChevronRight size={14} className="text-stone-300" />}
+              </span>
+            ))}
+          </div>
+          {a.model.why && (
+            <p className="mt-2.5 text-[15px] leading-relaxed text-ink">
+              <b className="font-semibold">{a.model.bottleneck}</b> is where this usually gets stuck. {a.model.why}
+            </p>
+          )}
+        </Part>
+      )}
+
+      {a && top.length > 0 && (
+        <Part n={goal.first_deliverable ? 3 : 2} title="How it will do it">
+          <ol className="space-y-3">
+            {top.map((x, i) => (
+              <li key={x.id} className="flex gap-3">
+                <span className="tabular mt-0.5 w-4 shrink-0 text-[14px] font-semibold text-stone-400">{i + 1}.</span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 text-[15px] font-semibold">
+                    {x.name}
+                    {x.creative && <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-px text-[10.5px] font-semibold text-brand-700"><Sparkles size={10} /> creative</span>}
+                  </div>
+                  <p className="text-[14px] leading-relaxed text-stone-600">{x.what}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          {hidden > 0 && (
+            <div className="mt-3">
+              <button onClick={() => setMore(!more)} className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">
+                {more ? "Show less" : `${hidden} more ${hidden === 1 ? "idea" : "ideas"} it can try`}
+                <ChevronDown size={14} className={cx("transition", more && "rotate-180")} />
+              </button>
+              {more && (
+                <ul className="mt-2.5 space-y-2 border-l-2 border-line pl-4">
+                  {[...rest, ...later].map((x) => (
+                    <li key={x.id} className="text-[13.5px] leading-relaxed">
+                      <span className="font-semibold">{x.name}</span>
+                      {x.milestone !== firstStep && <span className="text-muted"> (only if you go further)</span>}
+                      <span className="text-stone-600">: {x.what}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </Part>
+      )}
+
+      <p className="flex items-start gap-2 rounded-xl bg-canvas px-4 py-3 text-[13px] text-stone-600">
+        <ShieldCheck size={16} className="mt-px shrink-0 text-emerald-600" />
+        <span>You approve anything that goes out. It checks what&apos;s working every session and adjusts, and sends you a short update when there&apos;s news.</span>
+      </p>
+    </div>
+  );
+}
+
+export function WhatItWillDo({ goal, compact }: { goal: Campaign; compact?: boolean }) {
+  const { a, failed } = useApproach(goal);
   if (failed) return null;
   if (!a) {
     return <div className="flex items-center gap-2 rounded-xl bg-canvas px-3 py-3 text-[12.5px] text-muted"><Loader2 size={14} className="animate-spin" /> Working out how {goal.agent?.name || "it"} will hit this goal…</div>;
