@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Check, Hand, PartyPopper, Pencil, Plus, Sparkles, Target, Trash2, UserPlus, Users, X } from "lucide-react";
+import { Check, Hand, PartyPopper, Pencil, Plus, Sparkles, Target, Trash2, UserPlus, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -8,10 +8,10 @@ import { Suspense, useState } from "react";
 import { CompanyProfileCard } from "@/components/CompanyProfile";
 import { GoalPanel } from "@/components/GoalPanel";
 import { useRouter } from "next/navigation";
-import { HireDialog, OrgChart } from "@/components/OrgChart";
+import { OrgChart } from "@/components/OrgChart";
 import { TeamSize } from "@/components/TeamSize";
 import { StartGoal } from "@/components/StartGoal";
-import { AgentAvatar, PersonAvatar } from "@/components/team";
+import { PersonAvatar } from "@/components/team";
 import { Badge, Button, Card, cx, ErrorNote, Input, PageHeader } from "@/components/ui";
 import { api, Campaign, DepartmentInfo, OrgInfo, usd, useApi } from "@/lib/api";
 
@@ -31,7 +31,6 @@ function TeamPage() {
   const [view, setView] = useState<"chart" | "list">("chart");
   const [panel, setPanel] = useState<Campaign | null>(null);
   const [starting, setStarting] = useState<Campaign[] | null>(null);
-  const [hiring, setHiring] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newDept, setNewDept] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -39,7 +38,7 @@ function TeamPage() {
   if (error) return <ErrorNote>{error}</ErrorNote>;
   if (!org) return <p className="text-muted">Loading…</p>;
   const admin = org.me.is_admin;
-  const agents = org.departments.reduce((n, d) => n + d.agents.length, 0);
+  const goalCount = (goals || []).length;
 
   async function act(fn: () => Promise<unknown>) {
     setErr(null);
@@ -57,30 +56,30 @@ function TeamPage() {
         <Card className="flex flex-wrap items-center gap-4 border-emerald-200 bg-emerald-50/60 p-5">
           <PartyPopper className="text-emerald-600" />
           <div className="min-w-0 flex-1">
-            <div className="font-bold">{org.org.name} is set up, with {agents} AI employees.</div>
+            <div className="font-bold">{org.org.name} is set up{goalCount ? `, with ${goalCount} goals ready` : ""}.</div>
             <div className="text-sm text-stone-700">
               {org.org.profile
                 ? "Next: review and start the suggested goals, and invite your team so approvals reach the right people."
-                : "Next: invite your team so approvals reach the right people, then give your AI employees their first goals."}
+                : "Next: invite your team so approvals reach the right people, then add your first goals."}
             </div>
           </div>
           <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold hover:bg-stone-50"><UserPlus size={15} /> Invite people</Link>
           {org.org.profile ? (
             <Link href="/setup" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white hover:bg-brand-600"><Sparkles size={15} /> Review suggested goals</Link>
           ) : (
-            <Link href="/goals/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white hover:bg-brand-600"><Target size={15} /> Give a goal</Link>
+            <Link href="/goals/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white hover:bg-brand-600"><Target size={15} /> Add a goal</Link>
           )}
         </Card>
       )}
 
       <PageHeader
         title="Team"
-        subtitle="Your people stay in charge. AI employees do the work, and an AI team lead per team keeps suggesting what to do next."
+        subtitle="Your people stay in charge. Autopilot works on each team's goals, and each team's Reviewer keeps suggesting what to do next."
         actions={admin && (
           <>
             <Link href="/settings#people" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3.5 text-sm font-semibold shadow-[0_1px_2px_rgb(16_24_40/0.05)] hover:bg-stone-50"><UserPlus size={15} /> Invite</Link>
             <Button onClick={() => setAdding(true)}><Plus size={15} /> Team</Button>
-            <Button variant="primary" onClick={() => setHiring(true)}><Bot size={15} /> Hire AI employee</Button>
+            <Link href="/goals/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 text-sm font-semibold text-white hover:bg-brand-700"><Target size={15} /> Add a goal</Link>
           </>
         )}
       />
@@ -96,9 +95,9 @@ function TeamPage() {
 
       {adding && (
         <Card className="flex flex-wrap items-center gap-2 p-4">
-          <Input autoFocus className="max-w-sm" value={newDept} onChange={(e) => setNewDept(e.target.value)} placeholder="Department name, e.g. Client Delivery" />
+          <Input autoFocus className="max-w-sm" value={newDept} onChange={(e) => setNewDept(e.target.value)} placeholder="Team name, e.g. Client Delivery" />
           <Button variant="primary" disabled={!newDept.trim()} onClick={() => act(async () => { await api("/api/departments", { method: "POST", json: { name: newDept } }); setNewDept(""); setAdding(false); })}>
-            <Check size={15} /> Create (with an AI employee)
+            <Check size={15} /> Create team
           </Button>
           <Button variant="ghost" onClick={() => setAdding(false)}>Cancel</Button>
         </Card>
@@ -121,7 +120,7 @@ function TeamPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {org.departments.map((d) => (
-            <DepartmentCard key={d.id} d={d} org={org} onChange={(fn) => act(fn)} />
+            <DepartmentCard key={d.id} d={d} org={org} goals={goals || []} onOpen={setPanel} onChange={(fn) => act(fn)} />
           ))}
         </div>
       )}
@@ -135,28 +134,28 @@ function TeamPage() {
       ) : admin && (
         <Link href="/setup" className="flex items-center gap-3 rounded-xl border border-dashed border-brand-500/40 bg-brand-50/40 px-4 py-3 text-sm hover:bg-brand-50">
           <Sparkles size={16} className="text-brand-600" />
-          <span className="flex-1"><b>Research {org.org.name}</b> and get suggested AI employees and goals that fit where you are.</span>
+          <span className="flex-1"><b>Research {org.org.name}</b> and get suggested goals that fit where you are.</span>
           <span className="font-semibold text-brand-600">Start →</span>
         </Link>
       )}
 
-      {hiring && <HireDialog org={org} onClose={() => setHiring(false)} onHired={() => { setHiring(false); reload(); }} />}
       {panel && <GoalPanel goal={panel} onClose={() => setPanel(null)} onStart={(g) => { setPanel(null); setStarting([g]); }} onRemoved={() => { setPanel(null); reloadGoals(); }} />}
       {starting && <StartGoal goals={starting} onClose={() => setStarting(null)} onStarted={() => { setStarting(null); reloadGoals(); reload(); }} />}
     </div>
   );
 }
 
-function DepartmentCard({ d, org, onChange }: { d: DepartmentInfo; org: OrgInfo; onChange: (fn: () => Promise<unknown>) => void }) {
+function DepartmentCard({ d, org, goals, onOpen, onChange }: {
+  d: DepartmentInfo; org: OrgInfo; goals: Campaign[]; onOpen: (g: Campaign) => void; onChange: (fn: () => Promise<unknown>) => void;
+}) {
   const admin = org.me.is_admin;
   const mine = org.me.department_ids.includes(d.id);
-  const [hiring, setHiring] = useState(false);
-  const [agentName, setAgentName] = useState("");
-  const [agentTitle, setAgentTitle] = useState("");
   const [editingPeople, setEditingPeople] = useState(false);
   const [people, setPeople] = useState<string[]>(d.people.map((p) => p.id));
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(d.name);
+  const ids = new Set(d.agents.map((a) => a.id));
+  const teamGoals = goals.filter((g) => g.agent && ids.has(g.agent.id));
   const spent = d.agents.reduce((t, a) => t + a.spent, 0);
   const waiting = d.agents.reduce((t, a) => t + a.needs_you, 0);
 
@@ -178,40 +177,29 @@ function DepartmentCard({ d, org, onChange }: { d: DepartmentInfo; org: OrgInfo;
         {admin && !renaming && (
           <span className="flex gap-1">
             <button title="Rename" onClick={() => setRenaming(true)} className="rounded p-1 text-muted hover:bg-stone-100"><Pencil size={13} /></button>
-            <button title="Delete department" onClick={() => confirm(`Delete ${d.name}? Its AI employees must have no goals.`) && onChange(() => api(`/api/departments/${d.id}`, { method: "DELETE" }))} className="rounded p-1 text-muted hover:bg-red-50 hover:text-red-600"><Trash2 size={13} /></button>
+            <button title="Delete team" onClick={() => confirm(`Delete the ${d.name} team? It must have no goals.`) && onChange(() => api(`/api/departments/${d.id}`, { method: "DELETE" }))} className="rounded p-1 text-muted hover:bg-red-50 hover:text-red-600"><Trash2 size={13} /></button>
           </span>
         )}
       </div>
 
-      <div className="flex-1 space-y-2 p-3">
-        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted">AI employees</div>
-        {d.agents.length === 0 && <p className="px-1 text-sm text-muted">No AI employees yet.</p>}
-        {d.agents.map((a) => (
-          <Link key={a.id} href={`/team/agents/${a.id}`} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-stone-50">
-            <AgentAvatar name={a.name} state={a.working ? "working" : a.needs_you ? "waiting" : "idle"} />
+      <div className="flex-1 space-y-1 p-3">
+        <div className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Goals</div>
+        {teamGoals.length === 0 && <p className="px-1 text-sm text-muted">No goals yet.</p>}
+        {teamGoals.map((g) => (
+          <button key={g.id} onClick={() => onOpen(g)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-stone-50">
+            <span className={cx("h-2 w-2 shrink-0 rounded-full", g.status === "active" ? (g.pending_requests ? "bg-signal-500" : "bg-emerald-500") : "bg-stone-300")} />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14px] font-semibold">{a.name}</span>
+              <span className="block truncate text-[14px] font-semibold">{g.name}</span>
               <span className="block truncate text-xs text-muted">
-                {a.working ? <span className="font-semibold text-emerald-700">Working now</span> : a.needs_you ? <span className="font-semibold text-signal-700">Needs a yes</span> : a.active_goals ? "Between work sessions" : "No active goals"}
-                {" · "}{a.goals} {a.goals === 1 ? "goal" : "goals"}{a.title ? ` · ${a.title}` : ""}
+                {g.status === "draft" ? "Not started" : g.status === "active" ? (g.pending_requests ? <span className="font-semibold text-signal-700">Needs a yes</span> : "Live") : g.status === "paused" ? "Paused" : g.status === "completed" ? "Finished" : "Stopped"}
               </span>
             </span>
-            <span className="tabular text-xs text-muted">{usd(a.spent)}</span>
-          </Link>
+            <span className="tabular text-xs text-muted">{usd(g.budget.spent)}</span>
+          </button>
         ))}
-        {hiring ? (
-          <div className="flex flex-wrap gap-2 px-1 pt-1">
-            <Input className="h-8 min-w-36 flex-1 py-1" placeholder={`Name, e.g. ${d.name} Agent 2`} value={agentName} onChange={(e) => setAgentName(e.target.value)} />
-            <Input className="h-8 min-w-36 flex-1 py-1" placeholder="Focus (optional), e.g. Outbound" value={agentTitle} onChange={(e) => setAgentTitle(e.target.value)} />
-            <Button size="sm" variant="primary" onClick={() => { onChange(() => api("/api/agents", { method: "POST", json: { department_id: d.id, name: agentName, title: agentTitle } })); setHiring(false); setAgentName(""); setAgentTitle(""); }}>Hire</Button>
-            <Button size="sm" variant="ghost" onClick={() => setHiring(false)}>Cancel</Button>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2 px-1 pt-1">
-            {(admin || mine) && d.agents.length > 0 && (
-              <Link href={`/goals/new?agent=${d.agents[0].id}`} className="inline-flex h-7 items-center gap-1 rounded-md border border-line px-2.5 text-xs font-semibold hover:bg-stone-50"><Target size={12} /> Give a goal</Link>
-            )}
-            {admin && <Button size="sm" variant="ghost" onClick={() => setHiring(true)}><Plus size={12} /> Hire another AI employee</Button>}
+        {(admin || mine) && (
+          <div className="px-1 pt-1">
+            <Link href={d.agents[0] ? `/goals/new?agent=${d.agents[0].id}` : "/goals/new"} className="inline-flex h-7 items-center gap-1 rounded-md border border-line px-2.5 text-xs font-semibold hover:bg-stone-50"><Plus size={12} /> Add a goal</Link>
           </div>
         )}
       </div>

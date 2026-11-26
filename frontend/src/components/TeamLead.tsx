@@ -15,7 +15,7 @@ const HEALTH: Record<string, { label: string; tone: "green" | "amber" | "red" }>
 
 const every = (days: number) => (days === 1 ? "every day" : days === 7 ? "every week" : `every ${days} days`);
 
-/** The AI team lead on the org chart: between the team's people and its AI employees. */
+/** The team's Reviewer on the org chart: between the team's people and its goals. */
 export function LeadCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInfo; onChanged?: () => void }) {
   const [open, setOpen] = useState(false);
   const lead = d.lead;
@@ -31,8 +31,8 @@ export function LeadCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInf
             <Compass size={16} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13.5px] font-semibold">{lead.name}</span>
-            <span className="block truncate text-[11.5px] text-muted">{lead.enabled ? "AI team lead · always reviewing" : "AI team lead · off"}</span>
+            <span className="block truncate text-[13.5px] font-semibold">{d.name} Reviewer</span>
+            <span className="block truncate text-[11.5px] text-muted">{lead.enabled ? "Reviews the goals, suggests changes" : "Reviewer · off"}</span>
           </span>
         </span>
         {lead.enabled && (
@@ -95,8 +95,8 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
         <div className="flex items-center gap-3 border-b border-line px-5 py-3">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-600 text-white"><Compass size={18} /></span>
           <div className="min-w-0 flex-1">
-            <div className="font-bold">{lead.name}</div>
-            <div className="text-xs text-muted">AI team lead for {d.name}</div>
+            <div className="font-bold">{d.name} Reviewer</div>
+            <div className="text-xs text-muted">Reviews the {d.name} team&apos;s goals</div>
           </div>
           <button onClick={onClose} className="rounded p-1 text-muted hover:bg-stone-100" aria-label="Close"><X size={18} /></button>
         </div>
@@ -104,8 +104,8 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
         <div className="space-y-5 px-5 py-4">
           <p className="text-[13.5px] leading-relaxed text-stone-700">
             Keeps reviewing the {d.name} team, {every(lead.review_days)} and whenever you ask: how {org.org.name} is doing, the market,
-            your numbers, and how each AI employee performs. Then it suggests what to change: updated targets, new goals,
-            a new AI employee to take live, or pausing what isn&apos;t working. <b>Nothing changes until you approve it</b> in Needs you.
+            your numbers, and how each goal is going. Then it suggests what to change: updated targets, new goals,
+            or pausing what isn&apos;t working. <b>Nothing changes until you approve it</b> in Needs you.
           </p>
           <LooksAt />
 
@@ -157,8 +157,8 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
 
           <section className="space-y-3 rounded-xl bg-stone-50 p-3">
             <div className="flex items-center justify-between gap-3 text-[13px]">
-              <span className="font-semibold">AI team lead on</span>
-              <Toggle on={lead.enabled} disabled={!canManage} onChange={(v) => patch({ enabled: v })} label="AI team lead on" />
+              <span className="font-semibold">Reviewer on</span>
+              <Toggle on={lead.enabled} disabled={!canManage} onChange={(v) => patch({ enabled: v })} label="Reviewer on" />
             </div>
             {lead.enabled && (
               <>
@@ -200,13 +200,13 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
   );
 }
 
-/** What the lead can look at: always the team's work and the web; the database and GitHub once connected. */
+/** What the Reviewer can look at: always the team's work and the web; the database and GitHub once connected. */
 function LooksAt() {
   const { data } = useApi<IntegrationInfo[]>("/api/integrations", { live: false });
   const has = (k: string) => (data || []).some((i) => i.kind === k);
   const items: [React.ReactNode, string, boolean][] = [
     [<Target key="t" size={12} />, "Goals & results", true],
-    [<Users key="u" size={12} />, "Each AI employee's work", true],
+    [<Users key="u" size={12} />, "How each goal is going", true],
     [<Globe key="g" size={12} />, "Web, market & competitors", true],
     [<Database key="d" size={12} />, "Your database", has("postgres")],
     [<GitBranch key="b" size={12} />, "GitHub issues", has("github")],
