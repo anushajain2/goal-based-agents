@@ -159,7 +159,7 @@ export default function HomePage() {
             </Card>
           </section>
           <section>
-            <SectionTitle title="Goal ideas" href="/capabilities" link="Browse" />
+            <SectionTitle title="Goal ideas" href="/goals?tab=ideas" link="Browse" />
             <Card className="divide-y divide-line overflow-hidden">
               {FEATURED.slice(0, 3).map((id) => {
                 const uc = findUseCase(id)!;
@@ -218,7 +218,7 @@ function FirstRun({ onPick, org }: { onPick: (id: string) => void; org: OrgInfo 
             <h2 className="text-lg font-bold">Popular first goals</h2>
             <p className="text-sm text-muted">Pick one to start; you can change everything before it begins.</p>
           </div>
-          <Link href="/capabilities" className="text-sm font-semibold text-brand-600">See all {CATEGORIES.length} areas →</Link>
+          <Link href="/goals?tab=ideas" className="text-sm font-semibold text-brand-600">See all {CATEGORIES.length} areas →</Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURED.map((id) => <UseCaseCard key={id} uc={findUseCase(id)!} onPick={(u) => onPick(u.id)} />)}

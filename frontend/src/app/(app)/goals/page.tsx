@@ -2,31 +2,46 @@
 
 import { Plus, Target } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
+
+import { GoalIdeas } from "@/components/GoalIdeas";
 
 import { StartGoal } from "@/components/StartGoal";
 import { GoalProgress, GoalStatus, ProgressBar } from "@/components/goal";
 import { Badge, Card, cx, Empty, ErrorNote, PageHeader, Select, Toggle } from "@/components/ui";
 import { api, Campaign, OrgInfo, timeAgo, usd, useApi } from "@/lib/api";
 
-type Tab = "live" | "suggested" | "drafts";
+type Tab = "live" | "ideas" | "drafts";
 
+// "ideas" counts the suggested goals not started yet; the tab itself also shows the company check
+// and the idea library.
 const inTab = (c: Campaign, tab: Tab) =>
-  tab === "live" ? c.status !== "draft" : tab === "suggested" ? c.status === "draft" && c.origin === "setup" : c.status === "draft" && c.origin !== "setup";
+  tab === "live" ? c.status !== "draft" : tab === "ideas" ? c.status === "draft" && c.origin === "setup" : c.status === "draft" && c.origin !== "setup";
 
-export default function GoalsPage() {
+export default function Page() {
+  return (
+    <Suspense>
+      <GoalsPage />
+    </Suspense>
+  );
+}
+
+function GoalsPage() {
+  const params = useSearchParams();
   const { data, error, reload } = useApi<Campaign[]>("/api/campaigns");
   const [busy, setBusy] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab | null>(null);
+  const asked = params.get("tab");
+  const [tab, setTab] = useState<Tab | null>(asked === "ideas" || asked === "live" || asked === "drafts" ? asked : null);
   const [client, setClient] = useState("");
   const [dept, setDept] = useState("");
-  const { data: org } = useApi<OrgInfo>("/api/org", { live: false });
+  const { data: org, reload: reloadOrg } = useApi<OrgInfo>("/api/org", { live: false });
 
   const clients = useMemo(() => [...new Set((data || []).map((c) => c.client_name).filter(Boolean))].sort(), [data]);
-  const counts = { live: 0, suggested: 0, drafts: 0 } as Record<Tab, number>;
-  for (const c of data || []) for (const t of ["live", "suggested", "drafts"] as Tab[]) if (inTab(c, t)) counts[t]++;
-  // Open on live goals, or on suggestions when nothing is running yet.
-  const shown: Tab = tab ?? (counts.live ? "live" : counts.suggested ? "suggested" : "live");
+  const counts = { live: 0, ideas: 0, drafts: 0 } as Record<Tab, number>;
+  for (const c of data || []) for (const t of ["live", "ideas", "drafts"] as Tab[]) if (inTab(c, t)) counts[t]++;
+  // Open on live goals, or on ideas when nothing is running yet.
+  const shown: Tab = tab ?? (counts.live || !data ? "live" : "ideas");
   const rows = (data || []).filter((c) => {
     if (client && c.client_name !== client) return false;
     if (dept && c.department?.id !== dept) return false;
@@ -68,14 +83,14 @@ export default function GoalsPage() {
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 px-5 py-3">
           <div className="inline-flex rounded-xl bg-stone-100 p-1 text-[13px] font-semibold">
-            {(["live", "suggested", "drafts"] as Tab[]).filter((t) => t !== "drafts" || counts.drafts).map((t) => (
+            {(["live", "ideas", "drafts"] as Tab[]).filter((t) => t !== "drafts" || counts.drafts).map((t) => (
               <button key={t} onClick={() => setTab(t)} className={cx("rounded-lg px-3 py-1.5 transition", shown === t ? "bg-white text-ink shadow-sm" : "text-stone-500 hover:text-ink")}>
-                {{ live: "Live", suggested: "Suggested", drafts: "Not started" }[t]}
-                <span className="tabular ml-1.5 text-stone-400">{counts[t]}</span>
+                {{ live: "Live", ideas: "Goal ideas", drafts: "Not started" }[t]}
+                {(t !== "ideas" || counts.ideas > 0) && <span className="tabular ml-1.5 text-stone-400">{counts[t]}</span>}
               </button>
             ))}
           </div>
-          {(org?.departments.length || 0) > 1 && (
+          {shown !== "ideas" && (org?.departments.length || 0) > 1 && (
             <div className="w-48">
               <Select className="h-8 py-1 text-xs" value={dept} onChange={(e) => setDept(e.target.value)}>
                 <option value="">All departments</option>
@@ -83,7 +98,7 @@ export default function GoalsPage() {
               </Select>
             </div>
           )}
-          {clients.length > 0 && (
+          {shown !== "ideas" && clients.length > 0 && (
             <div className="w-48">
               <Select className="h-8 py-1 text-xs" value={client} onChange={(e) => setClient(e.target.value)}>
                 <option value="">All clients</option>
@@ -91,15 +106,17 @@ export default function GoalsPage() {
               </Select>
             </div>
           )}
-          <span className="ml-auto text-xs text-muted">
-            Spent <b className="tabular text-ink">{usd(totals.spent)}</b> of {usd(totals.budget)}
-          </span>
+          {shown !== "ideas" && (
+            <span className="ml-auto text-xs text-muted">
+              Spent <b className="tabular text-ink">{usd(totals.spent)}</b> of {usd(totals.budget)}
+            </span>
+          )}
         </div>
 
-        {data && rows.length === 0 ? (
+        {shown === "ideas" ? null : data && rows.length === 0 ? (
           <Empty icon={<Target size={36} />} title={shown === "live" ? "Nothing live yet" : "Nothing here"}>
-            {shown === "live" && counts.suggested
-              ? <button onClick={() => setTab("suggested")} className="font-semibold text-brand-600">See the {counts.suggested} suggested goals →</button>
+            {shown === "live"
+              ? <button onClick={() => setTab("ideas")} className="font-semibold text-brand-600">See goal ideas →</button>
               : <Link href="/goals/new" className="font-semibold text-brand-600">Give Oton a goal →</Link>}
           </Empty>
         ) : (
@@ -160,6 +177,8 @@ export default function GoalsPage() {
           </div>
         )}
       </Card>
+
+      {shown === "ideas" && <div className="pt-2"><GoalIdeas org={org} goals={data} onChanged={() => { reload(); reloadOrg(); }} /></div>}
     </div>
   );
 }
