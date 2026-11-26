@@ -8,6 +8,7 @@ import { FormEvent, PointerEvent, ReactNode, useEffect, useRef, useState } from 
 
 import { BrandMark } from "@/components/Shell";
 import PixelCard from "@/components/reactbits/PixelCard";
+import { useInView, useLiteMotion, useStory } from "@/lib/motion";
 import { cx } from "@/components/ui";
 
 // The moving backgrounds are WebGL: loaded in the browser only, after the page itself.
@@ -321,20 +322,6 @@ function ScanPreview() {
   );
 }
 
-/** True once the element has scrolled into view (and stays true), so bars grow in when seen. */
-function useInView<T extends Element>() {
-  const ref = useRef<T>(null);
-  const [seen, setSeen] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof IntersectionObserver === "undefined") return setSeen(true);
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setSeen(true); io.disconnect(); } }, { threshold: 0.35 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  return [ref, seen] as const;
-}
-
 /** One kind of check: a simple picture on top, one line below. */
 function Tile({ icon, title, text, children }: { icon: ReactNode; title: string; text: string; children: ReactNode }) {
   return (
@@ -361,20 +348,6 @@ function HeroBackdrop({ lite }: { lite: boolean }) {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-ink/60" />
     </div>
   );
-}
-
-/** Touch screens (phones, tablets) and people who asked their system for less motion get still backgrounds and no
- *  tilt. Decided by the device, not the window width, so a narrow desktop window still moves. */
-function useLiteMotion() {
-  const [lite, setLite] = useState(true);
-  useEffect(() => {
-    const q = window.matchMedia("(pointer: coarse), (prefers-reduced-motion: reduce)");
-    const update = () => setLite(q.matches);
-    update();
-    q.addEventListener("change", update);
-    return () => q.removeEventListener("change", update);
-  }, []);
-  return lite;
 }
 
 /** Tilts a card toward the pointer in 3D, with a soft glare where the pointer is. */
@@ -417,28 +390,6 @@ function CountUp({ to, from = 0, decimals = 0, duration = 1300 }: { to: number; 
     return () => cancelAnimationFrame(raf);
   }, [seen, from, to, duration]);
   return <span ref={ref} className="tabular-nums">{v.toFixed(decimals)}</span>;
-}
-
-/** Steps through a little story once it's on screen (step goes 1, 2, 3... at the given times), holds the end,
- *  then plays it again. People who asked for less motion see the end straight away. */
-function useStory(times: number[], hold = 4000) {
-  const [ref, seen] = useInView<HTMLDivElement>();
-  const [step, setStep] = useState(0);
-  const key = times.join(",");
-  useEffect(() => {
-    if (!seen) return;
-    const at = key.split(",").map(Number);
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setStep(at.length);
-    let timers: number[] = [];
-    const play = () => {
-      setStep(0);
-      timers = at.map((t, i) => window.setTimeout(() => setStep(i + 1), t));
-      timers.push(window.setTimeout(play, at[at.length - 1] + hold));
-    };
-    play();
-    return () => timers.forEach(clearTimeout);
-  }, [seen, key, hold]);
-  return [ref, step] as const;
 }
 
 const QUERY = "route planning software";

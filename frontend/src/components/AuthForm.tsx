@@ -1,13 +1,21 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CheckCircle2, Hand, Mail, Send, Terminal, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Globe, Mail, Terminal } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useRef, useState } from "react";
 
 import { EmployeeAvatar } from "@/components/Shell";
 import { Button, ErrorNote, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
+import { useLiteMotion, useStory } from "@/lib/motion";
+import { cx } from "@/components/ui";
+
+const SoftAurora = dynamic(() => import("@/components/reactbits/SoftAurora"), { ssr: false });
+
+/** A short delay for content that rises in one after another. */
+const delay = (ms: number): CSSProperties => ({ animationDelay: `${ms}ms` });
 
 /** Only allow redirects back into the app, never to another site. */
 function safeNext(next: string | null) {
@@ -96,22 +104,23 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const signup = mode === "signup";
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="flex flex-col px-6 py-8 sm:px-12">
-        <Link href="/" className="flex items-center gap-2.5">
+      <div className="relative flex flex-col overflow-hidden px-6 py-8 sm:px-12">
+        <div aria-hidden className="pointer-events-none absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-[radial-gradient(closest-side,rgba(140,154,75,0.16),transparent)]" />
+        <Link href="/" className="rise relative flex items-center gap-2.5">
           <EmployeeAvatar size={32} />
           <span className="text-[17px] font-bold tracking-tight">Oton</span>
         </Link>
 
-        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
+        <div key={step} className="relative mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
           {step === "email" && (
             <>
-              <h1 className="text-2xl font-bold tracking-tight">{signup ? "Create your account" : "Welcome back"}</h1>
-              <p className="mt-1 text-sm text-muted">
+              <h1 className="rise text-[28px] font-bold tracking-[-0.025em]" style={delay(80)}>{signup ? "Create your account" : "Welcome back"}</h1>
+              <p className="rise mt-1.5 text-[15px] text-muted" style={delay(160)}>
                 {signup ? "No password needed. Set up your first goal in a couple of minutes." : "Sign in to see what Oton has been working on."}
               </p>
 
               {options?.google && (
-                <>
+                <div className="rise" style={delay(240)}>
                   <a
                     href={`/api/auth/google/start?next=${encodeURIComponent(next)}`}
                     className="mt-6 flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-line bg-white text-sm font-semibold shadow-sm transition hover:bg-stone-50"
@@ -121,10 +130,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                   <div className="my-5 flex items-center gap-3 text-xs text-muted">
                     <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
                   </div>
-                </>
+                </div>
               )}
 
-              <form onSubmit={sendCode} className={options?.google ? "space-y-4" : "mt-6 space-y-4"}>
+              <form onSubmit={sendCode} className={cx("rise", options?.google ? "space-y-4" : "mt-7 space-y-4")} style={delay(280)}>
                 <Field label="Work email">
                   <Input type="email" autoComplete="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
                 </Field>
@@ -133,7 +142,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                   <Mail size={15} /> {busy ? "Sending…" : "Email me a sign-in code"}
                 </Button>
               </form>
-              <p className="mt-6 text-center text-sm text-muted">
+              <p className="rise mt-6 text-center text-sm text-muted" style={delay(380)}>
                 {signup ? "Already have an account?" : "New to Oton?"}{" "}
                 <Link href={`/${signup ? "login" : "signup"}${params.get("next") ? `?next=${encodeURIComponent(next)}` : ""}`} className="font-semibold text-brand-600 hover:underline">
                   {signup ? "Sign in" : "Create an account"}
@@ -144,10 +153,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
           {step === "code" && (
             <>
-              <button onClick={() => { setStep("email"); setError(null); }} className="mb-6 flex items-center gap-1 self-start text-sm text-muted hover:text-ink">
+              <button onClick={() => { setStep("email"); setError(null); }} className="rise mb-6 flex items-center gap-1 self-start text-sm text-muted hover:text-ink">
                 <ArrowLeft size={15} /> Use a different email
               </button>
-              <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
+              <h1 className="rise text-[28px] font-bold tracking-[-0.025em]" style={delay(60)}>Check your email</h1>
               {delivery === "email" ? (
                 <p className="mt-1 text-sm text-muted">
                   We sent a 6-digit code to <b className="text-ink">{email}</b>. It expires in 10 minutes.
@@ -161,7 +170,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                   </span>
                 </div>
               )}
-              <form onSubmit={(e) => { e.preventDefault(); verify(); }} className="mt-6 space-y-4">
+              <form onSubmit={(e) => { e.preventDefault(); verify(); }} className="rise mt-6 space-y-4" style={delay(160)}>
                 <Field label="Sign-in code">
                   <Input
                     ref={codeRef}
@@ -194,9 +203,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
           {step === "name" && (
             <>
-              <h1 className="text-2xl font-bold tracking-tight">Welcome to Oton</h1>
-              <p className="mt-1 text-sm text-muted">One last thing: what should we call you?</p>
-              <form onSubmit={saveName} className="mt-6 space-y-4">
+              <h1 className="rise text-[28px] font-bold tracking-[-0.025em]">Welcome to Oton</h1>
+              <p className="rise mt-1.5 text-[15px] text-muted" style={delay(80)}>One last thing: what should we call you?</p>
+              <form onSubmit={saveName} className="rise mt-6 space-y-4" style={delay(160)}>
                 <Field label="Your name">
                   <Input autoFocus autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Asha Rao" />
                 </Field>
@@ -209,29 +218,80 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </div>
       </div>
 
-      <div className="relative hidden overflow-hidden bg-brand-600 lg:block">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_45%)]" />
-        <div className="relative flex h-full flex-col justify-center px-14 text-white">
-          <p className="text-sm font-semibold uppercase tracking-widest text-white/70">Goal-based automation</p>
-          <h2 className="mt-3 max-w-md text-[44px] font-bold leading-[1.05] tracking-[-0.035em]">Become AI-native. No AI skills needed.</h2>
-          <ul className="mt-8 max-w-md space-y-3 text-[15px]">
-            <Point icon={<Send size={16} />}>We read your website and set up goals for every team.</Point>
-            <Point icon={<CheckCircle2 size={16} />}>Nobody needs to learn prompting or where AI fits.</Point>
-            <Point icon={<Hand size={16} />}>AI shows its work. People give the final yes.</Point>
-            <Point icon={<Wallet size={16} />}>Oton never spends more than the budget you set.</Point>
-          </ul>
-        </div>
+      <AuthShowcase signup={signup} />
+    </div>
+  );
+}
+
+/** The right half: the homepage's aurora, one line on what Oton does, and a scan playing out on a website. */
+function AuthShowcase({ signup }: { signup: boolean }) {
+  const lite = useLiteMotion();
+  return (
+    <div className="relative hidden overflow-hidden bg-ink lg:block">
+      <div aria-hidden className="absolute inset-0">
+        {lite
+          ? <div className="h-full w-full bg-[radial-gradient(70%_40%_at_50%_55%,rgba(16,185,129,0.4),transparent)]" />
+          : <SoftAurora color1="#d9f99d" color2="#10b981" brightness={1} bandHeight={0.45} />}
+        <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_30%,rgba(0,0,0,0.45),transparent)]" />
+      </div>
+      <div className="relative flex h-full flex-col justify-center px-14 py-16 text-white">
+        <p className="rise text-[13px] font-semibold uppercase tracking-[0.12em] text-lime-300/90" style={delay(200)}>
+          {signup ? "Your first scan" : "Welcome back"}
+        </p>
+        <h2 className="rise mt-3 max-w-md text-[44px] font-bold leading-[1.04] tracking-[-0.035em]" style={delay(300)}>
+          {signup ? <>See what you&apos;re <span className="text-lime-300">missing</span>, in minutes.</> : <>Your gaps, and the goals <span className="text-lime-300">closing</span> them.</>}
+        </h2>
+        <p className="rise mt-4 max-w-md text-[16px] leading-relaxed text-white/70" style={delay(400)}>
+          {signup
+            ? "Next, enter your website. We check you against your competitors and show the few gaps worth fixing."
+            : "Pick up where you left off. Nothing goes out without a person saying yes."}
+        </p>
+        <div className="rise mt-10" style={delay(550)}><ScanStory /></div>
       </div>
     </div>
   );
 }
 
-function Point({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+const SCAN: [string, string, string][] = [
+  ["Google", "#6 for your main search", "text-rose-300"],
+  ["AI assistants", "Not mentioned", "text-rose-300"],
+  ["Reviews", "12 vs 240", "text-amber-300"],
+  ["Your website", "6.8s to load", "text-amber-300"],
+];
+
+/** A website being checked: each check runs, then shows what it found; then the gaps, then it starts over. */
+function ScanStory() {
+  const [ref, step] = useStory([500, 1200, 1900, 2600, 3300], 4500);
+  const done = step >= SCAN.length;
   return (
-    <li className="flex items-start gap-3">
-      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/15">{icon}</span>
-      <span className="text-white/90">{children}</span>
-    </li>
+    <div ref={ref} className="w-[400px] max-w-full rounded-2xl bg-white/[0.07] p-5 ring-1 ring-inset ring-white/15 backdrop-blur-md">
+      <div className="flex items-center justify-between text-[13px]">
+        <span className="flex items-center gap-2 text-white/80"><Globe size={14} />yourcompany.com</span>
+        <span className={cx("flex items-center gap-1.5 font-medium transition-colors duration-300", done ? "text-lime-300" : "text-white/50")}>
+          {done ? <><Check size={13} strokeWidth={3} />Checked</> : <><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-lime-300" />Checking</>}
+        </span>
+      </div>
+      <div className="mt-4 space-y-1">
+        {SCAN.map(([check, found, tone], i) => {
+          const finished = step > i, running = step === i;
+          return (
+            <div key={check} className="flex items-center gap-3 rounded-lg px-2 py-2 text-[14px]">
+              <span className={cx("grid h-5 w-5 shrink-0 place-items-center rounded-full transition-colors duration-300",
+                finished ? "bg-lime-300 text-ink" : "ring-1 ring-inset ring-white/25")}>
+                {finished ? <Check size={11} strokeWidth={3.5} /> : running ? <span className="h-1.5 w-1.5 animate-ping rounded-full bg-lime-300" /> : null}
+              </span>
+              <span className={cx("flex-1 transition-colors duration-300", finished || running ? "text-white" : "text-white/45")}>{check}</span>
+              <span className={cx("font-semibold transition-all duration-500", tone, finished ? "translate-x-0 opacity-100" : "translate-x-2 opacity-0")}>{found}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className={cx("mt-3 flex items-center justify-between rounded-xl bg-lime-300 px-4 py-3 text-ink transition-all duration-500 ease-out",
+        step >= SCAN.length + 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0")}>
+        <span className="text-[15px] font-semibold">4 gaps worth fixing</span>
+        <span className="flex items-center gap-1 text-[13px] font-semibold">First fix from $30 <ArrowRight size={14} /></span>
+      </div>
+    </div>
   );
 }
 
