@@ -21,6 +21,10 @@ const PREF_WORDS: [keyof Prefs, string, string][] = [
 ];
 
 /**
+ * Not shown in the app for now (approvals go by email until WhatsApp is set up with Meta). To show it
+ * again, render <WhatsAppConnect /> at the top of the settings page and <WhatsAppNudge /> under the
+ * header of the approvals page.
+ *
  * Connect WhatsApp so approvals, heads-ups and questions come to your phone with everything
  * needed to decide. Connecting means sending our number a one-time code from your own phone:
  * that proves the number is yours and is how WhatsApp wants people to opt in.

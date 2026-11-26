@@ -9,6 +9,13 @@ Code: `backend/app/services/whatsapp.py` (messages, delivery, replies), `backend
 (settings and the webhook), `backend/app/services/decisions.py` (the same decision rules as the
 Needs you inbox).
 
+> **Not shown in the app for now.** Approvals go by email until a verified business is set up with
+> Meta. The code is all here; to turn it on, finish the setup below, then put `<WhatsAppConnect />` back
+> at the top of the settings page and `<WhatsAppNudge />` under the header of the approvals page
+> (both in `frontend/src/components/WhatsAppConnect.tsx`). Meta needs the business portfolio's legal
+> name, country and website, a payment method on the WhatsApp account, and business verification
+> before the number can send.
+
 ## What people get
 
 - **Approvals**: what the AI employee wants to do, with the exact post, email or article, why it's

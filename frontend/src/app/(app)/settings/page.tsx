@@ -6,7 +6,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { ListEditor } from "@/components/Guardrails";
 import { PersonAvatar } from "@/components/team";
-import { WhatsAppConnect } from "@/components/WhatsAppConnect";
 import { Badge, Button, Card, CardHeader, Dot, ErrorNote, Input, Select, PageHeader } from "@/components/ui";
 import { api, Exclusion, Grant, Level, McpServerInfo, OrgInfo, timeAgo, usd, useApi } from "@/lib/api";
 
@@ -24,7 +23,6 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <PageHeader title="Settings" subtitle="Your organization, people and permissions." />
-      <WhatsAppConnect />
       <Organization />
       <People />
       <Staffing />
