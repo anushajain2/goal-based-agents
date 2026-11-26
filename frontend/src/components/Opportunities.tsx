@@ -476,7 +476,7 @@ export function MissingSummary({ profile, goals }: { profile: CompanyProfile | n
   const open = found.filter((f) => f.goal_id && byId.get(f.goal_id)?.status === "draft");
   if (!open.length) return null;
   return (
-    <Link href="/setup#missing" className="group flex items-start gap-4 rounded-2xl border border-line bg-white p-4 shadow-[var(--shadow-card)] transition hover:border-stone-300">
+    <Link href="/capabilities#missing" className="group flex items-start gap-4 rounded-2xl border border-line bg-white p-4 shadow-[var(--shadow-card)] transition hover:border-stone-300">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100"><Search size={17} /></span>
       <span className="min-w-0 flex-1">
         <span className="block text-[14.5px] font-semibold">{open.length} thing{open.length === 1 ? "" : "s"} you&apos;re missing out on</span>
