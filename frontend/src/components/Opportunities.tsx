@@ -31,9 +31,10 @@ function factsOf(f: { points?: string[]; evidence: string }): string[] {
 const weeks = (w: number) => (w >= 8 && w % 4 === 0 ? `${w / 4} months` : `${w} week${w === 1 ? "" : "s"}`);
 
 /** "What you're missing out on": how customers find you, and gaps with the goals that fix them. */
-export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, canStart }: {
+export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, canStart, titled = true }: {
   profile: CompanyProfile | null | undefined; org: OrgInfo | null | undefined; goals: Campaign[] | null | undefined; orgName: string;
   onStart: (goals: Campaign[]) => void; onOpen: (goal: Campaign) => void; canStart: boolean;
+  titled?: boolean;  // false where the page title already says it (onboarding)
 }) {
   const found = profile?.opportunities;
   const has = !!found && (found.findings.length > 0 || (found.unlock || []).length > 0 || (found.scorecard || []).length > 0);
@@ -67,10 +68,12 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
   return (
     <section id="missing" className="scroll-mt-6 space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-bold"><Search size={18} className="text-brand-600" /> What you&apos;re missing out on</h2>
-          <p className="text-sm text-muted">What we found about {orgName}, with evidence. Each gap has a goal ready to turn on, and big ones come in steps with their price.</p>
-        </div>
+        {titled ? (
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-bold"><Search size={18} className="text-brand-600" /> What you&apos;re missing out on</h2>
+            <p className="text-sm text-muted">What we found about {orgName}, with evidence. Each gap has a goal ready to turn on, and big ones come in steps with their price.</p>
+          </div>
+        ) : <div />}
         {canStart && unique.length > 1 && (
           <button onClick={() => onStart(unique)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700">
             Start {unique.length} first steps <ArrowRight size={15} />

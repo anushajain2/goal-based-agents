@@ -1,17 +1,14 @@
 "use client";
 
-import { ArrowRight, Check, ChevronDown, CircleAlert, Loader2, Minus, RefreshCw, Rocket, Sparkles } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, CircleAlert, Loader2, Minus, RefreshCw, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CompanyProfileCard } from "@/components/CompanyProfile";
 import { Opportunities } from "@/components/Opportunities";
-import { ConnectChecklist } from "@/components/ConnectChecklist";
 import { GoalPanel } from "@/components/GoalPanel";
-import { OrgChart } from "@/components/OrgChart";
 import { StartGoal } from "@/components/StartGoal";
-import { TeamSize } from "@/components/TeamSize";
 import { AgentAvatar } from "@/components/team";
 import { Badge, Button, Card, cx, ErrorNote, Field, Input, Textarea } from "@/components/ui";
 import { api, Campaign, CompanyProfile, OrgInfo, SetupInfo, SetupStep, usd, useApi } from "@/lib/api";
@@ -62,19 +59,19 @@ export default function SetupPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">
-            {working ? (adding.length ? `Adding ${adding.join(", ")} to your team…` : `Getting to know ${name}…`) : status === "done" ? "Meet your AI team" : `Setting up ${name} didn't finish`}
+            {working ? (adding.length ? `Adding ${adding.join(", ")} to your team…` : `Getting to know ${name}…`) : status === "done" ? `What ${name} is missing out on` : `Setting up ${name} didn't finish`}
           </h1>
           <p className="text-sm text-muted">
             {working
               ? "This usually takes 1 to 3 minutes. You can leave this page: it keeps going and the results will be here."
               : status === "done"
-                ? `Built for ${name} from your website and public information. Nothing runs, and nothing is spent, until you start a goal.`
+                ? "Each one has a goal ready. Nothing runs or costs anything until you turn it on."
                 : "You can try again, or start with a basic team and set it up yourself."}
           </p>
         </div>
         {status === "done" && (
-          <Link href="/team?welcome=1" className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-line bg-white px-4 text-sm font-semibold hover:bg-stone-50">
-            Go to my team <ArrowRight size={15} />
+          <Link href="/home" className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-line bg-white px-4 text-sm font-semibold hover:bg-stone-50">
+            Continue <ArrowRight size={15} />
           </Link>
         )}
       </div>
@@ -177,52 +174,6 @@ function StepIcon({ status }: { status: SetupStep["status"] }) {
   return <span className={cx(base, "border-2 border-stone-200")} />;
 }
 
-/** The one big decision: start the whole AI team, with a small, capped first-week budget. */
-function TeamLaunch({ info, goals, org, onStart }: { info: SetupInfo; goals: Campaign[]; org: OrgInfo | null; onStart: (g: Campaign[]) => void }) {
-  const drafts = goals.filter((g) => g.status === "draft" && g.can_manage !== false);
-  const running = goals.filter((g) => g.status !== "draft");
-  const total = drafts.reduce((t, g) => t + g.budget.total, 0);
-  const agents = new Set(goals.map((g) => g.agent?.id)).size;
-  const starter = drafts.every((g) => g.budget_basis?.starter);
-  if (!goals.length) return null;
-  if (!drafts.length) {
-    return (
-      <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-stone-600 p-6 text-white">
-        <Rocket size={28} />
-        <div className="min-w-0 flex-1">
-          <div className="text-xl font-bold">Your AI team is at work</div>
-          <div className="text-sm text-white/85">{running.length} goals running. Anything that needs a yes will show up in Needs you.</div>
-        </div>
-        <Link href="/home" className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-white px-4 text-sm font-semibold text-emerald-700 hover:bg-white/90">See what they&apos;re doing <ArrowRight size={15} /></Link>
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-2xl bg-brand-600 p-6 text-white">
-      <div className="flex flex-wrap items-start gap-6">
-        <div className="min-w-0 flex-1">
-          <div className="text-2xl font-bold tracking-tight">Your AI team is ready</div>
-          <p className="mt-1 max-w-xl text-white/85">
-            {agents} AI employees with {drafts.length} goals, picked for where {info.org.name} is right now. Start them together and they begin
-            today: researching, drafting and reaching out. Nobody on your team needs to learn AI: they show their work and a person approves.
-          </p>
-          <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
-            <li className="rounded-lg bg-white/10 px-3 py-2"><b className="block text-lg">{usd(total)}</b>{starter ? "for the whole team's first week" : "in total"}</li>
-            <li className="rounded-lg bg-white/10 px-3 py-2"><b className="block text-lg">Hard limit</b>work pauses when it&apos;s used up</li>
-            <li className="rounded-lg bg-white/10 px-3 py-2"><b className="block text-lg">Your OK first</b>on every message, post, payment and merge</li>
-          </ul>
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto">
-          <button onClick={() => onStart(drafts)} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-6 text-[15px] font-bold text-brand-700 shadow-sm hover:bg-white/90">
-            <Rocket size={18} /> Start my AI team
-          </button>
-          <span className="text-center text-xs text-white/75">{running.length ? `${running.length} already running · ` : ""}or start goals one by one below</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const PRESET_LABEL: Record<string, string> = {
   finance: "Finance", hiring: "People & Hiring", it: "IT & Security", legal: "Legal & Compliance", operations: "Operations",
   success: "Customer Success", product: "Product", engineering: "Engineering", sales: "Sales", marketing: "Marketing",
@@ -265,25 +216,21 @@ function SuggestedTeam({ info, onAdding }: { info: SetupInfo; onAdding: () => vo
         </div>
       )}
 
+      {/* Onboarding stays on what we found and the fixes for it. The team, the org chart and
+          connecting tools live on their own pages (tools are also asked for when a goal is turned on). */}
       <Opportunities profile={info.org.profile} org={org} goals={goals} orgName={info.org.name} canStart={info.can_run}
-        onStart={setStarting} onOpen={setPanel} />
-      <TeamLaunch info={info} goals={mine} org={org} onStart={setStarting} />
-      <ConnectChecklist />
-
-      <section>
-        <h2 className="text-lg font-bold">Your team</h2>
-        <p className="mb-3 text-sm text-muted">
-          Each team has AI employees and an AI team lead that keeps reviewing how they do, the market and your numbers, and suggests
-          updated goals or new AI employees to take live. You approve every change; until you add people, everything comes to you.
-          Click any goal to see what it does; change the team whenever you like.
-        </p>
-        <div className="mb-3"><TeamSize profile={info.org.profile} canAdd={info.can_run && info.can_research} onAdding={onAdding} /></div>
-        {org && (
-          <div className="rounded-3xl border border-line bg-stone-50/60 bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] p-6 [background-size:18px_18px]">
-            <OrgChart org={org} goals={mine} onGoalClick={setPanel} onChanged={refresh} />
+        onStart={setStarting} onOpen={setPanel} titled={false} />
+      {!(info.org.profile?.opportunities?.findings || []).length && (
+        <Card className="flex flex-wrap items-center gap-3 p-5">
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold">{mine.length ? `${mine.length} goals are ready for ${info.org.name}` : "Your goals are ready"}</div>
+            <div className="text-sm text-muted">We didn&apos;t find specific gaps to show this time. Pick a goal to turn on.</div>
           </div>
-        )}
-      </section>
+          <Link href="/goals" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700">
+            See goals <ArrowRight size={15} />
+          </Link>
+        </Card>
+      )}
 
       {panel && <GoalPanel goal={panel} onClose={() => setPanel(null)} onStart={(g) => { setPanel(null); setStarting([g]); }} onRemoved={() => { setPanel(null); refresh(); }} />}
       {starting && <StartGoal goals={starting} onClose={() => setStarting(null)} onStarted={() => { setStarting(null); refresh(); }} />}
