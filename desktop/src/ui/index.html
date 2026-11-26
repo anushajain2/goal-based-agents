@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+  <title>Autopilot Helper</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="mark"><span class="ring"></span></span> Autopilot Helper</div>
+    <span id="pill" class="pill"></span>
+  </header>
+
+  <main id="unpaired" hidden>
+    <h1>Connect this computer</h1>
+    <p class="lead">Your AI employees use websites in a separate Chrome window here. Your own Chrome, passwords and files stay untouched.</p>
+    <div id="confirm" class="note" hidden>
+      <strong>Connect to Autopilot?</strong> You opened a pairing link.
+      <div class="row"><button id="confirm-yes" class="primary">Connect</button><button id="confirm-no">Cancel</button></div>
+    </div>
+    <form id="pair-form">
+      <label>Pairing link
+        <input id="key" placeholder="Paste the link from Autopilot" autocomplete="off" spellcheck="false" />
+      </label>
+      <label>Name for this computer
+        <input id="name" autocomplete="off" />
+      </label>
+      <button class="primary wide" type="submit" id="pair-btn">Connect</button>
+    </form>
+    <p class="hint">In Autopilot, open <b>Connections → Desktop helper → Connect a computer</b> to get a link.</p>
+  </main>
+
+  <main id="paired" hidden>
+    <section class="card">
+      <div class="big" id="headline"></div>
+      <div class="muted" id="sub"></div>
+    </section>
+
+    <section class="card row between">
+      <div>
+        <div class="title">Pause</div>
+        <div class="muted small">Website steps wait until you resume.</div>
+      </div>
+      <label class="switch"><input type="checkbox" id="pause" /><span></span></label>
+    </section>
+
+    <section class="card">
+      <div class="title">Sign in to a site</div>
+      <div class="muted small">Sign in once in the helper's Chrome window, and AI employees can use that site.</div>
+      <form id="signin-form" class="row">
+        <input id="site" placeholder="e.g. linkedin.com" autocomplete="off" spellcheck="false" />
+        <button type="submit">Open</button>
+      </form>
+      <div id="signing" class="note" hidden>
+        Sign in in the Chrome window that opened, then click Done.
+        <div class="row"><button id="signin-done" class="primary">Done signing in</button></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <ul class="facts">
+        <li>Anything that posts, sends or buys still waits for a yes in Autopilot.</li>
+        <li>If this computer is off, website steps wait and pick up when it's back.</li>
+      </ul>
+      <label class="check"><input type="checkbox" id="login" /> Start when I log in</label>
+    </section>
+
+    <footer class="row between">
+      <button id="open-app" class="link">Open Autopilot</button>
+      <button id="disconnect" class="link danger">Disconnect this computer</button>
+    </footer>
+  </main>
+
+  <div id="error" class="error" hidden></div>
+  <div class="version" id="version"></div>
+  <script src="app.js"></script>
+</body>
+</html>

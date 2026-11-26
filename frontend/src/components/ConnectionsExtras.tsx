@@ -1,12 +1,14 @@
 "use client";
 
-import { Chrome, ExternalLink, Globe, KeyRound, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Check, Chrome, Copy, Download, ExternalLink, Globe, KeyRound, Laptop, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Badge, Button, Card, CardHeader, Dot, ErrorNote, Input } from "@/components/ui";
 import { api, McpServerInfo, OrgInfo, timeAgo, useApi } from "@/lib/api";
 
-type Status = { agent_chrome?: boolean; chrome_path: string | null; agent_chrome_running: boolean; manual_signin_mode: boolean; composio_enabled: boolean };
+type HelperDevice = { id: string; name: string; platform: string | null; online: boolean; paused: boolean; last_seen_at: string | null };
+type Pairing = { code: string; key: string; link: string; expires_at: string; download_url: string };
+type Status = { agent_chrome?: boolean; helper?: { paired: number; online: boolean; device: HelperDevice | null; download_url: string } | null; chrome_path: string | null; agent_chrome_running: boolean; manual_signin_mode: boolean; composio_enabled: boolean };
 type Connections = { sites: { site: string; signed_in_at: string | null }[] };
 
 export function McpServers() {
@@ -115,16 +117,7 @@ export function AgentChrome() {
     }
   }
 
-  if (status && status.agent_chrome === false) {
-    return (
-      <Card>
-        <CardHeader
-          title={<span className="flex items-center gap-2"><Chrome size={16} /> Websites without an app connection</span>}
-          subtitle="Coming soon: a small desktop helper lets AI employees use sites you're signed in to, in a window on your laptop. Until then they work through connected apps and web research."
-        />
-      </Card>
-    );
-  }
+  if (status && status.agent_chrome === false) return <DesktopHelper downloadUrl={status.helper?.download_url} />;
 
   return (
     <Card>
@@ -174,6 +167,114 @@ export function AgentChrome() {
             ))}
           </ul>
         </div>
+        {error && <ErrorNote>{error}</ErrorNote>}
+      </div>
+    </Card>
+  );
+}
+
+/** Hosted Autopilot: AI employees use websites in a Chrome window on a computer you connect. */
+export function DesktopHelper({ downloadUrl }: { downloadUrl?: string }) {
+  const [pairing, setPairing] = useState<Pairing | null>(null);
+  const { data: devices, reload } = useApi<HelperDevice[]>("/api/helper/devices", { live: false, pollMs: pairing ? 2500 : 15000 });
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [site, setSite] = useState("");
+  const [opened, setOpened] = useState<string | null>(null);
+  const online = (devices || []).find((d) => d.online);
+
+  useEffect(() => {
+    if (pairing && online) setPairing(null); // the new computer connected
+  }, [pairing, online]);
+
+  async function connect() {
+    setError(null);
+    try { setPairing(await api<Pairing>("/api/helper/pairings", { method: "POST" })); } catch (e) { setError((e as Error).message); }
+  }
+  async function remove(d: HelperDevice) {
+    if (!confirm(`Disconnect ${d.name}? Website steps won't run there anymore.`)) return;
+    try { await api(`/api/helper/devices/${d.id}`, { method: "DELETE" }); reload(); } catch (e) { setError((e as Error).message); }
+  }
+  async function openSite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!site.trim()) return;
+    setError(null);
+    try {
+      const r = await api<{ where: string }>("/api/browser/open", { method: "POST", json: { url: site.trim() } });
+      setOpened(r.where);
+    } catch (err) { setError((err as Error).message); }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title={<span className="flex items-center gap-2"><Laptop size={16} /> Desktop helper</span>}
+        subtitle="Lets AI employees use websites in a separate Chrome window on your computer. Your own browser and passwords stay untouched."
+      />
+      <div className="space-y-4 p-4 text-sm">
+        {(devices || []).length > 0 && (
+          <ul className="divide-y divide-line rounded-lg border border-line">
+            {(devices || []).map((d) => (
+              <li key={d.id} className="flex items-center gap-3 px-3 py-2.5">
+                <Dot tone={d.online ? "green" : d.paused ? "amber" : "gray"} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{d.name}</span>
+                  <span className="block text-xs text-muted">
+                    {d.online ? "Online, ready for website steps" : d.paused ? "Paused" : d.last_seen_at ? `Offline · last seen ${timeAgo(d.last_seen_at)}` : "Not connected yet"}
+                  </span>
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => remove(d)} title="Disconnect this computer"><Trash2 size={14} /></Button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {!pairing && (devices || []).length === 0 && (
+          <ol className="grid gap-3 sm:grid-cols-2">
+            <li className="rounded-lg bg-canvas p-3">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Step 1</div>
+              <div className="mb-2 font-medium">Install the helper</div>
+              <a href={downloadUrl || "#"} target="_blank" rel="noreferrer"><Button size="sm"><Download size={14} /> Download</Button></a>
+            </li>
+            <li className="rounded-lg bg-canvas p-3">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Step 2</div>
+              <div className="mb-2 font-medium">Connect it to Autopilot</div>
+              <Button size="sm" variant="primary" onClick={connect}><Plus size={14} /> Connect a computer</Button>
+            </li>
+          </ol>
+        )}
+
+        {pairing && (
+          <div className="rounded-lg border border-brand-100 bg-brand-50 p-3">
+            <div className="mb-2 font-medium">Connect a computer</div>
+            <div className="mb-3 flex flex-wrap gap-2">
+              <a href={pairing.link}><Button size="sm" variant="primary"><ExternalLink size={14} /> Open in the helper</Button></a>
+              <Button size="sm" onClick={async () => { await navigator.clipboard.writeText(pairing.key); setCopied(true); }}>
+                {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copied" : "Copy pairing link"}
+              </Button>
+              <a href={pairing.download_url} target="_blank" rel="noreferrer"><Button size="sm" variant="ghost"><Download size={14} /> Download the helper</Button></a>
+            </div>
+            <p className="text-xs text-muted">
+              No helper yet? Download it, open it, and paste the pairing link. The link works once, for 10 minutes. This
+              page updates as soon as the computer connects.
+            </p>
+          </div>
+        )}
+
+        {!pairing && (devices || []).length > 0 && (
+          <Button size="sm" variant="ghost" onClick={connect}><Plus size={14} /> Connect another computer</Button>
+        )}
+
+        {online && (
+          <div>
+            <div className="mb-1.5 text-[13px] font-semibold">Sign in to a site ahead of time</div>
+            <form className="flex flex-wrap gap-2" onSubmit={openSite}>
+              <Input className="min-w-60 flex-1" value={site} onChange={(e) => setSite(e.target.value)} placeholder="e.g. linkedin.com" />
+              <Button type="submit"><ExternalLink size={14} /> Open on {online.name}</Button>
+            </form>
+            {opened && <p className="mt-1.5 text-xs text-muted">Opened in the helper&apos;s Chrome window on {opened}. Sign in there; AI employees can then use the site.</p>}
+          </div>
+        )}
         {error && <ErrorNote>{error}</ErrorNote>}
       </div>
     </Card>

@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +15,9 @@ from app.browser import chrome
 from app.config import get_settings
 from app.connectors.composio_hub import hub_for_org
 from app.db import get_session
-from app.models import Campaign, RequestKind, RequestStatus, SiteSignIn, UserRequest
+from app.api.helper import send_to_helper
+from app.models import Campaign, RequestKind, RequestStatus, Screenshot, SiteSignIn, UserRequest
+from app.services import helpers
 from app.org import Member, current_member
 
 # Everything here needs a signed-in member of an organization. App connections are shared by the
@@ -37,6 +39,7 @@ async def status(s: AsyncSession = Depends(get_session), me: Member = Depends(cu
         "composio_source": hub.source,  # "platform", "org" (its own key) or None
         "github_sign_in": bool(settings.github_client_id and settings.github_client_secret),
         "agent_chrome": settings.agent_chrome_enabled,
+        "helper": await _helper_status(s, me.org_id) if not settings.agent_chrome_enabled else None,
         "chrome_path": chrome.find_chrome() if settings.agent_chrome_enabled else None,
         "agent_chrome_running": await chrome.cdp_ready() if settings.agent_chrome_enabled else False,
         "manual_signin_mode": chrome.manual_mode_active() if settings.agent_chrome_enabled else False,
@@ -163,19 +166,24 @@ async def overview(s: AsyncSession = Depends(get_session), me: Member = Depends(
     }
 
 
-NO_BROWSER = ("Signing in to websites needs the Autopilot desktop helper, which isn't available in this "
-              "workspace yet. Connect the app instead where you can.")
+async def _helper_status(s: AsyncSession, org_id: str) -> dict:
+    devices = await helpers.devices(s, org_id)
+    online = next((d for d in devices if helpers.is_online(d)), None)
+    return {"paired": len(devices), "online": bool(online), "device": (online or (devices[0] if devices else None)) and
+            helpers.device_json(online or devices[0]), "download_url": get_settings().helper_download_url}
 
 
-def _need_browser() -> None:
-    if not get_settings().agent_chrome_enabled:
-        raise HTTPException(409, NO_BROWSER)
+def _url(raw: str) -> str:
+    return raw if "://" in raw else "https://" + raw
 
 
 @router.post("/browser/open")
-async def browser_open(body: UrlIn):
-    """Open a page in Agent Chrome (e.g. to sign in to a site ahead of time)."""
-    _need_browser()
+async def browser_open(body: UrlIn, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    """Open a page in Agent Chrome (e.g. to sign in to a site ahead of time). Hosted: in the
+    Chrome window of the organization's desktop helper."""
+    if not get_settings().agent_chrome_enabled:
+        device = await send_to_helper(s, me.org_id, {"t": "open_url", "url": _url(body.url)})
+        return {"ok": True, "where": device.name}
     try:
         await chrome.ensure_agent_chrome()
     except chrome.ChromeUnavailable as e:
@@ -187,9 +195,11 @@ async def browser_open(body: UrlIn):
 
 
 @router.post("/browser/manual-signin")
-async def manual_signin(body: UrlIn):
+async def manual_signin(body: UrlIn, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
     """For sites that refuse sign-ins in a remote-controlled browser (e.g. Google)."""
-    _need_browser()
+    if not get_settings().agent_chrome_enabled:
+        device = await send_to_helper(s, me.org_id, {"t": "manual_signin", "url": _url(body.url)})
+        return {"ok": True, "where": device.name}
     url = body.url if "://" in body.url else "https://" + body.url
     try:
         await chrome.start_manual_signin(url)
@@ -199,17 +209,22 @@ async def manual_signin(body: UrlIn):
 
 
 @router.post("/browser/manual-signin/done")
-async def manual_signin_done():
-    _need_browser()
+async def manual_signin_done(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    if not get_settings().agent_chrome_enabled:
+        await send_to_helper(s, me.org_id, {"t": "manual_done"})
+        return {"ok": True}
     await chrome.finish_manual_signin()
     return {"ok": True}
 
 
 @router.get("/screenshots/{name}")
-async def screenshot(name: str):
+async def screenshot(name: str, s: AsyncSession = Depends(get_session)):
     if "/" in name or ".." in name:
         raise HTTPException(400, "Bad name")
-    path = get_settings().screenshots_dir / name
+    shot = await s.get(Screenshot, name)
+    if shot:
+        return Response(shot.data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
+    path = get_settings().screenshots_dir / name  # taken before screenshots moved to the database
     if not path.exists():
         raise HTTPException(404, "Not found")
     return FileResponse(path)

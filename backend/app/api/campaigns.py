@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.serializers import activity_json, campaign_json
+from app.api.serializers import waiting_for, activity_json, campaign_json
 from app.db import get_session
 from app.models import (
     Activity,
@@ -335,6 +335,7 @@ async def campaign_sessions(campaign_id: str, s: AsyncSession = Depends(get_sess
     return [
         {
             "id": r.id, "number": r.cycle_number, "status": r.status, "summary": r.summary, "error": r.error,
+            "waiting_for": waiting_for(r),
             "started_at": r.created_at.isoformat(), "updated_at": r.updated_at.isoformat(),
             "cost_usd": float(costs.get(r.id, 0) or 0), "ai_calls": r.model_calls,
             "counts": counts.get(r.id, {}),

@@ -18,6 +18,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -196,6 +197,50 @@ class SiteSignIn(Base):
     site: Mapped[str] = mapped_column(String(200))
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     signed_in_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class HelperDevice(Base):
+    """A computer running the Autopilot desktop helper: AI employees use websites in a separate
+    Chrome window on it. It connects out to the API with its own token (stored hashed)."""
+
+    __tablename__ = "helper_devices"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    name: Mapped[str] = mapped_column(String(120))
+    platform: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    app_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    paused: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    last_seen_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class HelperPairing(Base):
+    """A short-lived code shown in the app to connect a new computer (single use)."""
+
+    __tablename__ = "helper_pairings"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class Screenshot(Base):
+    """Screenshots for approval previews and the work log, kept in the database so any server can
+    show them (the worker that takes them and the API that serves them may be different machines)."""
+
+    __tablename__ = "screenshots"
+
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
 
 
 class Membership(Base):

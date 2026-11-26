@@ -1,0 +1,40 @@
+{
+  "name": "autopilot-helper",
+  "productName": "Autopilot Helper",
+  "version": "0.1.0",
+  "description": "Lets your Autopilot AI employees use websites in a separate Chrome window on this computer.",
+  "main": "src/main.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "Autopilot",
+  "scripts": {
+    "start": "electron .",
+    "helper": "node src/cli.js",
+    "test": "node --test --test-timeout=20000 test/*.test.js",
+    "dist": "electron-builder --publish never"
+  },
+  "dependencies": {
+    "ws": "8.18.3"
+  },
+  "devDependencies": {
+    "electron": "38.8.6",
+    "electron-builder": "26.0.20"
+  },
+  "build": {
+    "appId": "com.autopilot.helper",
+    "productName": "Autopilot Helper",
+    "files": ["src/**/*", "assets/**/*", "package.json"],
+    "directories": { "output": "dist", "buildResources": "assets" },
+    "protocols": [{ "name": "Autopilot", "schemes": ["autopilot"] }],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
+      "icon": "assets/icon.png",
+      "extendInfo": { "LSUIElement": false }
+    },
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "assets/icon.png" },
+    "nsis": { "oneClick": true, "perMachine": false },
+    "linux": { "target": ["AppImage"], "category": "Utility", "icon": "assets/icon.png" },
+    "artifactName": "Autopilot-Helper-${version}-${os}-${arch}.${ext}"
+  }
+}

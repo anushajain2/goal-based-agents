@@ -29,7 +29,7 @@ from app.config import get_settings
 from app.db import session_scope
 from app.observability import check_and_init
 from app.models import AgentRun, Campaign, CampaignStatus, LeadReview, OrgSetup, RunStatus, utcnow
-from app.services import activity, targets
+from app.services import activity, helpers, targets
 from app.services.events import notify
 
 log = logging.getLogger("autopilot.worker")
@@ -122,6 +122,28 @@ async def recover_stale_runs() -> None:
             .where(and_(AgentRun.status == RunStatus.running.value, AgentRun.locked_at < utcnow() - STALE_AFTER))
             .values(status=RunStatus.queued.value, locked_by=None)
         )
+
+
+async def wake_helper_runs() -> int:
+    """Sessions parked on a website step go back in the queue once their computer is online."""
+    woken = 0
+    async with session_scope() as s:
+        rows = (await s.execute(
+            select(AgentRun, Campaign.org_id).join(Campaign, Campaign.id == AgentRun.campaign_id)
+            .where(AgentRun.status == RunStatus.waiting.value)
+        )).all()
+        online: dict[str, bool] = {}
+        for run, org_id in rows:
+            waits = (run.pending or {}).get("waiting") or {}
+            if not any((w.get("stored") or {}).get("kind") == "helper" for w in waits.values()):
+                continue
+            if org_id not in online:
+                online[org_id] = bool(await helpers.online_device(s, org_id))
+            if online[org_id]:
+                run.status = RunStatus.queued.value
+                woken += 1
+                await notify(s, run.campaign_id, "run")
+    return woken
 
 
 async def claim_setup(worker_id: str) -> str | None:
@@ -263,6 +285,8 @@ async def main() -> None:
             await recover_stale_runs()
             await recover_stale_setups()
             await schedule_due_cycles()
+            if not settings.agent_chrome_enabled:
+                await wake_helper_runs()
             if not last_rollover or utcnow() - last_rollover > timedelta(minutes=1):
                 last_rollover = utcnow()
                 await roll_over_targets()

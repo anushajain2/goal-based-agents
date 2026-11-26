@@ -10,6 +10,7 @@ import {
   Globe,
   Hand,
   Keyboard,
+  Laptop,
   Lightbulb,
   ListChecks,
   MessageCircle,
@@ -63,6 +64,8 @@ function metaFor(a: ActivityItem): Meta {
       return { icon: <Wallet size={s} />, tone: "bg-red-50 text-red-600", label: "Budget" };
     case "error":
       return { icon: <AlertTriangle size={s} />, tone: "bg-red-50 text-red-600", label: "Problem" };
+    case "computer":
+      return { icon: <Laptop size={s} />, tone: "bg-stone-100 text-stone-600", label: "Waiting for your computer" };
     case "cycle":
       return a.title.startsWith("Session")
         ? { icon: <Flag size={s} />, tone: "bg-stone-100 text-stone-600", label: "Session done" }
@@ -262,7 +265,9 @@ export function WorkLog({
 
 function SessionBlock({ session, items, view, showGoal }: { session: Session; items: ActivityItem[]; view: "highlights" | "everything"; showGoal?: boolean }) {
   const [showSteps, setShowSteps] = useState(false);
-  const st = SESSION_STATUS[session.status] || { label: session.status, tone: "gray" as const };
+  const st = session.waiting_for === "computer"
+    ? { label: "Waiting for your computer", tone: "gray" as const }
+    : SESSION_STATUS[session.status] || { label: session.status, tone: "gray" as const };
   const all = items.filter((a) => a.kind !== "cycle");
   const plan = all.find((a) => a.kind === "plan");
   const latestUpdate = all.find((a) => a.kind === "update");

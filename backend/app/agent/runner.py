@@ -20,6 +20,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.agent import approach as goal_approach
 from app.agent import prompts
 from app.agent.executor import Outcome, Pending, ToolExecutor
+from app.services import helpers as helper_service
 from app.agent.llm import MeteredClaude
 from app.agent.planner import make_plan
 from app.agent.tools import MAX_WEB_SEARCHES_PER_CALL, all_tools
@@ -168,9 +169,9 @@ class CycleRunner:
             await self._save(run_id, messages=messages, uses_apps=uses_apps, uses_mcp=uses_mcp, tool_sets=tool_sets,
                              guardrail_version_seen=seen_version)
 
-        browser = self.settings.agent_chrome_enabled
-        tools = all_tools(uses_apps, uses_mcp, tool_sets, browser=browser)
-        system = prompts.SYSTEM_PROMPT if browser else prompts.SYSTEM_PROMPT + prompts.NO_BROWSER
+        browser = await self._browser_mode(owner_id)
+        tools = all_tools(uses_apps, uses_mcp, tool_sets, browser=browser != "none")
+        system = prompts.SYSTEM_PROMPT + {"local": "", "helper": prompts.HELPER_BROWSER, "none": prompts.NO_BROWSER}[browser]
 
         while True:
             async with session_scope() as s:
@@ -315,9 +316,32 @@ class CycleRunner:
                     cost_usd=cost if i == 0 else None,
                 )
 
+    async def _browser_mode(self, org_id: str | None) -> str:
+        """"local" (Agent Chrome on this computer), "helper" (a paired desktop helper) or "none"."""
+        if self.settings.agent_chrome_enabled:
+            return "local"
+        async with session_scope() as s:
+            return "helper" if org_id and await helper_service.devices(s, org_id) else "none"
+
     async def _resolve_pending(self, run_id: str, executor: ToolExecutor, pending: dict) -> bool:
         """Finish parked calls the user has decided on. True when nothing is left waiting."""
         for tool_use_id, item in list(pending["waiting"].items()):
+            stored = item.get("stored") or {}
+            if stored.get("kind") == "helper":
+                # A website step that waited for the desktop helper: run it now if the computer is back.
+                async with session_scope() as s:
+                    back = await helper_service.online_device(s, executor.owner_id) if executor.owner_id else None
+                if not back:
+                    continue
+                outcome = await executor.call(stored["tool"], stored.get("input") or {}, tool_use_id)
+                if isinstance(outcome, Pending):  # it needs a person now, or the computer dropped again
+                    pending["waiting"][tool_use_id] = {"request_id": outcome.request_id, "stored": outcome.stored}
+                    await self._save(run_id, pending=pending)
+                    continue
+                pending["results"][tool_use_id] = _outcome_dict(outcome)
+                del pending["waiting"][tool_use_id]
+                await self._save(run_id, pending=pending)
+                continue
             async with session_scope() as s:
                 request = await s.get(UserRequest, item["request_id"])
             if request is None:
@@ -483,9 +507,10 @@ class CycleRunner:
 
 
 async def executor_cleanup(run_id: str) -> None:
-    from app.browser.controller import get_controller
+    from app.browser.controller import all_controllers
 
-    try:
-        await get_controller().close_run(run_id)
-    except Exception:  # noqa: BLE001
-        pass
+    for ctrl in all_controllers():
+        try:
+            await ctrl.close_run(run_id)
+        except Exception:  # noqa: BLE001
+            pass

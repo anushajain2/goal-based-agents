@@ -117,15 +117,33 @@ low spend limit.
 
 ## What's different from running it on your computer
 
-- **No Agent Chrome.** A server has no screen and nobody to sign in to sites, so `AGENT_CHROME=false`.
-  AI employees work through connected apps (Composio, MCP, GitHub, databases) and web research.
-  A step that needs a website with no connector is asked about or left for the desktop helper. The
-  Connections page says so.
+- **Websites run on your computer.** A server has no screen and nobody to sign in to sites, so
+  `AGENT_CHROME=false`. Instead, install the desktop helper (below): AI employees then use websites in
+  a separate Chrome window on a computer you connect. Without a connected computer, they work through
+  connected apps (Composio, MCP, GitHub, databases) and web research.
 - **Private network MCP servers are blocked** (`ALLOW_PRIVATE_MCP=false`), so nobody can point Autopilot at
   Render's internal machines.
 - **Production checks.** With `ENVIRONMENT=production`, the API and worker refuse to start without a
   `SECRET_KEY`, a Postgres `DATABASE_URL` and an `https://` `FRONTEND_ORIGIN`. Missing email or Claude
   keys are logged as warnings.
+
+## The desktop helper
+
+The helper app connects your laptop to `autopilot-api` (directly, over a secure WebSocket). The
+worker reaches it through the API on the private network (`API_INTERNAL_HOSTPORT` in render.yaml).
+Keep `autopilot-api` at **one instance**, because helper connections live in its memory.
+
+1. **Publish installers once.** Push a tag, and GitHub Actions builds Mac, Windows and Linux installers
+   into a GitHub release:
+   `git tag helper-v0.1.0 && git push origin helper-v0.1.0`
+   The app's **Download** button points to the latest release (`HELPER_DOWNLOAD_URL` changes it).
+2. **Connect a computer.** In the app, go to **Connections → Desktop helper → Connect a computer**,
+   then click **Open in the helper** (or paste the pairing link into the helper).
+3. **Sign in to sites** from that card or from the helper window. Sign-ins stay in the helper's own
+   Chrome profile on that computer.
+
+If the computer is off or paused, website steps wait ("Waiting for your computer") and continue
+when it's back. Details are in [desktop/README.md](../desktop/README.md).
 
 ## Trying the production image locally
 

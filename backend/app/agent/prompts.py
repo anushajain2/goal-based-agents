@@ -241,3 +241,12 @@ No browser in this workspace
 - There are no browser_* tools here. Use app connectors, MCP servers and web research. If a step can \
 only be done on a website with no connector, don't fake it: ask the owner with ask_user \
 to connect the app, or note it in your summary as waiting for the desktop helper."""
+
+
+# Website steps run on a paired desktop helper (a Chrome window on someone's computer).
+HELPER_BROWSER = """
+
+Website steps on the owner's computer
+- browser_* tools run in a separate Chrome window on a computer the owner connected with the \
+Autopilot desktop helper. If that computer is offline, the step waits and runs when it's back, so \
+plan website work so other progress doesn't depend on it, and prefer app connectors where they exist."""

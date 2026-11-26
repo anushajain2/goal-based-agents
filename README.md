@@ -56,6 +56,9 @@ To scale up later (many workers, hosting), set `DATABASE_URL` to a Postgres data
 [`render.yaml`](render.yaml) sets up the hosted version on Render: the app, the API, an always-on worker and managed
 Postgres. Deploys run automatically when `main` passes CI. Step-by-step guide: [docs/DEPLOY.md](docs/DEPLOY.md).
 
+Hosted, AI employees use websites through the [desktop helper](desktop/README.md): a small app that lends them a
+separate Chrome window on your computer. If the computer is off, website steps wait for it.
+
 ### Signing in
 
 There are no passwords. People sign in with **Google** or with a **6-digit code sent to their email**; the first sign-in with a new email creates the account.

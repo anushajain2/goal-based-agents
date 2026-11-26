@@ -34,6 +34,18 @@ class Settings(BaseSettings):
     agent_chrome: bool | None = None  # None = on in development, off in production
     sentry_dsn: str | None = None  # optional error reporting
 
+    # --- Desktop helper -------------------------------------------------------------
+    # The helper app connects out to the API's public address (WebSockets don't go through the
+    # Next.js proxy). On Render, RENDER_EXTERNAL_URL is set on the API automatically.
+    public_api_url: str | None = None
+    render_external_url: str | None = None
+    # How the worker reaches the API over the private network to borrow a helper's browser.
+    api_internal_url: str | None = None
+    api_internal_hostport: str | None = None  # render.yaml fills this from autopilot-api
+    helper_download_url: str = "https://github.com/anushajain2/goal-based-agents/releases/latest"
+    # Helpers seen within this many seconds count as online.
+    helper_online_seconds: int = 90
+
     # --- Claude -------------------------------------------------------------
     anthropic_api_key: str | None = None
     # Each job gets the cheapest model that does it well:
@@ -121,6 +133,22 @@ class Settings(BaseSettings):
     @property
     def production(self) -> bool:
         return self.environment.lower() in ("production", "prod", "staging")
+
+    @property
+    def helper_server_url(self) -> str:
+        """The address a desktop helper connects to."""
+        url = self.public_api_url or self.render_external_url
+        if url:
+            return url.rstrip("/")
+        return "http://localhost:8000" if not self.production else self.frontend_origin.rstrip("/")
+
+    @property
+    def internal_api_url(self) -> str:
+        if self.api_internal_url:
+            return self.api_internal_url.rstrip("/")
+        if self.api_internal_hostport:
+            return f"http://{self.api_internal_hostport}"
+        return "http://127.0.0.1:8000"
 
     @property
     def agent_chrome_enabled(self) -> bool:

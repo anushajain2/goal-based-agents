@@ -22,7 +22,7 @@ from sqlalchemy import select
 from app.agent import quality
 from app.agent.llm import MeteredClaude
 from app.browser import chrome
-from app.browser.controller import BrowserError, get_controller, is_commit
+from app.browser.controller import BrowserError, BrowserForOrg, HelperOffline, is_commit
 from app.connectors.composio_hub import ComposioHub, hub_for_org
 from app.connectors.database import QueryError, run_read_only
 from app.connectors.github import GitHub, GitHubError
@@ -66,7 +66,7 @@ class Outcome:
 
 @dataclass
 class Pending:
-    request_id: str
+    request_id: str | None
     stored: dict = field(default_factory=dict)  # what to do once the user decides
 
 
@@ -81,7 +81,7 @@ class ToolExecutor:
         self.campaign_id = campaign_id
         self.run_id = run_id
         self.owner_id = owner_id
-        self.browser = get_controller()
+        self.browser = BrowserForOrg(owner_id)
         self._hub: ComposioHub | None = None
         self._quality_tries: dict[str, int] = {}  # drafts sent back for a rewrite this session
         self.sources_read: set[str] = set()  # apps, servers and data this session read (for measured metrics)
@@ -106,6 +106,15 @@ class ToolExecutor:
         except chrome.ChromeUnavailable as e:
             await self._log("error", f"Agent Chrome unavailable: {e}", status="failed", channel="browser")
             return Outcome(f"Agent Chrome is unavailable: {e}", is_error=True)
+        except HelperOffline as e:
+            if not e.paired:
+                return Outcome("No computer is connected for website steps here. Use app connectors or web research, "
+                               "or ask the owner (ask_user) to install the Autopilot desktop helper from the "
+                               "Connections page.", is_error=True)
+            # The step waits for the computer and runs as soon as it's back (see runner._resolve_pending).
+            await self._log("computer", "Waiting for your computer: this website step runs when the desktop "
+                            "helper is back online", status="info", channel="browser", details={"tool": name})
+            return Pending(None, {"kind": "helper", "tool": name, "input": tool_input or {}})
         except ledger.BudgetExceeded as e:
             await self._log("budget", f"Blocked by budget: {e}", status="blocked")
             return Outcome(f"Not enough budget for this: {e}", is_error=True)

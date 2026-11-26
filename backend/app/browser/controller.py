@@ -18,6 +18,7 @@ import base64
 import logging
 import re
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from playwright.async_api import Browser, Page, Playwright, async_playwright
@@ -109,10 +110,28 @@ def is_commit(info: dict) -> bool:
     return bool(COMMIT_WORDS.search(info.get("name") or ""))
 
 
-class BrowserController:
-    """One per process. Each agent run gets its own tab, keyed by run id."""
+class HelperOffline(Exception):
+    """Website steps need the organization's desktop helper, and it isn't online right now."""
 
-    def __init__(self) -> None:
+    def __init__(self, paired: bool, message: str = "") -> None:
+        self.paired = paired
+        super().__init__(message or ("The desktop helper is offline." if paired else
+                                     "No computer is connected for website steps."))
+
+
+async def _local_endpoint() -> tuple[str, dict]:
+    return await chrome.ensure_agent_chrome(), {}
+
+
+class BrowserController:
+    """One Chrome. Each agent run gets its own tab, keyed by run id.
+
+    `endpoint` says how to reach Chrome: the local Agent Chrome (default), or a desktop
+    helper's Chrome through the API's relay.
+    """
+
+    def __init__(self, endpoint: Callable[[], Awaitable[tuple[str, dict]]] = _local_endpoint) -> None:
+        self._endpoint = endpoint
         self._pw: Playwright | None = None
         self._browser: Browser | None = None
         self._pages: dict[str, Page] = {}
@@ -122,12 +141,21 @@ class BrowserController:
         async with self._lock:
             if self._browser and self._browser.is_connected():
                 return self._browser
-            url = await chrome.ensure_agent_chrome()
+            url, headers = await self._endpoint()
             if self._pw is None:
                 self._pw = await async_playwright().start()
-            self._browser = await self._pw.chromium.connect_over_cdp(url)
+            self._browser = await self._pw.chromium.connect_over_cdp(url, headers=headers or None, timeout=30000)
             self._pages = {}
             return self._browser
+
+    async def disconnect(self) -> None:
+        browser, self._browser = self._browser, None
+        self._pages = {}
+        if browser:
+            try:
+                await browser.close()  # over CDP this only drops the connection; Chrome stays open
+            except Exception:  # noqa: BLE001
+                pass
 
     async def page(self, run_id: str) -> Page:
         page = self._pages.get(run_id)
@@ -165,12 +193,15 @@ class BrowserController:
         )
 
     async def screenshot(self, run_id: str) -> tuple[str, str]:
-        """Returns (file name, base64 JPEG). Saved under data/screenshots for previews."""
+        """Returns (name, base64 JPEG). Kept in the database for previews and the work log."""
+        from app.db import session_scope
+        from app.models import Screenshot
+
         page = await self.page(run_id)
-        shots = get_settings().screenshots_dir
-        shots.mkdir(parents=True, exist_ok=True)
         name = f"{uuid.uuid4().hex}.jpg"
-        data = await page.screenshot(type="jpeg", quality=60, path=str(shots / name))
+        data = await page.screenshot(type="jpeg", quality=60)
+        async with session_scope() as s:
+            s.add(Screenshot(name=name, data=data))
         return name, base64.standard_b64encode(data).decode()
 
     # --- acting ----------------------------------------------------------------------
@@ -240,10 +271,68 @@ class BrowserController:
 
 
 _controller: BrowserController | None = None
+_helper_controllers: dict[str, BrowserController] = {}
 
 
 def get_controller() -> BrowserController:
+    """The local Agent Chrome (running Autopilot on your own computer)."""
     global _controller
     if _controller is None:
         _controller = BrowserController()
     return _controller
+
+
+def helper_controller(device_id: str) -> BrowserController:
+    """A desktop helper's Chrome, reached through the API's private relay."""
+    ctrl = _helper_controllers.get(device_id)
+    if ctrl is None:
+        async def endpoint() -> tuple[str, dict]:
+            from app.services.helpers import relay_key
+
+            base = get_settings().internal_api_url.replace("https://", "wss://").replace("http://", "ws://")
+            return f"{base}/api/helper/relay/{device_id}", {"x-relay-key": relay_key()}
+
+        ctrl = _helper_controllers[device_id] = BrowserController(endpoint)
+    return ctrl
+
+
+def all_controllers() -> list[BrowserController]:
+    return ([_controller] if _controller else []) + list(_helper_controllers.values())
+
+
+async def controller_for(org_id: str | None) -> BrowserController:
+    """Where this organization's website steps run: the local Agent Chrome when it's on (your own
+    computer), otherwise the organization's online desktop helper."""
+    if get_settings().agent_chrome_enabled:
+        return get_controller()
+    from app.db import session_scope
+    from app.services import helpers
+
+    async with session_scope() as s:
+        device = await helpers.online_device(s, org_id) if org_id else None
+        paired = bool(device) or bool(org_id and await helpers.devices(s, org_id))
+    if not device:
+        raise HelperOffline(paired)
+    return helper_controller(device.id)
+
+
+class BrowserForOrg:
+    """The browser API the executor uses; picks the right Chrome on every call. If a helper's
+    connection drops mid-step, the step fails like any browser error and the next call reconnects."""
+
+    def __init__(self, org_id: str | None) -> None:
+        self.org_id = org_id
+
+    def __getattr__(self, name: str):
+        async def call(*args, **kwargs):
+            ctrl = await controller_for(self.org_id)
+            try:
+                return await getattr(ctrl, name)(*args, **kwargs)
+            except BrowserError:
+                raise
+            except Exception as e:
+                if ctrl is not _controller and not (ctrl._browser and ctrl._browser.is_connected()):
+                    await ctrl.disconnect()
+                    raise HelperOffline(True, f"Lost the connection to the desktop helper ({type(e).__name__}).") from e
+                raise
+        return call

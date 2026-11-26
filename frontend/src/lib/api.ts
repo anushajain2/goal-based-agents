@@ -56,7 +56,7 @@ export type Campaign = {
   daily_cap: number | null;
   budget_total: number;
   cycle_hours: number;
-  current_run: { id: string; status: string; cycle_number: number; summary: string | null; error: string | null } | null;
+  current_run: { id: string; status: string; cycle_number: number; summary: string | null; error: string | null; waiting_for?: "computer" | "people" | null } | null;
   created_at: string;
   context?: string;
   strategy?: string;
@@ -154,6 +154,7 @@ export type Session = {
   id: string;
   number: number;
   status: string;
+  waiting_for?: "computer" | "people" | null;
   summary: string | null;
   error: string | null;
   started_at: string;

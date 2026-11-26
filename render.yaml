@@ -3,7 +3,8 @@
 #   for the values marked `sync: false` (they're never stored in git). See docs/DEPLOY.md.
 #
 #   autopilot-web     Next.js app people open (app.yourdomain.com). Calls the API privately.
-#   autopilot-api     FastAPI backend. Runs database migrations before each deploy.
+#   autopilot-api     FastAPI backend. Runs database migrations before each deploy. Desktop helpers
+#                     connect to it (keep it at 1 instance: helper connections live in its memory).
 #   autopilot-worker  Runs the AI employees, setups and team-lead reviews, around the clock.
 #   autopilot-db      Managed Postgres (daily backups; reachable only from these services).
 #
@@ -113,6 +114,12 @@ services:
         value: "45"
       - key: AUTOPILOT_MAX_CONCURRENT_RUNS
         value: "3"
+      # The API's private address: website steps reach a desktop helper through it.
+      - key: API_INTERNAL_HOSTPORT
+        fromService:
+          type: web
+          name: autopilot-api
+          property: hostport
       - fromGroup: autopilot-backend
 
   - type: web

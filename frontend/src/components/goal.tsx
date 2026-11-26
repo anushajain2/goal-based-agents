@@ -16,6 +16,8 @@ export const GOAL_STATUS: Record<string, { label: string; tone: Tone }> = {
 export function goalActivity(c: Campaign): { label: string; tone: Tone; live: boolean } {
   const run = c.current_run;
   if (c.status === "active" && run && ["queued", "running"].includes(run.status)) return { label: "Working now", tone: "blue", live: true };
+  if (c.status === "active" && run?.status === "waiting" && run.waiting_for === "computer" && !c.pending_requests)
+    return { label: "Waiting for your computer", tone: "gray", live: false };
   if (run?.status === "waiting" || c.pending_requests > 0) return { label: "Needs you", tone: "amber", live: false };
   const s = GOAL_STATUS[c.status] || { label: c.status, tone: "gray" as Tone };
   return { ...s, live: false };

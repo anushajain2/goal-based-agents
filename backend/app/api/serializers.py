@@ -135,6 +135,7 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=Non
         "current_run": {
             "id": current_run.id, "status": current_run.status, "cycle_number": current_run.cycle_number,
             "summary": current_run.summary, "error": current_run.error,
+            "waiting_for": waiting_for(current_run),
         } if current_run else None,
         "created_at": c.created_at.isoformat(),
     }
@@ -156,3 +157,11 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=Non
              "recorded_at": m.recorded_at.isoformat()} for m in metrics
         ]
     return data
+
+
+def waiting_for(run) -> str | None:
+    """What a parked session waits on: "computer" (the desktop helper) or "people" (approvals...)."""
+    if run.status != "waiting" or not run.pending:
+        return None
+    kinds = {(item.get("stored") or {}).get("kind") for item in (run.pending.get("waiting") or {}).values()}
+    return "computer" if kinds == {"helper"} else "people"
