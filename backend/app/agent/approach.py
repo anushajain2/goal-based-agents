@@ -37,7 +37,7 @@ MAX_LEARNINGS = 12
 MAX_EXPERIMENTS = 10
 STATUSES = ("planned", "testing", "working", "dropped")
 
-SYSTEM = """You design how an AI employee will hit a business goal. It researches, builds lists, \
+SYSTEM = """You design how Autopilot will hit a business goal. It researches, builds lists, \
 writes, designs, sends, posts and uses the company's apps, and asks a person before anything public, \
 outgoing or paid. Think like the best person for this job, not a template.
 
@@ -58,7 +58,8 @@ judge it on.
 The owner reads this before turning it on, so write for a busy person, in plain words: stage names \
 of 1-3 words; the bottleneck's "why" in one short sentence; each approach named in under 6 words and \
 described in under 15 words, saying what it does for them. No jargon or acronyms (say "bid \
-comparison", not "TBE")."""
+comparison", not "TBE"). Don't call it an AI employee, agent or lead: talk about the goal and say \
+Autopilot does the work."""
 
 
 def schema() -> dict:

@@ -187,7 +187,7 @@ class CycleRunner:
 
             try:
                 result = await self.claude.create(
-                    campaign_id=campaign_id, run_id=run_id, purpose="agent step", role="worker",
+                    campaign_id=campaign_id, run_id=run_id, purpose="work step", role="worker",
                     system=system, tools=tools, messages=messages,
                     max_web_searches=MAX_WEB_SEARCHES_PER_CALL, agent_loop=True,
                 )
@@ -317,7 +317,7 @@ class CycleRunner:
                 )
 
     async def _browser_mode(self, org_id: str | None) -> str:
-        """"local" (Agent Chrome on this computer), "helper" (a paired desktop helper) or "none"."""
+        """"local" (Autopilot Chrome on this computer), "helper" (a paired desktop helper) or "none"."""
         if self.settings.agent_chrome_enabled:
             return "local"
         async with session_scope() as s:

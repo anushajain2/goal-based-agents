@@ -112,7 +112,7 @@ def main() -> None:
             org = info["org"]
             if org and org["others"] == 0:
                 print(f'  - their account, and the organization "{org["name"]}" with its {org["goals"]} goal(s), '
-                      "departments, AI employees and work logs (they're its only member)")
+                      "departments and work logs (they're its only member)")
             elif org:
                 print(f'  - their account. "{org["name"]}" stays, with its goals, for its {org["others"]} other member(s)')
             else:

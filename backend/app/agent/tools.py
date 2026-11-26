@@ -137,7 +137,7 @@ MCP_TOOLS = [
 BROWSER_TOOLS = [
     _tool(
         "browser_open",
-        "Open a URL in Agent Chrome (the user's dedicated Chrome profile, where they are signed in to the "
+        "Open a URL in Autopilot Chrome (the user's dedicated Chrome profile, where they are signed in to the "
         "sites they chose). Returns a page snapshot.",
         {"url": {"type": "string"}},
         ["url"],
@@ -205,7 +205,7 @@ BROWSER_TOOLS = [
     ),
     _tool(
         "browser_request_login",
-        "Ask the user to sign in to a site in Agent Chrome. Use when a page shows you are signed out. You "
+        "Ask the user to sign in to a site in Autopilot Chrome. Use when a page shows you are signed out. You "
         "never type passwords yourself. The login page is opened for them; you will be told when they are done.",
         {
             "site": {"type": "string", "description": "Domain, e.g. x.com"},

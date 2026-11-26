@@ -276,7 +276,7 @@ function ToolCard({ n, composio, onChanged }: { n: Need; composio: boolean; onCh
       {!done && opened && (
         <div className="mt-2 flex flex-wrap items-center gap-2 pl-11 text-xs text-muted">
           {n.site && !(composio && n.app) ? (
-            <>Sign in in the Agent Chrome window, then
+            <>Sign in in the Autopilot Chrome window, then
               <Button size="sm" variant="ghost" onClick={async () => { await api("/api/sites/signed-in", { method: "POST", json: { site: n.site } }); onChanged(); }}><Check size={13} /> I&apos;ve signed in</Button></>
           ) : (
             <Button size="sm" variant="ghost" onClick={onChanged}><RefreshCw size={13} /> Check again</Button>

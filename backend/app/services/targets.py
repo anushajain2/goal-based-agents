@@ -240,8 +240,6 @@ def change_title(c: Campaign, change: dict) -> str:
         return f"Pause \"{c.name}\""
     if kind == "resume":
         return f"Restart \"{c.name}\""
-    if kind == "new_goal":
+    if kind in ("new_goal", "new_agent"):
         return f"Start a new goal: {c.name}"
-    if kind == "new_agent":
-        return f"Hire {(change.get('agent') or {}).get('name') or 'a new AI employee'} to {c.name[:1].lower() + c.name[1:]}"
     return "Change this goal"

@@ -27,7 +27,7 @@ TOTAL_CHARS = 24_000
 MAX_EXTRA_PAGES = 5
 TIMEOUT = httpx.Timeout(15.0, connect=8.0)
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; AutopilotSetup/1.0; reads the site once to set up your AI team)",
+    "User-Agent": "Mozilla/5.0 (compatible; AutopilotSetup/1.0; reads the site once to set up Autopilot)",
     "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
 }
 

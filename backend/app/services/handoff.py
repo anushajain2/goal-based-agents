@@ -30,6 +30,7 @@ def build_playbook() -> dict:
 
 async def hand_off(s: AsyncSession, d: Deliverable, from_agent: Agent, to_agent: Agent, who: str) -> Campaign:
     source = await s.get(Campaign, d.campaign_id)
+    origin = f"the goal \"{source.name}\"" if source else "another goal"
     goal = Campaign(
         org_id=d.org_id, owner_id=source.owner_id if source else None, agent_id=to_agent.id,
         name=f"Build: {d.title}"[:200], goal_type="product",
@@ -37,9 +38,9 @@ async def hand_off(s: AsyncSession, d: Deliverable, from_agent: Agent, to_agent:
         primary_metric="pull requests merged", target_value=1, done_when="An engineer merged the pull request",
         targets=[{"id": "build", "period": "month", "target": 1.0, "status": "planned", "why": "", "set_by": "handoff"}],
         category="Product & launch", use_case="Build from PRD",
-        context=f"{KIND_WORDS.get(d.kind, d.kind)} from {from_agent.name} (approved by {who}):\n\n{d.content}",
+        context=f"{KIND_WORDS.get(d.kind, d.kind)} from {origin} (approved by {who}):\n\n{d.content}",
         budget_total=HANDOFF_BUDGET_USD, cycle_hours=3, origin="handoff",
-        suggested_reason=f"Handed off by {from_agent.name}", first_deliverable="A pull request ready for review",
+        suggested_reason=f"Handed off from {origin}", first_deliverable="A pull request ready for review",
         key_results=["Pull request opened", "Merged by an engineer"], playbook=build_playbook(),
         budget_basis={"basis": "handoff", "chosen_usd": float(HANDOFF_BUDGET_USD)},
         status=CampaignStatus.active.value, next_cycle_at=utcnow(),
@@ -48,8 +49,8 @@ async def hand_off(s: AsyncSession, d: Deliverable, from_agent: Agent, to_agent:
     await s.flush()
     d.status = "handed_off"
     d.handed_to_campaign_id = goal.id
-    await activity.log(s, goal.id, "system", f"Handed over by {from_agent.name}: {d.title}", status="info")
-    await activity.log(s, d.campaign_id, "decision", f"Handed to {to_agent.name}: {d.title}", status="approved",
+    await activity.log(s, goal.id, "system", f"Handed over from {origin}: {d.title}", status="info")
+    await activity.log(s, d.campaign_id, "decision", f"Handed on as a new goal: {goal.name}", status="approved",
                        details={"deliverable_id": d.id, "goal_id": goal.id})
     await notify(s, goal.id, "campaign")
     return goal

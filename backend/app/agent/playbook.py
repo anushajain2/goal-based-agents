@@ -35,7 +35,7 @@ def step_schema() -> dict:
     }
 
 
-STEP_GUIDANCE = """Steps: 3 to 6 plain-English steps, in order, saying how the AI employee will \
+STEP_GUIDANCE = """Steps: 3 to 6 plain-English steps, in order, saying how Autopilot will \
 pursue the goal. Keep preparing and doing apart, so approval points are obvious: "Write a \
 personalised first email to each person" (create_draft) comes before "Send each email" \
 (send_message). action_type is the riskiest kind of action in the step: research, read_data, \
@@ -98,9 +98,10 @@ async def generate_playbook(claude: MeteredClaude, c: Campaign) -> dict:
     )
     result = await claude.create(
         campaign_id=c.id, run_id=None, purpose="plan of action", role="worker",
-        system="You plan how an AI employee will achieve a business goal. It researches, builds lists, "
+        system="You plan how Autopilot will achieve a business goal. It researches, builds lists, "
                "writes, sends, posts and uses the company's apps, and asks a person before anything public, "
-               "outgoing or paid. Be concrete and brief.",
+               "outgoing or paid. Be concrete and brief. In the steps, don't call it an AI employee, agent or "
+               "lead: talk about the goal and say Autopilot does the work.",
         messages=[{"role": "user", "content": prompt}], max_tokens=4000,
         output_format={"type": "json_schema", "schema": {
             "type": "object", "properties": {"steps": {"type": "array", "items": step_schema()},

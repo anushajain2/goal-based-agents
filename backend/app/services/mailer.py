@@ -94,18 +94,21 @@ async def send_invitation(to: str, org_name: str, inviter: str) -> None:
     url = get_settings().frontend_origin.rstrip("/") + "/login"
     await _send_or_log(
         to, f"{inviter} invited you to {org_name} on Autopilot",
-        f"{inviter} invited you to join {org_name} on Autopilot, where AI employees work toward the "
-        f"company's goals and check with the right people before doing anything important.\n\n"
-        f"You don't need to know anything about AI. Your AI teammates do the work and show it; "
+        f"{inviter} invited you to join {org_name} on Autopilot, where Autopilot works toward the "
+        f"company's goals and checks with the right people before doing anything important.\n\n"
+        f"You don't need to know anything about AI. Autopilot does the work and shows it; "
         f"you approve, edit or say no.\n\n"
         f"Sign in with this email address to join: {url}\n",
     )
 
 
-async def send_approval_needed(recipients: list[str], agent: str, department: str, title: str, goal_id: str) -> None:
+async def send_approval_needed(recipients: list[str], agent: str, department: str, title: str, goal_id: str,
+                               goal: str | None = None) -> None:
+    """`agent` is who's asking as people see it: "Autopilot", or a team's Reviewer."""
     url = get_settings().frontend_origin.rstrip("/") + f"/goals/{goal_id}?tab=work"
+    on = f" on the goal \"{goal}\"" if goal else ""
     for to in recipients:
         await _send_or_log(
             to, f"{agent} needs your OK: {title}"[:200],
-            f"{agent} ({department}) wants to: {title}\n\nAnyone in {department} can approve, edit or decline it:\n{url}\n",
+            f"{agent} wants to: {title}{on} ({department})\n\nAnyone in {department} can approve, edit or decline it:\n{url}\n",
         )

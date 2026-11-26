@@ -3,7 +3,7 @@
 One WhatsApp Business number (Meta's Cloud API, the platform's own, like the Composio key)
 serves every organization. What people can do from WhatsApp is what they can do in Needs you:
 approve (as is or edited), decline with a reason, stop or send a heads-up early, answer a
-question, approve a hand-in or a team lead's suggestion. Decisions go through
+question, approve a hand-in or a Reviewer's suggestion. Decisions go through
 services/decisions, so the same rules apply wherever someone decides.
 
 Meta's rules, and how this keeps the experience good within them:
@@ -19,7 +19,7 @@ Meta's rules, and how this keeps the experience good within them:
     those). Free text is only ever an answer, an edit, a reason or a comment on a request.
 
 What still needs the app, and why: spending money, merging code and deleting things (a
-thumb-tap shouldn't do those), and signing in to a website (that happens in Agent Chrome).
+thumb-tap shouldn't do those), and signing in to a website (that happens in Autopilot Chrome).
 Those arrive with the details and a link straight to the request.
 
 Every button carries a signed token bound to the request and the person, and replies are only
@@ -42,7 +42,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models import (
-    Agent,
     Campaign,
     RequestKind,
     RequestStatus,
@@ -79,25 +78,25 @@ TEMPLATES: dict[str, dict] = {
     "autopilot_approval": {
         "body": "{{1}} is waiting for your OK on the goal \"{{2}}\".\n\nWhat it wants to do: {{3}}\n\n{{4}}\n\n"
                 "Tap a button to decide here, or open Autopilot.",
-        "example": ["Marketing Agent", "Grow our audience", "Post a routing tip on X",
+        "example": ["Autopilot", "Grow our audience", "Post a routing tip on X",
                     "Tip: batch stops by zone before 9am. Also waiting: 2 more."],
         "buttons": ["Approve", "Show details", "Decline"],
     },
     "autopilot_heads_up": {
         "body": "Heads-up from {{1}} on the goal \"{{2}}\": it will {{3}} in about {{4}} minutes unless you stop it.\n\n"
                 "{{5}}\n\nTap Stop it to cancel, or Show details to see or change it first.",
-        "example": ["Marketing Agent", "Grow our audience", "post a routing tip on X", "30",
+        "example": ["Autopilot", "Grow our audience", "post a routing tip on X", "30",
                     "Tip: batch stops by zone before 9am."],
         "buttons": ["Stop it", "Show details", "Send now"],
     },
     "autopilot_question": {
         "body": "{{1}} has a question about the goal \"{{2}}\":\n\n{{3}}\n\nTap Answer to reply here, or Skip to let it decide.",
-        "example": ["Sales Agent", "Book 20 meetings", "Which three customers should I ask for a case study?"],
+        "example": ["Autopilot", "Book 20 meetings", "Which three customers should I ask for a case study?"],
         "buttons": ["Answer", "Skip"],
     },
     "autopilot_waiting": {
         "body": "{{1}} needs you on the goal \"{{2}}\": {{3}}\n\n{{4}}",
-        "example": ["Engineering Agent", "Ship the export", "Merge pull request #9", "Tap Show me for the details."],
+        "example": ["Autopilot", "Ship the export", "Merge pull request #9", "Tap Show me for the details."],
         "buttons": ["Show me"],
     },
 }
@@ -330,10 +329,14 @@ def editable(req: UserRequest) -> list[str]:
 
 
 async def _who(s: AsyncSession, req: UserRequest) -> tuple[str, Campaign]:
+    """Who's asking, as people see it: Autopilot (the goal is named alongside), or the team's Reviewer."""
     c = await s.get(Campaign, req.campaign_id)
-    agent = await s.get(Agent, c.agent_id) if c and c.agent_id else None
-    name = agent.name if agent else (req.preview or {}).get("lead") or "Your AI employee"
-    return name, c
+    lead = (req.preview or {}).get("lead")
+    return (f"the {lead}" if lead else "Autopilot"), c
+
+
+def _upper_first(text: str) -> str:
+    return text[:1].upper() + text[1:]
 
 
 def _lower_first(text: str) -> str:
@@ -423,7 +426,7 @@ async def card(s: AsyncSession, out: Out, req: UserRequest, *, note: str = "") -
         if p.get("summary"):
             intro += f"\n\n{p['summary']}"
         content = ((p.get("fields") or {}).get("content") or "").strip()
-        tail = f"Approving sends it to {p['handoff_to']}." if p.get("handoff_to") else ""
+        tail = "Approving hands it on as a new goal to build it." if p.get("handoff_to") else ""
         body = await with_long(intro, content, tail)
         btns = [(payload("ok", req.id, uid), "Approve")]
         if editable(req):
@@ -435,8 +438,8 @@ async def card(s: AsyncSession, out: Out, req: UserRequest, *, note: str = "") -
     if req.kind == RequestKind.proposal.value:
         ch = p.get("change") or {}
         yes = {"target": "Approve new target", "pause": "Pause it", "resume": "Restart it", "new_goal": "Start this goal",
-               "new_agent": "Hire & start"}.get(ch.get("type", ""), "Approve")
-        lines = [f"{p.get('lead') or agent} suggests: *{req.title}*", f"_{goal}_"]
+               "new_agent": "Start this goal"}.get(ch.get("type", ""), "Approve")
+        lines = [f"{_upper_first(agent)} suggests: *{req.title}*", f"_{goal}_"]
         cur = p.get("current") or {}
         if ch.get("type") == "target" and cur.get("target") is not None:
             lines.append(f"Now: {cur['target']:g} per {cur.get('period', 'period')}"
@@ -460,7 +463,7 @@ async def card(s: AsyncSession, out: Out, req: UserRequest, *, note: str = "") -
         return
 
     if req.kind == RequestKind.login.value:
-        body = (f"{agent} needs you to sign in to *{p.get('site') or req.scope}* in Agent Chrome, the AI's own Chrome window "
+        body = (f"{agent} needs you to sign in to *{p.get('site') or req.scope}* in Autopilot Chrome, the AI's own Chrome window "
                 f"on your computer, for \"{goal}\". Sign in there, then tap below." + (f"\n\n{why}" if why else ""))
         await out.buttons(body, [(payload("ok", req.id, uid), "I've signed in"), (payload("no", req.id, uid), "Not now")],
                           request_id=req.id, header="Sign in")
@@ -479,6 +482,7 @@ def _template_preview(req: UserRequest) -> tuple[str, bool]:
 async def template_for(s: AsyncSession, out: Out, req: UserRequest, more: int) -> None:
     """Outside the 24-hour window: a pre-approved template. One tap reopens the window."""
     agent, c = await _who(s, req)
+    agent = _upper_first(agent)
     uid = out.user.id
     goal = _flat(c.name if c else "", 120)
     also = f" Also waiting: {more} more." if more else ""
@@ -536,16 +540,16 @@ async def send_next(s: AsyncSession, out: Out, *, exclude: set[str] | None = Non
 async def show_queue(s: AsyncSession, out: Out) -> None:
     queue = await pending_for(s, out.user)
     if not queue:
-        await out.text("Nothing is waiting on you right now. New requests from your AI employees will show up here.")
+        await out.text("Nothing is waiting on you right now. New requests from Autopilot will show up here.")
         return
     if len(queue) == 1:
         await card(s, out, queue[0])
         return
     rows = []
     for r in queue[:10]:
-        agent, _ = await _who(s, r)
+        _, c = await _who(s, r)
         tag = "Heads-up" if r.auto_approve_at else {"question": "Question", "review": "Review", "proposal": "Suggestion"}.get(r.kind, "Approval")
-        rows.append((payload("sh", r.id, out.user.id), _cut(r.title, 24), _cut(f"{tag} · {agent}", 72)))
+        rows.append((payload("sh", r.id, out.user.id), _cut(r.title, 24), _cut(f"{tag} · {c.name}" if c else tag, 72)))
     await out.choices(f"{len(queue)} things are waiting on you." + (" Showing the first 10." if len(queue) > 10 else ""),
                       "See them", rows)
 
@@ -715,8 +719,8 @@ async def _maybe_link(s: AsyncSession, number: str, text: str) -> bool:
         user.whatsapp_state = None
         out = Out(s, user)
         await out.text(
-            f"You're connected{', ' + user.name.split()[0] if user.name else ''}. Approvals, heads-ups and questions from your "
-            "AI employees will come here, with everything you need to decide. Tap the buttons, or reply to a message to "
+            f"You're connected{', ' + user.name.split()[0] if user.name else ''}. Approvals, heads-ups and questions from "
+            "Autopilot will come here, with everything you need to decide. Tap the buttons, or reply to a message to "
             "answer or comment. Send \"list\" to see what's waiting, or \"stop\" to disconnect.")
         await show_queue(s, out)
         return True
@@ -939,7 +943,7 @@ async def _text(s: AsyncSession, out: Out, member: Member, text: str, context_id
         await out.text("Disconnected. You won't get anything from Autopilot here. Reconnect any time in Settings → WhatsApp.")
         return
     if low in ("help", "?"):
-        await out.text("Here you can approve, decline, edit and answer what your AI employees send you. Tap the buttons, "
+        await out.text("Here you can approve, decline, edit and answer what Autopilot sends you. Tap the buttons, "
                        "or reply to a message to answer it or add a comment. Send \"list\" to see what's waiting, or "
                        "\"stop\" to disconnect.")
         return
@@ -959,8 +963,8 @@ async def _text(s: AsyncSession, out: Out, member: Member, text: str, context_id
             if quoted and quoted is not req:
                 req, st = quoted, {}
     if not req:
-        await out.buttons("I can only take answers, edits and comments on what your AI employees sent you. "
-                          "Reply to one of their messages, or see what's waiting.",
+        await out.buttons("I can only take answers, edits and comments on what Autopilot sent you. "
+                          "Reply to one of its messages, or see what's waiting.",
                           [(payload("ls", "-", out.user.id), "What's waiting")])
         return
     if req.status != RequestStatus.pending.value:

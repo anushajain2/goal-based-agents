@@ -1,4 +1,4 @@
-"""Connections: Composio apps, Agent Chrome sign-ins, and system status."""
+"""Connections: Composio apps, Autopilot Chrome sign-ins, and system status."""
 
 from __future__ import annotations
 
@@ -179,7 +179,7 @@ def _url(raw: str) -> str:
 
 @router.post("/browser/open")
 async def browser_open(body: UrlIn, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
-    """Open a page in Agent Chrome (e.g. to sign in to a site ahead of time). Hosted: in the
+    """Open a page in Autopilot Chrome (e.g. to sign in to a site ahead of time). Hosted: in the
     Chrome window of the organization's desktop helper."""
     if not get_settings().agent_chrome_enabled:
         device = await send_to_helper(s, me.org_id, {"t": "open_url", "url": _url(body.url)})

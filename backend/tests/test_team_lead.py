@@ -72,7 +72,7 @@ async def test_lead_reviews_the_team_and_proposes_changes(monkeypatch):
         org = await org_of(c)
         agent = agent_in(org, "Marketing")
         team = dept_of(org, "Marketing")
-        assert team["lead"]["name"] == "Marketing Lead" and team["lead"]["enabled"] and team["lead"]["last"] is None
+        assert team["lead"]["name"] == "Marketing Reviewer" and team["lead"]["enabled"] and team["lead"]["last"] is None
         signups = await goal(c, agent, "Get newsletter signups")
         webinars = await goal(c, agent, "Fill webinars")
         r = await c.post(f"/api/departments/{team['id']}/lead/review")
@@ -104,7 +104,7 @@ async def test_lead_reviews_the_team_and_proposes_changes(monkeypatch):
         assert [p["type"] for p in last["proposals"]] == ["target", "pause", "new_goal"]  # bad ones dropped, at most 3
         assert team["lead"]["spent_this_month_usd"] > 0
         assert "Signups beat the target" in last["summary"]
-        assert "Marketing Lead" in fake.calls[0]["system"] or "Marketing team" in fake.calls[0]["system"]
+        assert "Marketing Reviewer" in fake.calls[0]["system"] or "Marketing team" in fake.calls[0]["system"]
         assert "Get newsletter signups" in fake.calls[0]["messages"][0]["content"]
         assert last["research"]["sources"] == [{"url": "https://news.test/logistics", "title": "Logistics newsletters in 2026"}]
         assert last["research"]["looked_at"] == ["Searched: dispatcher newsletter benchmarks", 'Looked into "Get newsletter signups"']
@@ -113,7 +113,7 @@ async def test_lead_reviews_the_team_and_proposes_changes(monkeypatch):
         assert set(reqs) == {"Raise the target to 30 signups a week", 'Pause "Fill webinars"',
                              "Start a new goal: Win back churned customers"}
         new = reqs["Start a new goal: Win back churned customers"]
-        assert new["preview"]["source"] == "lead" and new["preview"]["lead"] == "Marketing Lead"
+        assert new["preview"]["source"] == "lead" and new["preview"]["lead"] == "Marketing Reviewer"
         draft = (await c.get(f"/api/campaigns/{new['campaign_id']}")).json()
         assert draft["status"] == "draft" and draft["origin"] == "lead" and draft["agent"]["id"] == agent
         assert draft["target"]["target"] == 3 and draft["target"]["period"] == "month"
@@ -177,9 +177,9 @@ async def test_lead_can_suggest_hiring_an_ai_employee(monkeypatch):
         # Not in goal lists until approved; in Maya's Needs you, since she's who the team asks.
         assert "Collect reviews from happy customers" not in [g["name"] for g in (await owner.get("/api/campaigns")).json()]
         reqs = [x for x in (await maya.get("/api/requests")).json() if x["kind"] == "proposal"]
-        assert [x["title"] for x in reqs] == ["Hire Reviews Agent to collect reviews from happy customers"]  # one hire per review
+        assert [x["title"] for x in reqs] == ["Start a new goal: Collect reviews from happy customers"]  # one per review
         assert reqs[0]["routed_to_me"] and reqs[0]["can_decide"]
-        assert reqs[0]["agent_name"] == "Marketing Lead" and reqs[0]["agent_title"] == "AI team lead"
+        assert reqs[0]["agent_name"] == "Marketing Reviewer" and reqs[0]["agent_title"] == "Reviewer"
         assert not [x for x in (await owner.get("/api/requests")).json() if x["kind"] == "proposal"]  # Maya's, not the owner's
         r = await maya.post(f"/api/requests/{reqs[0]['id']}/decide", json={"decision": "approve"})
         assert r.status_code == 200, r.text

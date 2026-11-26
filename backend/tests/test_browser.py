@@ -1,4 +1,4 @@
-"""Agent Chrome against a real Chrome (headless here) and a local test page."""
+"""Autopilot Chrome against a real Chrome (headless here) and a local test page."""
 
 import http.server
 import shutil

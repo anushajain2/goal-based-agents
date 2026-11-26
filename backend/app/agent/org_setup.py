@@ -53,7 +53,7 @@ STEPS = [
     ("website", "Reading your website"),
     ("research", "Researching the company on the web"),
     ("plan", "Working out your key functions and goals"),
-    ("create", "Setting up your AI employees"),
+    ("create", "Setting up your goals"),
     ("scan", "Finding what you're missing out on"),
 ]
 
@@ -186,7 +186,9 @@ pipeline matters most right now").
 (e.g. "Client Delivery").
 - category must be the closest library category; use_case is a 1-3 word label ("Cold outbound").
 - The profile states facts concisely, "Unknown" where not known. Trust the founders' \
-description over older web sources."""
+description over older web sources.
+- In anything written for people (why, first_week, objectives, goal names and descriptions), \
+don't call it an AI employee, agent or lead: talk about the goal and say Autopilot does the work."""
 
 PLAN_TASK = """Company: {name}
 Website: {website}
@@ -616,7 +618,7 @@ async def create_team(setup_id: str | None, org_id: str, requested_by: str | Non
                 product.handoff_review = True
     if setup_id:
         await _step(setup_id, "create", "done",
-                    f"{len(created['agents'])} AI employees, {len(created['goals'])} goals ready to review")
+                    f"{len(created['goals'])} goal{'s' if len(created['goals']) != 1 else ''} ready to review")
     return created
 
 
@@ -663,7 +665,7 @@ async def _add_goals(s, org_id: str, requested_by: str | None, agent: Agent, goa
         targets.plan_first(c, g["target_value"], g.get("target_period", "week"), set_by="setup")
         s.add(c)
         await s.flush()
-        await activity.log(s, c.id, "system", f"Suggested by setup research for {agent.name}",
+        await activity.log(s, c.id, "system", "Suggested by setup research",
                            details={"why": g["why"]} if g["why"] else None, status="info")
         created["goals"].append(c.id)
 
@@ -789,7 +791,7 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
                             found["cost"])
             except Exception as e:
                 log.warning("opportunity scan failed: %s", e, exc_info=True)
-                await _step(setup_id, "scan", "failed", "Couldn't finish this check; your AI team is ready anyway")
+                await _step(setup_id, "scan", "failed", "Couldn't finish this check; your goals are ready anyway")
         async with session_scope() as s:
             setup = await s.get(OrgSetup, setup_id)
             setup.created = created

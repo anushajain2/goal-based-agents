@@ -126,7 +126,7 @@ async def _local_endpoint() -> tuple[str, dict]:
 class BrowserController:
     """One Chrome. Each agent run gets its own tab, keyed by run id.
 
-    `endpoint` says how to reach Chrome: the local Agent Chrome (default), or a desktop
+    `endpoint` says how to reach Chrome: the local Autopilot Chrome (default), or a desktop
     helper's Chrome through the API's relay.
     """
 
@@ -292,7 +292,7 @@ _helper_controllers: dict[str, BrowserController] = {}
 
 
 def get_controller() -> BrowserController:
-    """The local Agent Chrome (running Autopilot on your own computer)."""
+    """The local Autopilot Chrome (running Autopilot on your own computer)."""
     global _controller
     if _controller is None:
         _controller = BrowserController()
@@ -318,7 +318,7 @@ def all_controllers() -> list[BrowserController]:
 
 
 async def controller_for(org_id: str | None) -> BrowserController:
-    """Where this organization's website steps run: the local Agent Chrome when it's on (your own
+    """Where this organization's website steps run: the local Autopilot Chrome when it's on (your own
     computer), otherwise the organization's online desktop helper."""
     if get_settings().agent_chrome_enabled:
         return get_controller()

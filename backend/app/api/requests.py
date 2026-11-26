@@ -63,7 +63,7 @@ async def _enrich(s: AsyncSession, me: Member, rows) -> list[dict]:
             "agent_id": agent_id,
             # A team lead's suggestion without an AI employee yet comes from the lead itself.
             "agent_name": agent.name if agent else (r.preview or {}).get("lead"),
-            "agent_title": agent.title if agent else ("AI team lead" if (r.preview or {}).get("lead") else None),
+            "agent_title": agent.title if agent else ("Reviewer" if (r.preview or {}).get("lead") else None),
             "campaign_metric": rest[0] if rest else None,
             "approvers": [u.name or u.email for u in people],
             "routed_to_me": me.user.id in {u.id for u in people},

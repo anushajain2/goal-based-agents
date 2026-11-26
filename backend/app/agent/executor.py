@@ -109,8 +109,8 @@ class ToolExecutor:
             await self._step(f"Browser step didn't work: {e}"[:300], channel="browser", status="failed")
             return Outcome(str(e), is_error=True)
         except chrome.ChromeUnavailable as e:
-            await self._log("error", f"Agent Chrome unavailable: {e}", status="failed", channel="browser")
-            return Outcome(f"Agent Chrome is unavailable: {e}", is_error=True)
+            await self._log("error", f"Autopilot Chrome unavailable: {e}", status="failed", channel="browser")
+            return Outcome(f"Autopilot Chrome is unavailable: {e}", is_error=True)
         except HelperOffline as e:
             if not e.paired:
                 return Outcome("No computer is connected for website steps here. Use app connectors or web research, "
@@ -312,7 +312,6 @@ class ToolExecutor:
             await s.flush()
             people = await approvers(s, campaign.org_id, department_id, campaign.agent_id) if campaign.org_id else []
             dept = await s.get(Department, department_id) if department_id else None
-            agent = await s.get(Agent, campaign.agent_id) if campaign.agent_id else None
             routed = ", ".join(p.name or p.email for p in people) or "the owner"
             said = (f"Heads-up to {routed} (goes ahead at {auto_approve_at:%H:%M} UTC unless stopped)"
                     if auto_approve_at else f"Asked {routed}")
@@ -324,12 +323,12 @@ class ToolExecutor:
             await notify(s, self.campaign_id, "request", id=req.id)
             request_id = req.id
             emails = [p.email for p in people]
-            agent_name = agent.name if agent else "Autopilot"
+            goal_name = campaign.name
             dept_name = dept.name if dept else "your organization"
         # Email the people it's routed to (best effort; the in-app inbox is the source of truth).
         # A heads-up isn't waiting on anyone, so it only shows in the inbox.
         if not auto_approve_at:
-            await send_approval_needed(emails, agent_name, dept_name, title, self.campaign_id)
+            await send_approval_needed(emails, "Autopilot", dept_name, title, self.campaign_id, goal_name)
         return request_id
 
     # ------------------------------------------------------------------ app connectors
@@ -758,7 +757,7 @@ class ToolExecutor:
         except Exception:  # noqa: BLE001
             pass
         request_id = await self._create_request(
-            kind=RequestKind.login, tool_use_id=tool_use_id, title=f"Sign in to {site} in Agent Chrome",
+            kind=RequestKind.login, tool_use_id=tool_use_id, title=f"Sign in to {site} in Autopilot Chrome",
             rationale=inp.get("reason", ""), scope=site, preview={"url": inp["login_url"], "site": site},
         )
         return Pending(request_id, {"kind": "login", "site": site, "url": inp["login_url"]})
@@ -774,7 +773,7 @@ class ToolExecutor:
         # Measured only when it was read from a tool this session actually used.
         verified = how == "read_from_tool" and self._was_read(tool)
         label = {"read_from_tool": f"measured in {tool}" if verified else "reported (tool not read this session)",
-                 "counted": "counted by the AI employee", "estimate": "estimated"}.get(how, "reported")
+                 "counted": "counted by Autopilot", "estimate": "estimated"}.get(how, "reported")
         async with session_scope() as s:
             s.add(MetricSnapshot(campaign_id=self.campaign_id, metric=inp["metric"][:120],
                                  value=float(inp["value"]), source=(inp.get("source") or tool or label)[:200],

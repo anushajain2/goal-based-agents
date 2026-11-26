@@ -60,7 +60,7 @@ async def decide(s: AsyncSession, me: Member, request_id: str, body: DecisionIn)
         raise DecisionError(404, "Request not found")
     if not await can_decide(s, me, req.campaign_id, req.department_id):
         people = ", ".join(u.name or u.email for u in await approvers(s, me.org_id, req.department_id, campaign.agent_id))
-        raise DecisionError(403, f"This goes to {people}, who the AI employee reports to (or an admin).")
+        raise DecisionError(403, f"This goes to {people}, who decides for this goal (or an admin).")
     if req.status != RequestStatus.pending.value:
         raise DecisionError(409, f"Already {req.status}")
 
@@ -144,8 +144,8 @@ async def decide(s: AsyncSession, me: Member, request_id: str, body: DecisionIn)
                 source = await s.get(Agent, d.agent_id) if d.agent_id else None
                 target = await s.get(Agent, source.handoff_to_agent_id) if source and source.handoff_to_agent_id else None
                 if target and d.kind == "prd":
-                    await hand_off(s, d, source, target, who)
-                    handoff_note = f" and handed to {target.name}"
+                    goal = await hand_off(s, d, source, target, who)
+                    handoff_note = f" and handed on as a new goal: {goal.name}"
 
     heads_up = req.auto_approve_at is not None
     if heads_up and not approved:

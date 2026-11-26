@@ -55,7 +55,7 @@ CHANGE_TYPES = ["new_goal", "new_agent", "target", "pause", "resume"]
 
 
 def lead_name(dept: Department) -> str:
-    return f"{dept.name} Lead"
+    return f"{dept.name} Reviewer"
 
 
 def month_start():
@@ -91,13 +91,16 @@ on the team who fits best (agent_id).
 - target: a better target for a goal (raise it when it's being hit easily, lower it or change the \
 period when it's out of reach or too noisy to judge).
 - new_agent: work that needs its own AI employee (a distinct skill or a lot of work no one on the \
-team covers), with its first goal. Give it a short name ("Reviews Agent"), focus and objective.
+team covers), with its first goal. Give it a short name ("Reviews"), focus and objective.
 - pause: a goal that keeps missing and isn't worth its budget, or no longer fits the focus.
 - resume: a paused goal worth restarting.
 Don't propose what is already waiting for a decision, and don't change a goal that started in the \
 last few days unless something is clearly wrong. No changes is a fine answer when the team is on \
 track. Every reasoning is two or three plain sentences with the numbers behind it. The summary is \
-two or three sentences on how the team is doing."""
+two or three sentences on how the team is doing.
+In anything written for people (summary, reasoning, goal names and descriptions), don't call it an \
+AI employee, agent or lead: talk about the goal, say Autopilot does the work, and call yourself the \
+Reviewer. Propose new_agent to people as starting a new goal."""
 
 TASK = """Company:
 {company}
@@ -303,7 +306,7 @@ async def _propose(s, dept: Department, review: LeadReview, p: dict) -> dict:
         targets.plan_first(c, ng.get("target_value"), ng.get("target_period") or "week", why=p["reasoning"], set_by="lead")
         s.add(c)
         await s.flush()
-        await activity.log(s, c.id, "system", f"Suggested by {lead}", details={"why": p["reasoning"]}, status="info")
+        await activity.log(s, c.id, "system", f"Suggested by the {lead}", details={"why": p["reasoning"]}, status="info")
     else:
         c = await s.get(Campaign, p["goal_id"])
         if p["type"] == "target":
@@ -321,7 +324,7 @@ async def _propose(s, dept: Department, review: LeadReview, p: dict) -> dict:
                       preview=preview, department_id=dept.id)
     s.add(req)
     await s.flush()
-    await activity.log(s, c.id, "request", f"{lead} suggested: {title}", status="waiting",
+    await activity.log(s, c.id, "request", f"The {lead} suggested: {title}", status="waiting",
                        details={"request_id": req.id, "review_id": review.id})
     await notify(s, c.id, "request", id=req.id)
     return {"type": p["type"], "goal_id": c.id, "title": title, "reasoning": p["reasoning"], "request_id": req.id}
@@ -419,7 +422,7 @@ async def run_review(review_id: str, claude: MeteredClaude | None = None) -> Non
     cost, raw, used, sources, nudged = Decimal("0"), None, [], [], False
     try:
         for _ in range(MAX_TURNS):
-            result = await claude.create(campaign_id=None, run_id=None, purpose="team lead review", role="planner",
+            result = await claude.create(campaign_id=None, run_id=None, purpose="Reviewer review", role="planner",
                                          system=system, messages=messages, tools=tools, max_tokens=8000,
                                          max_web_searches=MAX_WEB)
             cost += result.cost
@@ -481,7 +484,7 @@ async def run_review(review_id: str, claude: MeteredClaude | None = None) -> Non
         first_goal = made[0]["goal_id"] if made else None
         name = lead_name(dept)
     if made:
-        await send_approval_needed(emails, name, dept.name,
+        await send_approval_needed(emails, f"The {name}", dept.name,
                                    f"{len(made)} suggestion{'s' if len(made) != 1 else ''} for the {dept.name} team", first_goal)
 
 

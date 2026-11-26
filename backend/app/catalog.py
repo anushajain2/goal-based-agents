@@ -1,6 +1,6 @@
 """The tools goals usually need, and the two ways an AI employee can use each one:
 through an app connector (Composio, signed in once with the app's own login page) or by
-signing in to the website once in Agent Chrome. Custom MCP servers are listed separately.
+signing in to the website once in Autopilot Chrome. Custom MCP servers are listed separately.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ class Tool:
     key: str
     label: str
     app: str | None  # Composio toolkit slug
-    site: str | None  # website to sign in to in Agent Chrome
+    site: str | None  # website to sign in to in Autopilot Chrome
     login_url: str | None = None
     kind: str = "app"  # "app" (connector or site), "github" or "postgres" (connected in Settings)
 

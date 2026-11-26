@@ -122,7 +122,7 @@ export function AgentChrome() {
   return (
     <Card>
       <CardHeader
-        title={<span className="flex items-center gap-2"><Chrome size={16} /> Agent Chrome</span>}
+        title={<span className="flex items-center gap-2"><Chrome size={16} /> Autopilot Chrome</span>}
         subtitle="Your installed Chrome with its own profile. Sign in to a site once and Autopilot can use it; it never sees your passwords."
       />
       <div className="space-y-4 p-4 text-sm">
@@ -138,7 +138,7 @@ export function AgentChrome() {
 
         {status?.manual_signin_mode && (
           <div className="rounded-md bg-stone-50 p-3">
-            <p>Agent Chrome is open without remote control so you can sign in normally. When you&apos;re done, click Done. Autopilot picks up the saved sign-in.</p>
+            <p>Autopilot Chrome is open without remote control so you can sign in normally. When you&apos;re done, click Done. Autopilot picks up the saved sign-in.</p>
             <Button className="mt-2" variant="primary" size="sm" onClick={() => call("/api/browser/manual-signin/done")}>
               Done signing in
             </Button>
@@ -149,7 +149,7 @@ export function AgentChrome() {
           <div className="mb-1.5 text-[13px] font-semibold">Sign in to a site ahead of time</div>
           <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); if (url.trim()) call("/api/browser/open", { url: url.trim() }); }}>
             <Input className="min-w-60 flex-1" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="e.g. x.com/login" />
-            <Button type="submit"><ExternalLink size={14} /> Open in Agent Chrome</Button>
+            <Button type="submit"><ExternalLink size={14} /> Open in Autopilot Chrome</Button>
             <Button type="button" variant="ghost" onClick={() => url.trim() && call("/api/browser/manual-signin", { url: url.trim() })} title="For sites like Google that block sign-in in a remote-controlled browser">
               <KeyRound size={14} /> Manual sign-in mode
             </Button>

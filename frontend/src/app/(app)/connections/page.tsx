@@ -178,7 +178,7 @@ function ToolRow({ t, githubSignIn, admin, onChanged }: { t: ToolStatus; githubS
                 : <Button size="sm" variant="primary" disabled={busy} onClick={openSite}><KeyRound size={13} /> Sign in</Button>
             ) : null}
             {t.kind === "app" && t.can_connect_app && t.site && (
-              <button onClick={openSite} className="text-[12px] font-semibold text-muted hover:text-ink">or sign in in Agent Chrome</button>
+              <button onClick={openSite} className="text-[12px] font-semibold text-muted hover:text-ink">or sign in in Autopilot Chrome</button>
             )}
           </div>
         )}
@@ -187,7 +187,7 @@ function ToolRow({ t, githubSignIn, admin, onChanged }: { t: ToolStatus; githubS
         <p className="mt-2 pl-14 text-[12.5px] text-muted">Finish signing in in the new tab; this updates when you come back.</p>
       )}
       {opened && !t.can_connect_app && t.site && !done && (
-        <p className="mt-2 pl-14 text-[12.5px] text-muted">Sign in to {t.site} in the Agent Chrome window, then click &quot;I&apos;ve signed in&quot;. Autopilot never sees your password.</p>
+        <p className="mt-2 pl-14 text-[12.5px] text-muted">Sign in to {t.site} in the Autopilot Chrome window, then click &quot;I&apos;ve signed in&quot;. Autopilot never sees your password.</p>
       )}
       {open && !done && (
         <div className="mt-3 pl-14">
@@ -243,7 +243,7 @@ function AppsCard({ overview, admin, onChanged }: { overview?: ConnectionsOvervi
           <p className="mt-0.5 text-[13px] text-muted">
             {comp?.source === "org" ? <>Using your own Composio key (····{own?.config?.key_hint as string || ""}).</>
               : comp?.enabled ? "Sign in with each app's own login page. Your accounts stay separate from every other company's."
-              : "App connections need a Composio key. Without one, Autopilot signs in to sites through Agent Chrome instead."}
+              : "App connections need a Composio key. Without one, Autopilot signs in to sites through Autopilot Chrome instead."}
           </p>
         </div>
         {admin && comp?.source === "org" && own && (

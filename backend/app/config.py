@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # "development" (your computer) or "production" (hosted for others). Production refuses to
     # start without a SECRET_KEY and turns off things that only make sense on one computer.
     environment: str = "development"
-    # Agent Chrome: a visible Chrome on the same computer as the worker. Hosted, there is no
+    # Autopilot Chrome: a visible Chrome on the same computer as the worker. Hosted, there is no
     # screen and no one to sign in, so it's off (websites wait for the desktop helper).
     agent_chrome: bool | None = None  # None = on in development, off in production
     sentry_dsn: str | None = None  # optional error reporting
@@ -107,7 +107,7 @@ class Settings(BaseSettings):
     github_client_id: str | None = None
     github_client_secret: str | None = None
 
-    # --- Agent Chrome ---------------------------------------------------------
+    # --- Autopilot Chrome ---------------------------------------------------------
     chrome_path: str | None = None  # auto-detected when unset
     chrome_profile_dir: Path = REPO_ROOT / "data" / "agent-chrome-profile"
     chrome_debug_port: int = 9333
@@ -186,7 +186,7 @@ class Settings(BaseSettings):
         if not self.smtp_enabled:
             out.append("SMTP_HOST is not set: sign-in codes are only printed in the logs")
         if not self.anthropic_api_key:
-            out.append("ANTHROPIC_API_KEY is not set: AI employees can't work")
+            out.append("ANTHROPIC_API_KEY is not set: Autopilot can't work")
         if self.allow_private_mcp:
             out.append("ALLOW_PRIVATE_MCP is on: set it to false so MCP servers can't reach internal hosts")
         return out

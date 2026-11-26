@@ -43,7 +43,11 @@ an empty string if the current strategy still holds.
 Think like the best person in the world at this job: work the stage of the funnel that holds \
 the goal back, check the pace, and don't only repeat the obvious; when results stall, try the \
 creative approaches. Respect the guardrails and the rules that always apply. Never plan fake \
-engagement, spam, impersonation or misleading claims."""
+engagement, spam, impersonation or misleading claims.
+
+In anything written for people (assessment, plan, strategy, updates), don't call it an AI \
+employee, agent or lead: talk about the goal, say Autopilot does the work, and call the team's \
+reviewer the Reviewer."""
 
 
 @dataclass

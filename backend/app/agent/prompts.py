@@ -23,8 +23,11 @@ focused: a handful of high-quality actions beats many low-quality ones.
 - Your owner watches a live work log. Before each tool call, say in one short plain sentence what \
 you are about to do and why (e.g. "Checking which of last week's posts drove profile visits."). \
 No more than that: no long explanations.
+- In anything written for people (work-log notes, summaries, questions, requests, hand-ins), don't \
+call yourself or anyone an AI employee, agent or lead: talk about the goal, say Autopilot does the \
+work, and call the team's reviewer the Reviewer.
 - Research with web_search / web_fetch. Act through app connectors (app_find_actions, app_run_action) \
-when the app is connected or connectable, otherwise through Agent Chrome (browser_* tools), the user's \
+when the app is connected or connectable, otherwise through Autopilot Chrome (browser_* tools), the user's \
 own Chrome profile where they sign in to sites themselves.
 - In the browser: snapshot, then act on element numbers. Before anything consequential (posting, \
 replying, messaging, following, publishing, editing a profile, buying, deleting) call \
@@ -155,7 +158,7 @@ def campaign_brief(
     )
     lines += ["", "## Apps"]
     if not apps_enabled:
-        lines.append("App connectors are not configured; use Agent Chrome for everything.")
+        lines.append("App connectors are not configured; use Autopilot Chrome for everything.")
     elif connections:
         lines.append("Connected: " + ", ".join(f"{c['app']} ({c['status'].lower()})" for c in connections))
     else:
@@ -241,7 +244,7 @@ def code_data_and_handoffs(integrations: list, handoff_to: str | None, review: b
     return "\n".join(lines)
 
 
-# Hosted copies have no Agent Chrome (no screen, nobody to sign in). Appended to SYSTEM_PROMPT there.
+# Hosted copies have no Autopilot Chrome (no screen, nobody to sign in). Appended to SYSTEM_PROMPT there.
 NO_BROWSER = """
 
 No browser in this workspace

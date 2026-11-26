@@ -86,7 +86,7 @@ async def test_prd_review_then_hand_off_to_engineering():
         docs = (await c.get(f"/api/deliverables?agent_id={product}")).json()
         assert docs[0]["status"] == "handed_off" and docs[0]["handed_to_campaign_id"] == build["id"]
         log = (await c.get(f"/api/campaigns/{goal}/activity")).json()
-        assert any("and handed to Engineering Agent" in a["title"] for a in log)
+        assert any("and handed on as a new goal: Build: CSV export for routes" in a["title"] for a in log)
 
 
 async def test_direct_hand_off_and_changes_requested():

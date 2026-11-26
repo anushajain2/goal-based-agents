@@ -18,6 +18,7 @@ from app.models import (
     AgentRun,
     Campaign,
     CampaignStatus,
+    Department,
     ExclusionRule,
     LedgerEntry,
     PermissionGrant,
@@ -136,9 +137,9 @@ async def create_campaign(body: CampaignIn, s: AsyncSession = Depends(get_sessio
             raise HTTPException(400, "A spending permission needs a per-action limit")
     agent = await s.get(Agent, body.agent_id) if body.agent_id else await pick_agent(s, me.org_id, body.category)
     if not agent or agent.org_id != me.org_id:
-        raise HTTPException(400, "Choose an AI employee for this goal (add one under Team first).")
+        raise HTTPException(400, "Choose a team for this goal (add one under Team first).")
     if not me.in_department(agent.department_id):
-        raise HTTPException(403, "You can only give goals to AI employees in your departments.")
+        raise HTTPException(403, "You can only add goals to your own teams.")
     c = Campaign(
         owner_id=me.user.id, org_id=me.org_id, agent_id=agent.id,
         name=body.name, goal_type=body.goal_type, goal_description=body.goal_description,
@@ -157,7 +158,9 @@ async def create_campaign(body: CampaignIn, s: AsyncSession = Depends(get_sessio
         s.add(PermissionGrant(campaign_id=c.id, org_id=me.org_id, owner_id=me.user.id, granted_by=me.user.id,
                               action_type=g.action_type, scope=g.scope,
                               spend_limit_usd=g.spend_limit_usd))
-    await activity.log(s, c.id, "system", f"Goal created by {_who(me)} for {agent.name}", status="info")
+    dept = await s.get(Department, agent.department_id)
+    await activity.log(s, c.id, "system", f"Goal created by {_who(me)}" + (f" for the {dept.name} team" if dept else ""),
+                       status="info")
     if body.launch:
         await _launch(s, c)
     await s.flush()
@@ -178,7 +181,7 @@ async def patch_campaign(campaign_id: str, body: CampaignPatch, s: AsyncSession 
     if changes.get("agent_id"):
         agent = await s.get(Agent, changes["agent_id"])
         if not agent or agent.org_id != me.org_id or not me.in_department(agent.department_id):
-            raise HTTPException(403, "You can only hand goals to AI employees in your departments.")
+            raise HTTPException(403, "You can only move goals to your own teams.")
     new_target = changes.pop("target_value", None) if "target_value" in changes else None
     new_period = changes.pop("target_period", None)
     for k, v in changes.items():
@@ -194,7 +197,7 @@ async def patch_campaign(campaign_id: str, body: CampaignPatch, s: AsyncSession 
         await _set_budget_basis(s, c)
     if "budget_total" in changes and c.status == CampaignStatus.out_of_budget.value:
         c.status = CampaignStatus.paused.value  # the user can resume now that there is budget
-    await activity.log(s, c.id, "system", "Goal settings updated: " + ", ".join(changes).replace("_", " "),
+    await activity.log(s, c.id, "system", "Goal settings updated: " + ", ".join("team" if k == "agent_id" else k.replace("_", " ") for k in changes),
                        status="info")
     await notify(s, c.id, "campaign")
     return await campaign_json(s, c, full=True, me=me)

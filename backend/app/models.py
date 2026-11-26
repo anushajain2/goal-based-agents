@@ -61,7 +61,7 @@ class RunStatus(str, enum.Enum):
 
 class RequestKind(str, enum.Enum):
     action = "action"  # "I'm going to post this - can I go ahead?"
-    login = "login"  # "Please sign in to X in Agent Chrome"
+    login = "login"  # "Please sign in to X in Autopilot Chrome"
     connect = "connect"  # "Please connect your HubSpot account" (Composio OAuth link)
     question = "question"  # "Which customers should I ask for a case study?" - needs an answer
     review = "review"  # "Here's a PRD - approve it (and hand it to Engineering)?" - work to review
@@ -213,7 +213,7 @@ class McpServer(Base):
 
 
 class SiteSignIn(Base):
-    """Someone signed in to a site in Agent Chrome for the organization's AI employees."""
+    """Someone signed in to a site in Autopilot Chrome for the organization's AI employees."""
 
     __tablename__ = "site_sign_ins"
 

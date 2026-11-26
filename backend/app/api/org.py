@@ -189,7 +189,7 @@ async def unlock(check_key: str, s: AsyncSession = Depends(get_session), me: Mem
 
     goal_id = await opportunities.unlock_goal(s, me.org_id, me.user.id, check_key)
     if not goal_id:
-        raise HTTPException(404, "Add that team first, then its AI employee can run this check.")
+        raise HTTPException(404, "Add that team first, then Autopilot can run this check for it.")
     await s.commit()
     return {"goal_id": goal_id}
 
@@ -419,17 +419,17 @@ async def lead_reviews(department_id: str, s: AsyncSession = Depends(get_session
 
 @router.post("/departments/{department_id}/lead/review")
 async def review_now(department_id: str, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
-    """Ask the AI team lead to review the team now (the worker picks it up within seconds)."""
+    """Ask the team's Reviewer to review the team now (the worker picks it up within seconds)."""
     d = await _department(s, me, department_id)
     _may_manage_team(me, d.id)
     if not _can_research():
-        raise HTTPException(400, "Add ANTHROPIC_API_KEY to the .env file and restart to use AI team leads.")
+        raise HTTPException(400, "Add ANTHROPIC_API_KEY to the .env file and restart to use Reviewers.")
     busy = (await s.execute(select(LeadReview.id).where(LeadReview.department_id == d.id,
                                                         LeadReview.status.in_(["queued", "running"])))).first()
     if busy:
-        raise HTTPException(409, f"{lead_name(d)} is already reviewing the team.")
+        raise HTTPException(409, f"The {lead_name(d)} is already reviewing the team.")
     if await spent_this_month(s, d.id) >= d.lead_monthly_cap_usd:
-        raise HTTPException(400, f"This month's limit for {lead_name(d)} (${d.lead_monthly_cap_usd:.2f}) is used up. Raise it to review now.")
+        raise HTTPException(400, f"This month's limit for the {lead_name(d)} (${d.lead_monthly_cap_usd:.2f}) is used up. Raise it to review now.")
     r = LeadReview(org_id=me.org_id, department_id=d.id, requested_by=me.user.id)
     s.add(r)
     await s.flush()
@@ -472,7 +472,7 @@ async def delete_department(department_id: str, s: AsyncSession = Depends(get_se
                         .where(Agent.department_id == d.id))
     ).scalar_one()
     if goals:
-        raise HTTPException(400, "This department's AI employees still have goals. Move or delete those first.")
+        raise HTTPException(400, "This department still has goals. Move or delete those first.")
     await s.delete(d)
     return {"ok": True}
 
@@ -521,7 +521,7 @@ async def _manager(s: AsyncSession, me: Member, user_id: str | None) -> str | No
         return None
     ok = (await s.execute(select(Membership.id).where(Membership.org_id == me.org_id, Membership.user_id == user_id))).first()
     if not ok:
-        raise HTTPException(400, "An AI employee can only report to someone in the organization.")
+        raise HTTPException(400, "Requests can only go to someone in the organization.")
     return user_id
 
 
@@ -534,7 +534,7 @@ def _may_staff(me: Member, department_id: str) -> None:
 async def _agent(s: AsyncSession, me: Member, agent_id: str) -> Agent:
     a = await s.get(Agent, agent_id)
     if not a or a.org_id != me.org_id:
-        raise HTTPException(404, "AI employee not found")
+        raise HTTPException(404, "Not found")
     return a
 
 
@@ -593,7 +593,7 @@ async def update_agent(agent_id: str, body: AgentPatch, s: AsyncSession = Depend
         if target:
             t = await _agent(s, me, target)
             if t.id == a.id:
-                raise HTTPException(400, "An AI employee can't hand work to itself.")
+                raise HTTPException(400, "Work can't be handed on to where it came from.")
         a.handoff_to_agent_id = target or None
     if body.handoff_review is not None:
         a.handoff_review = body.handoff_review
@@ -605,7 +605,7 @@ async def remove_agent(agent_id: str, s: AsyncSession = Depends(get_session), me
     require_admin(me)
     a = await _agent(s, me, agent_id)
     if (await s.execute(select(func.count()).select_from(Campaign).where(Campaign.agent_id == a.id))).scalar_one():
-        raise HTTPException(400, "This AI employee still has goals. Reassign or delete them first.")
+        raise HTTPException(400, "This still has goals. Reassign or delete them first.")
     await s.delete(a)
     return {"ok": True}
 

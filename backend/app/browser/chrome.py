@@ -1,4 +1,4 @@
-"""Agent Chrome: your installed Chrome, with its own profile, controlled over CDP.
+"""Autopilot Chrome: your installed Chrome, with its own profile, controlled over CDP.
 
 * The profile lives in data/agent-chrome-profile, so sign-ins persist across restarts.
   You sign in once per site; the agent never sees or types passwords.
@@ -144,12 +144,12 @@ class ChromeUnavailable(Exception):
 
 
 async def ensure_agent_chrome() -> str:
-    """Make sure Agent Chrome is running with remote control on; return the CDP URL."""
+    """Make sure Autopilot Chrome is running with remote control on; return the CDP URL."""
     if await cdp_ready():
         return cdp_url()
     if manual_mode_active():
         raise ChromeUnavailable(
-            "Agent Chrome is in manual sign-in mode. Finish signing in and click Done in Autopilot."
+            "Autopilot Chrome is in manual sign-in mode. Finish signing in and click Done in Autopilot."
         )
     chrome = find_chrome()
     if not chrome:
@@ -161,7 +161,7 @@ async def ensure_agent_chrome() -> str:
         if await cdp_ready():
             return cdp_url()
         await asyncio.sleep(0.2)
-    raise ChromeUnavailable("Agent Chrome did not start (is another Chrome using the same profile?).")
+    raise ChromeUnavailable("Autopilot Chrome did not start (is another Chrome using the same profile?).")
 
 
 async def start_manual_signin(url: str) -> None:

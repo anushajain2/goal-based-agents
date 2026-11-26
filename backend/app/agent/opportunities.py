@@ -289,7 +289,9 @@ for the main search in 6 months"). Each milestone is a goal for the right team, 
 AI employee works on it, how many weeks, and any real money it needs beyond the AI's own work \
 (ads, tools, freelancers, directory fees, PR distribution), itemised with realistic prices. Don't \
 pad: if no extra spend is needed, list none.
-  Smaller fixes get a single new goal and no milestones."""
+  Smaller fixes get a single new goal and no milestones.
+- In anything written for people, don't call it an AI employee, agent or lead: talk about the goal \
+and say Autopilot does the work."""
 
 STRUCTURE_TASK = """Measured: where {name} ({domain}) shows up for what customers search
 {visibility}
@@ -760,7 +762,7 @@ async def unlock_goal(s, org_id: str, requested_by: str | None, check_key: str) 
         "steps": [{"text": f"Read {label} and find: {c.how.lower()}", "action_type": "read_data", "tool": c.tool},
                   {"text": "Write a short report: what was found and what to fix first", "action_type": "create_draft", "tool": "none"},
                   {"text": "Fix or follow up on each, after your OK", "action_type": "other_write", "tool": c.tool}],
-        "why": f"Connecting {label} lets your AI employee check this on your own data.",
+        "why": f"Connecting {label} lets Autopilot check this on your own data.",
         "first_week": f"A list of {c.title.lower()}, with what to do about each", "start_here": False, "key_results": []})
     if goal is None:
         return None

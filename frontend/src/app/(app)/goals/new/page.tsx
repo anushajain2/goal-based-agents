@@ -321,7 +321,7 @@ function NewGoal() {
                     );
                   })}
                 </div>
-                <p className="mt-1.5 text-xs text-muted">Leave empty to let Autopilot choose. It uses connected apps where possible, otherwise your Agent Chrome.</p>
+                <p className="mt-1.5 text-xs text-muted">Leave empty to let Autopilot choose. It uses connected apps where possible, otherwise your Autopilot Chrome.</p>
               </div>
             </div>
           )}

@@ -8,7 +8,7 @@
     POST /api/campaigns/{id}/autonomy          apply one (with changes), usually when starting the goal
     POST /api/campaigns/{id}/autonomy/flag     "this shouldn't have gone out": that kind asks first again
     GET  /api/campaigns/{id}/readiness         tools to connect + approvals, shown before starting
-    POST /api/sites/signed-in                  "I signed in to this site in Agent Chrome"
+    POST /api/sites/signed-in                  "I signed in to this site in Autopilot Chrome"
 """
 
 from __future__ import annotations

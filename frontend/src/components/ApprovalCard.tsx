@@ -189,7 +189,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
           {req.preview.details && <p className="text-sm">{req.preview.details}</p>}
           {req.preview.screenshot && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={`${API_URL}/api/screenshots/${req.preview.screenshot}`} alt="Current page in Agent Chrome" className="max-h-72 rounded-md border border-line" />
+            <img src={`${API_URL}/api/screenshots/${req.preview.screenshot}`} alt="Current page in Autopilot Chrome" className="max-h-72 rounded-md border border-line" />
           )}
           {req.est_spend_usd !== null && <p className="text-sm">Will spend up to <b>{usd(req.est_spend_usd)}</b> from this goal&apos;s budget.</p>}
         </div>
@@ -211,11 +211,11 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
       {req.kind === "login" && req.preview.url && (
         <div className={cx("rounded-md bg-stone-50/60 p-3 text-sm", !detail && "mt-3")}>
           <p>
-            Sign in to <b>{req.preview.site}</b> in the <b>Agent Chrome</b> window, then click &quot;I&apos;ve signed in&quot;. You stay signed in, so you only do
+            Sign in to <b>{req.preview.site}</b> in the <b>Autopilot Chrome</b> window, then click &quot;I&apos;ve signed in&quot;. You stay signed in, so you only do
             this once per site. Autopilot never sees your password.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => openInAgentChrome(req.preview.url!)}><ExternalLink size={13} /> Open login page in Agent Chrome</Button>
+            <Button size="sm" onClick={() => openInAgentChrome(req.preview.url!)}><ExternalLink size={13} /> Open login page in Autopilot Chrome</Button>
             <Button size="sm" variant="ghost" onClick={() => openInAgentChrome(req.preview.url!, true)} title="For sites like Google that block sign-in in a remote-controlled browser">
               Site won&apos;t let me sign in? Use manual sign-in mode
             </Button>
