@@ -29,7 +29,7 @@ from app.config import get_settings
 from app.db import session_scope
 from app.observability import check_and_init
 from app.models import AgentRun, Campaign, CampaignStatus, LeadReview, OrgSetup, RunStatus, utcnow
-from app.services import activity, autonomy, helpers, targets
+from app.services import activity, autonomy, helpers, targets, whatsapp
 from app.services.events import notify
 
 log = logging.getLogger("autopilot.worker")
@@ -93,6 +93,17 @@ async def release_heads_ups(tasks: set) -> None:
         task = asyncio.create_task(autonomy.run_queued(request_id))
         tasks.add(task)
         task.add_done_callback(tasks.discard)
+
+
+async def deliver_whatsapp() -> None:
+    """New approvals, heads-ups and questions to people who connected WhatsApp."""
+    if not whatsapp.enabled():
+        return
+    try:
+        async with session_scope() as s:
+            await whatsapp.deliver(s)
+    except Exception:  # noqa: BLE001 - notifications must never stop the worker
+        log.exception("WhatsApp delivery failed")
 
 
 async def roll_over_targets() -> int:
@@ -298,6 +309,7 @@ async def main() -> None:
             await recover_stale_setups()
             await schedule_due_cycles()
             await release_heads_ups(tasks)
+            await deliver_whatsapp()
             if not settings.agent_chrome_enabled:
                 await wake_helper_runs()
             if not last_rollover or utcnow() - last_rollover > timedelta(minutes=1):

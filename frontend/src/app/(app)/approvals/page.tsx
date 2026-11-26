@@ -7,6 +7,7 @@ import { Suspense, useEffect, useMemo, useState, useRef } from "react";
 
 import { ApprovalCard, KIND_BADGE } from "@/components/ApprovalCard";
 import { AgentAvatar } from "@/components/team";
+import { WhatsAppNudge } from "@/components/WhatsAppConnect";
 import { Badge, Card, cx, Empty, PageHeader } from "@/components/ui";
 import { OrgInfo, timeAgo, useApi, UserRequest } from "@/lib/api";
 
@@ -81,6 +82,7 @@ function NeedsYouPage() {
           </div>
         }
       />
+      <WhatsAppNudge />
 
       {list && list.length === 0 ? (
         <Card>

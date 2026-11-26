@@ -29,6 +29,19 @@ envVarGroups:
       # App connectors (Composio): the platform key; organizations can add their own
       - key: COMPOSIO_API_KEY
         sync: false
+      # WhatsApp approvals (optional; docs/WHATSAPP.md). Webhook: <API URL>/api/whatsapp/webhook
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_BUSINESS_NUMBER
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_WABA_ID
+        sync: false
       # Email for sign-in codes and invites (Resend, Postmark, SES...): required for real users
       - key: SMTP_HOST
         sync: false

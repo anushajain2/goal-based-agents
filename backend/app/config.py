@@ -62,6 +62,18 @@ class Settings(BaseSettings):
     # Hard ceiling on model calls in a single optimization cycle (runaway guard).
     max_model_calls_per_cycle: int = 60
 
+    # --- WhatsApp (optional): approvals and questions on people's phones ------------
+    # The platform's own WhatsApp Business number on Meta's Cloud API, shared by every
+    # organization (like the Composio key). Set all of these to turn it on; see docs/WHATSAPP.md.
+    whatsapp_access_token: str | None = None  # a System User token with whatsapp_business_messaging
+    whatsapp_phone_number_id: str | None = None  # the business number's id in the Cloud API
+    whatsapp_business_number: str | None = None  # the same number, e.g. +14155550123 (for wa.me links)
+    whatsapp_app_secret: str | None = None  # the Meta app's secret: checks webhook signatures
+    whatsapp_verify_token: str | None = None  # any string; entered in Meta's webhook settings too
+    whatsapp_waba_id: str | None = None  # WhatsApp Business Account id (only to create the templates)
+    whatsapp_graph_version: str = "v23.0"
+    whatsapp_template_lang: str = "en"
+
     # --- Composio (optional app connectors) ----------------------------------
     composio_api_key: str | None = None
     # Composio scopes connected accounts per "user"; locally there is one user.
@@ -186,6 +198,11 @@ class Settings(BaseSettings):
     @property
     def google_enabled(self) -> bool:
         return bool(self.google_client_id and self.google_client_secret)
+
+    @property
+    def whatsapp_enabled(self) -> bool:
+        return bool(self.whatsapp_access_token and self.whatsapp_phone_number_id and self.whatsapp_business_number
+                    and self.whatsapp_app_secret)
 
     @property
     def smtp_enabled(self) -> bool:

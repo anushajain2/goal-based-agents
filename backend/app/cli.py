@@ -1,6 +1,11 @@
 """Admin commands for a local Autopilot.
 
     .venv/bin/python -m app.cli delete-user someone@example.com
+    .venv/bin/python -m app.cli whatsapp-templates
+
+whatsapp-templates: submits the WhatsApp message templates for Meta's review (docs/WHATSAPP.md).
+
+delete-user:
 
 Deletes a person's account so the same email can sign up from scratch. If they were the only
 member of their organization, the organization and everything in it (departments, AI
@@ -88,7 +93,14 @@ def main() -> None:
     d = sub.add_parser("delete-user", help="Delete an account so the email can sign up again")
     d.add_argument("email")
     d.add_argument("--yes", action="store_true", help="Don't ask for confirmation")
+    sub.add_parser("whatsapp-templates", help="Submit the WhatsApp message templates for Meta's approval")
     args = parser.parse_args()
+
+    if args.command == "whatsapp-templates":
+        for line in asyncio.run(create_whatsapp_templates()):
+            print(line)
+        print("Meta usually reviews utility templates within minutes; check WhatsApp Manager → Message templates.")
+        return
 
     if args.command == "delete-user":
         info = asyncio.run(plan_delete(args.email))
@@ -113,6 +125,33 @@ def main() -> None:
         for line in asyncio.run(delete_user(args.email)):
             print(line)
         print("Done. That email can now sign up again and go through onboarding.")
+
+
+async def create_whatsapp_templates() -> list[str]:
+    """Submit the WhatsApp message templates (services/whatsapp.TEMPLATES) for Meta's review."""
+    import httpx
+
+    from app.config import get_settings
+    from app.services import whatsapp
+
+    st = get_settings()
+    if not (st.whatsapp_access_token and st.whatsapp_waba_id):
+        return ["Set WHATSAPP_ACCESS_TOKEN and WHATSAPP_WABA_ID first (see docs/WHATSAPP.md)."]
+    out = []
+    url = f"{whatsapp.GRAPH}/{st.whatsapp_graph_version}/{st.whatsapp_waba_id}/message_templates"
+    async with httpx.AsyncClient(timeout=30, transport=whatsapp.TRANSPORT) as c:
+        for name, t in whatsapp.TEMPLATES.items():
+            body = {"name": name, "language": st.whatsapp_template_lang, "category": "UTILITY", "components": [
+                {"type": "BODY", "text": t["body"], "example": {"body_text": [t["example"]]}},
+                {"type": "BUTTONS", "buttons": [{"type": "QUICK_REPLY", "text": b} for b in t["buttons"]]},
+            ]}
+            r = await c.post(url, json=body, headers={"Authorization": f"Bearer {st.whatsapp_access_token}"})
+            if r.status_code < 400:
+                out.append(f"{name}: submitted ({r.json().get('status', 'PENDING')})")
+            else:
+                msg = (r.json().get("error") or {}).get("error_user_msg") or (r.json().get("error") or {}).get("message") or r.text[:200]
+                out.append(f"{name}: not created: {msg}")
+    return out
 
 
 if __name__ == "__main__":

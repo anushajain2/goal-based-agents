@@ -97,6 +97,31 @@ class User(Base):
     # Unused since sign-in became passwordless; kept so older databases upgrade cleanly.
     password_hash: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    # WhatsApp (services/whatsapp.py): the number they connected by messaging us a link code
+    # (which is also their opt-in), when they last wrote to us (WhatsApp's 24-hour window),
+    # what they want to get there, and where a conversation is (e.g. waiting for edited text).
+    whatsapp_number: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
+    whatsapp_linked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    whatsapp_last_inbound_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    whatsapp_prefs: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
+    whatsapp_state: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
+    whatsapp_link_code_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    whatsapp_link_code_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class WhatsAppMessage(Base):
+    """A WhatsApp message we sent or got: which request it was about (so a reply to it finds its
+    request), and inbound ids already handled (Meta retries webhooks)."""
+
+    __tablename__ = "whatsapp_messages"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    request_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    wa_message_id: Mapped[str] = mapped_column(String(200), index=True)
+    direction: Mapped[str] = mapped_column(String(3))  # in | out
+    kind: Mapped[str] = mapped_column(String(20))  # template | card | list | text | inbound
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
 
 
 class LoginCode(Base):
