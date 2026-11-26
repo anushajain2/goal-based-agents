@@ -54,14 +54,12 @@ your own backend (the pairing link points at http://localhost:8000).
 
 ## Release installers
 
-Push a tag and GitHub Actions builds macOS (Apple silicon and Intel), Windows and Linux installers
-and attaches them to a GitHub release. The **Download** button in Autopilot points to that release.
+When `version` in `desktop/package.json` hasn't been released yet, pushing to `main` makes GitHub Actions
+build macOS (Apple silicon and Intel), Windows and Linux installers and publish them as release
+`helper-v<version>`. The **Download** button in Autopilot points to the latest release. Other changes
+under `desktop/` only build (to check they still work).
 
-```bash
-git tag helper-v0.1.0 && git push origin helper-v0.1.0
-```
-
-Bump `version` in `package.json` first for later releases. Without signing certificates, macOS asks
+For the next release, bump `version` in `package.json` and push. Without signing certificates, macOS asks
 people to right-click → Open the first time, and Windows shows "More info → Run anyway". Add the
 secrets listed in `.github/workflows/desktop.yml` to sign builds: an Apple Developer ID for Mac and a
 code-signing certificate for Windows.

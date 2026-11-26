@@ -133,9 +133,9 @@ The helper app connects your laptop to `autopilot-api` (directly, over a secure 
 worker reaches it through the API on the private network (`API_INTERNAL_HOSTPORT` in render.yaml).
 Keep `autopilot-api` at **one instance**, because helper connections live in its memory.
 
-1. **Publish installers once.** Push a tag, and GitHub Actions builds Mac, Windows and Linux installers
-   into a GitHub release:
-   `git tag helper-v0.1.0 && git push origin helper-v0.1.0`
+1. **Publish installers.** GitHub Actions builds Mac, Windows and Linux installers into a GitHub
+   release (`helper-v<version>`) whenever `desktop/package.json` has a version that isn't released
+   yet. For a new release, bump that version and push to `main`.
    The app's **Download** button points to the latest release (`HELPER_DOWNLOAD_URL` changes it).
 2. **Connect a computer.** In the app, go to **Connections → Desktop helper → Connect a computer**,
    then click **Open in the helper** (or paste the pairing link into the helper).
