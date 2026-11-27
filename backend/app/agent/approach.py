@@ -37,29 +37,44 @@ MAX_LEARNINGS = 12
 MAX_EXPERIMENTS = 10
 STATUSES = ("planned", "testing", "working", "dropped")
 
-SYSTEM = """You design how Oton will hit a business goal. It researches, builds lists, \
-writes, designs, sends, posts and uses the company's apps, and asks a person before anything public, \
-outgoing or paid. Think like the best person for this job, not a template.
+VERSION = 2  # approaches are strategies tied to the goal, each with an example (older ones are remade before start)
 
-1. The model: break the goal's number into the 2-5 stages that produce it, as a funnel, e.g. for \
-meetings: "Prospects contacted" -> "Replies" -> "Meetings booked"; for signups: "Visitors" -> \
-"Signups". For each stage give a realistic benchmark for this kind of company (e.g. "5-10% reply \
-rate"). Name the stage most likely to be the bottleneck at the start, and why.
-2. The approaches: 4-7 ways to pursue it, best first. Include the obvious ones done well, AND at \
-least two creative ones that fit this goal and audience: e.g. an X or LinkedIn thread series, a \
-short demo or explainer video (script and storyboard, made with a connected video tool), a free \
-calculator or template, a webinar, a community or podcast appearance, a partnership, a teardown of \
-a well-known example, user-generated content, a giveaway. No spam, fake engagement or misleading \
-claims. For each: what it does in one line, why it fits, the main tool, and which milestone it \
-belongs to when the goal has milestones (else 1).
-3. The first experiment worth running, as a hypothesis with the change and how many attempts to \
-judge it on.
+SYSTEM = """You decide how Oton will hit one business goal. It researches, builds lists, writes, \
+designs (images, short videos and animations), sends, posts and uses the company's apps, and asks a \
+person before anything public, outgoing or paid. Think like the best person in the world at this exact \
+job, not a template.
 
-The owner reads this before turning it on, so write for a busy person, in plain words: stage names \
-of 1-3 words; the bottleneck's "why" in one short sentence; each approach named in under 6 words and \
-described in under 15 words, saying what it does for them. No jargon or acronyms (say "bid \
-comparison", not "TBE"). Don't call it an AI employee, agent or lead: talk about the goal and say \
-Oton does the work."""
+1. The approaches: the 4-6 concrete strategies Oton will use, again and again, to move THIS goal's \
+number, best first. Each one is something it makes or does that directly produces the result the goal \
+counts. Name what it makes, about what, and from what source, so the owner can picture it. Fit them to \
+the kind of goal, for example:
+- posting or content goals (posts, followers, views): content angles, e.g. creative use cases of the \
+product; a quick take on news in the industry; insights on trends in the customers' industry; short \
+product videos or animations; customer stories and results; practical tips for the audience; lessons \
+from building the company. Name the actual topics for this company.
+- outreach and meetings: who exactly to reach (a named segment and the trigger that makes now a good \
+time), the angle of the message, and how it follows up.
+- reviews, referrals, signups, search, communities, partnerships: the specific moment, place, offer or \
+page that produces the result.
+At least two should be creative where it fits (a series, a video, a free tool, a teardown, a stunt). \
+NOT approaches: anything about the process (approvals, batching, scheduling, reporting, tracking), \
+connecting or setting up tools, one-off setup tasks, or work that belongs to a different goal (for a \
+posting goal: no website changes, no profile links, no ads). No spam, fake engagement or misleading \
+claims.
+For each: a name (under 6 plain words), what it does (under 18 words: what it makes or does, about \
+what), an example of one real output for this company (a post's first line, an email subject, a video \
+idea; under 20 words, no made-up numbers), why it fits, the main tool, and its milestone when the goal \
+has milestones (else 1).
+2. The model, used to track progress (not shown up front): the 2-5 results in the world that lead to \
+the number, as a funnel, e.g. "Posts published" -> "Views" -> "Profile visits" -> "Signups"; for \
+meetings: "People contacted" -> "Replies" -> "Meetings booked". Stages are results outside the company, \
+never internal steps such as drafting, approving or scheduling. A realistic benchmark for each, the \
+stage most likely to hold the goal back at the start, and why, in one sentence.
+3. The first experiment worth running, as a hypothesis with the change and how many attempts to judge \
+it on.
+
+The owner reads the approaches before turning the goal on: plain words, no jargon or acronyms. Don't \
+call it an AI employee, agent or lead: talk about the goal and say Oton does the work."""
 
 
 def schema() -> dict:
@@ -69,10 +84,11 @@ def schema() -> dict:
         "required": ["name", "benchmark", "unit"], "additionalProperties": False}
     approach = {"type": "object", "properties": {
         "name": {"type": "string", "description": "Under 6 words, e.g. 'Founder-led X thread series'"},
-        "what": {"type": "string", "description": "What it does for them, under 15 plain words"},
+        "what": {"type": "string", "description": "What it makes or does, about what, under 18 plain words"},
+        "example": {"type": "string", "description": "One real output for this company, e.g. a post's first line"},
         "why": {"type": "string"}, "creative": {"type": "boolean"},
         "tool": {"type": "string", "enum": TOOL_CHOICES}, "milestone": {"type": "integer"}},
-        "required": ["name", "what", "why", "creative", "tool", "milestone"], "additionalProperties": False}
+        "required": ["name", "what", "example", "why", "creative", "tool", "milestone"], "additionalProperties": False}
     return {"type": "json_schema", "schema": {"type": "object", "properties": {
         "stages": {"type": "array", "items": stage},
         "bottleneck": {"type": "string"}, "bottleneck_why": {"type": "string"},
@@ -96,6 +112,7 @@ def tidy(data: dict, c: Campaign) -> dict:
     names = [s["name"] for s in stages]
     bottleneck = data.get("bottleneck") if data.get("bottleneck") in names else names[0]
     approaches = [{"id": _id(), "name": str(x.get("name", ""))[:60], "what": str(x.get("what", ""))[:200],
+                   "example": str(x.get("example", ""))[:200],
                    "why": str(x.get("why", ""))[:200], "creative": bool(x.get("creative")),
                    "tool": x.get("tool") if x.get("tool") in TOOL_CHOICES else "none",
                    "milestone": max(int(x.get("milestone") or 1), 1), "status": "planned"}
@@ -106,7 +123,7 @@ def tidy(data: dict, c: Campaign) -> dict:
                     "started": None, "ended": None}] if exp.get("hypothesis") else []
     return {"model": {"stages": stages, "bottleneck": bottleneck, "why": str(data.get("bottleneck_why", ""))[:240]},
             "approaches": approaches, "experiments": experiments, "learnings": [], "updates": 0,
-            "made": utcnow().isoformat()}
+            "made": utcnow().isoformat(), "v": VERSION}
 
 
 def default(c: Campaign) -> dict:
@@ -129,7 +146,7 @@ async def generate(claude: MeteredClaude, c: Campaign, milestones: list[dict] | 
               f"Number: {c.primary_metric}" + (f" (target {c.target_value:g})" if c.target_value else "") + "\n"
               f"Channels people suggested: {', '.join(c.channels) if c.channels else 'any'}\n"
               f"Company context:\n{(c.context or '(none)')[:3000]}\n\n"
-              f"The plan people agreed to:\n{steps or '(none yet)'}\n\n"
+              f"How the work runs (for context; these are not the approaches):\n{steps or '(none yet)'}\n\n"
               + (f"Milestones:\n{stones}\n\n" if stones else "")
               + f"Tools available: {tools}.")
     result = await claude.create(campaign_id=c.id, run_id=None, purpose="how this goal gets hit", role="planner",
@@ -160,9 +177,9 @@ def plan_fields(approach: dict | None) -> dict:
             "name": {"type": "string", "enum": ap_names}, "status": {"type": "string", "enum": list(STATUSES)}},
             "required": ["name", "status"], "additionalProperties": False}},
         "new_approach": {"anyOf": [{"type": "null"}, {"type": "object", "properties": {
-            "name": {"type": "string"}, "what": {"type": "string"}, "why": {"type": "string"},
+            "name": {"type": "string"}, "what": {"type": "string"}, "example": {"type": "string"}, "why": {"type": "string"},
             "creative": {"type": "boolean"}, "tool": {"type": "string", "enum": TOOL_CHOICES}},
-            "required": ["name", "what", "why", "creative", "tool"], "additionalProperties": False}]},
+            "required": ["name", "what", "example", "why", "creative", "tool"], "additionalProperties": False}]},
         "experiment": {"type": "object", "properties": {
             "action": {"type": "string", "enum": ["none", "start", "keep", "drop"]},
             "hypothesis": {"type": "string"}, "change": {"type": "string"}, "judge_after": {"type": "string"},
@@ -180,7 +197,8 @@ def plan_fields(approach: dict | None) -> dict:
 PLAN_GUIDANCE = """Also, every session:
 - stages: the latest number for each stage of the funnel (null if unknown); bottleneck: the stage \
 holding the goal back now, and why. The plan must work on the bottleneck first.
-- focus: the approaches this session works on. Keep the obvious ones going, and give the creative \
+- focus: the approaches this session works on: the session's work is these strategies (the posts, \
+messages or pages they describe), not process or work for other goals. Keep the obvious ones going, and give the creative \
 ones a real try when the obvious ones plateau. approach_status: change an approach's status when \
 the numbers say so (testing, working, dropped). new_approach: a better idea you've found, or null.
 - experiment: one change at a time. "start" a new one (hypothesis, the change, judged after how many \
@@ -225,6 +243,7 @@ def apply(c: Campaign, data: dict, now: datetime | None = None) -> dict | None:
     new = data.get("new_approach")
     if new and new.get("name") and all(ap["name"] != new["name"] for ap in approaches) and len(approaches) < MAX_APPROACHES + 3:
         approaches.append({"id": _id(), "name": new["name"][:60], "what": str(new.get("what", ""))[:200],
+                           "example": str(new.get("example", ""))[:200],
                            "why": str(new.get("why", ""))[:200], "creative": bool(new.get("creative")),
                            "tool": new.get("tool") if new.get("tool") in TOOL_CHOICES else "none",
                            "milestone": 1, "status": "testing", "focus": True, "added": now.isoformat()})
@@ -281,8 +300,9 @@ def brief_text(approach: dict | None, pace_text: str = "") -> str:
     if pace_text:
         lines += ["", "## Pace", pace_text]
     if a.get("approaches"):
-        lines += ["", "## Approaches (status)"]
+        lines += ["", "## Approaches: the strategies to use for this goal's number (status)"]
         lines += [f"- {x['name']} [{x.get('status', 'planned')}{', creative' if x.get('creative') else ''}]: {x['what']}"
+                  + (f" E.g. {x['example']}" if x.get("example") else "")
                   for x in a["approaches"]]
     exps = a.get("experiments") or []
     if exps:

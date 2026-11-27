@@ -177,8 +177,12 @@ export function HowItsGoing({ c, update }: { c: Campaign; update?: { u: GoalUpda
 
 /** In the start flow: what Oton will do, before anyone turns it on. */
 /** How the goal gets hit, made on first look (once per goal). */
+const APPROACH_VERSION = 2;  // keep in step with backend/app/agent/approach.py
+
 function useApproach(goal: Campaign): { a: GoalApproach | null; failed: boolean } {
-  const [a, setA] = useState<GoalApproach | null>(goal.approach || null);
+  // A goal not started yet with an older kind of plan asks for the current one (the server remakes it).
+  const current = goal.approach && (goal.status !== "draft" || (goal.approach.v || 1) >= APPROACH_VERSION) ? goal.approach : null;
+  const [a, setA] = useState<GoalApproach | null>(current);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (a) return;
@@ -203,7 +207,8 @@ function Part({ n, title, children }: { n: number; title: string; children: Reac
   );
 }
 
-/** The plan shown before turning a goal on, as a short story: what you get, the hard part, how. */
+/** The plan shown before turning a goal on, as a short story: what you get in week 1, and the
+ *  strategies it will use for this goal (each with an example of what it makes). */
 export function PlanStory({ goal }: { goal: Campaign }) {
   const { a, failed } = useApproach(goal);
   const [more, setMore] = useState(false);
@@ -227,29 +232,8 @@ export function PlanStory({ goal }: { goal: Campaign }) {
         </div>
       )}
 
-      {a && (
-        <Part n={goal.first_deliverable ? 2 : 1} title="The hard part">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {a.model.stages.map((s, i) => (
-              <span key={s.name} className="inline-flex items-center gap-1.5">
-                <span className={cx("rounded-full px-2.5 py-1 text-[12.5px] font-medium",
-                  s.name === a.model.bottleneck ? "bg-signal-100 text-signal-800 ring-1 ring-inset ring-signal-300" : "bg-canvas text-stone-600 ring-1 ring-inset ring-line")}>
-                  {s.name}
-                </span>
-                {i < a.model.stages.length - 1 && <ChevronRight size={14} className="text-stone-300" />}
-              </span>
-            ))}
-          </div>
-          {a.model.why && (
-            <p className="mt-2.5 text-[15px] leading-relaxed text-ink">
-              <b className="font-semibold">{a.model.bottleneck}</b> is where this usually gets stuck. {a.model.why}
-            </p>
-          )}
-        </Part>
-      )}
-
       {a && top.length > 0 && (
-        <Part n={goal.first_deliverable ? 3 : 2} title="How it will do it">
+        <Part n={goal.first_deliverable ? 2 : 1} title="How it will do it">
           <ol className="space-y-3">
             {top.map((x, i) => (
               <li key={x.id} className="flex gap-3">
@@ -260,6 +244,7 @@ export function PlanStory({ goal }: { goal: Campaign }) {
                     {x.creative && <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-px text-[10.5px] font-semibold text-brand-700"><Sparkles size={10} /> creative</span>}
                   </div>
                   <p className="text-[14px] leading-relaxed text-stone-600">{x.what}</p>
+                  {x.example && <p className="mt-1 text-[13px] italic leading-relaxed text-stone-500">e.g. {x.example}</p>}
                 </div>
               </li>
             ))}

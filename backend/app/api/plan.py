@@ -92,7 +92,9 @@ async def make_approach(campaign_id: str, remake: bool = False, s: AsyncSession 
     from app.models import Organization
 
     goal = await get_goal(s, me, campaign_id, manage=remake)
-    if goal.approach and not remake:
+    # Made once; a goal not started yet whose plan predates the current kind of plan gets a new one.
+    stale = goal.status == "draft" and int((goal.approach or {}).get("v") or 1) < goal_approach.VERSION
+    if goal.approach and not remake and not stale:
         return goal.approach
     org = await s.get(Organization, goal.org_id) if goal.org_id else None
     milestones = next((f.get("milestones") for f in (((org.profile or {}) if org else {}).get("opportunities") or {})

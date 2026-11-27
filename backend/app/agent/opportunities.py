@@ -471,6 +471,9 @@ AI employee works on it, how many weeks, and any real money it needs beyond the 
 (ads, tools, freelancers, directory fees, PR distribution), itemised with realistic prices. Don't \
 pad: if no extra spend is needed, list none.
   Smaller fixes get a single new goal and no milestones.
+- A goal's steps are the real work that moves its own number (for a posting goal: pick topics, write \
+and design the posts, publish, reply to comments). No steps that are only about approvals (those \
+happen on their own) or setting up tools, and nothing that belongs to a different fix.
 - In anything written for people, don't call it an AI employee, agent or lead: talk about the goal \
 and say Oton does the work."""
 

@@ -23,6 +23,7 @@ def approach(kw):
             "approaches": [{"name": "Personal cold email", "what": "Short, researched emails", "why": "Proven",
                             "creative": False, "tool": "gmail", "milestone": 1},
                            {"name": "Founder X thread series", "what": "Weekly thread on routing costs", "why": "Ops leads read X",
+                            "example": "We cut a 40-van fleet's miles by rerouting 3 depots. Here's how:",
                             "creative": True, "tool": "twitter", "milestone": 1},
                            {"name": "Free route-cost calculator", "what": "A calculator page that captures leads",
                             "why": "Useful before talking to sales", "creative": True, "tool": "none", "milestone": 2}],
@@ -45,6 +46,23 @@ async def test_how_a_goal_gets_hit_is_made_once_before_it_starts(api, monkeypatc
     assert len(fake.calls) == n
     full = (await api.get(f"/api/campaigns/{gid}")).json()
     assert full["approach"]["model"]["bottleneck"] == "Replies" and full["has_approach"]
+    assert made["approaches"][1]["example"].startswith("We cut a 40-van fleet's miles") and made["v"] == 2
+    # The strategies are for this goal's own number: not process, not other goals' work.
+    system = next(k for k in fake.calls if "approaches" in k["output_config"].get("format", {}).get("schema", {}).get("properties", {}))["system"]
+    assert "NOT approaches: anything about the process (approvals" in system
+    assert "work that belongs to a different goal" in system
+    assert "never internal steps such as drafting, approving or scheduling" in system
+
+
+async def test_an_older_plan_is_remade_before_the_goal_starts(api, monkeypatch):
+    fake = FakeAnthropic(lambda kw: [text("ok")], routes={"approaches": approach})
+    monkeypatch.setattr(plan_api, "MeteredClaude", lambda: MeteredClaude(client=fake))
+    gid = await make_campaign(api, launch=False, primary_metric="posts")
+    async with session_scope() as s:  # a plan from before strategies had examples
+        (await s.get(Campaign, gid)).approach = {"model": {"stages": [{"name": "Posts approved"}], "bottleneck": "Posts approved"},
+                                                 "approaches": [{"name": "Weekly batch approval in Slack", "what": "x"}]}
+    made = (await api.post(f"/api/campaigns/{gid}/approach")).json()
+    assert made["v"] == 2 and "Weekly batch approval in Slack" not in [a["name"] for a in made["approaches"]]
 
 
 def test_pace_says_how_far_behind_and_what_it_needs():
@@ -102,6 +120,7 @@ async def test_the_strategist_keeps_the_funnel_experiments_learnings_and_posts_a
     # The worker's brief carries the funnel, the bottleneck, the approaches and the learnings.
     assert "## How this goal gets hit" in briefs[0] and "Replies: not measured yet" in briefs[0]
     assert "<- bottleneck" in briefs[0] and "Founder X thread series [planned, creative]" in briefs[0]
+    assert "E.g. We cut a 40-van fleet's miles" in briefs[0]  # each strategy reaches the work with its example
 
     # Next session: the experiment is judged and dropped, with its result; no news, no update.
     extra2 = {**extra, "new_approach": None, "learnings": [],

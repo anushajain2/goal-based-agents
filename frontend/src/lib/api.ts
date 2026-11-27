@@ -66,11 +66,11 @@ export type Campaign = {
 /** How a goal gets hit: its funnel and bottleneck, approaches, experiments and learnings. */
 export type GoalApproach = {
   model: { stages: { name: string; benchmark: string; unit: string; now: number | null }[]; bottleneck: string; why: string; moved_at?: string };
-  approaches: { id: string; name: string; what: string; why: string; creative: boolean; tool: string; milestone: number;
+  approaches: { id: string; name: string; what: string; example?: string; why: string; creative: boolean; tool: string; milestone: number;
     status: "planned" | "testing" | "working" | "dropped"; focus?: boolean }[];
   experiments: { id: string; hypothesis: string; change: string; judge_after: string; status: "planned" | "running" | "kept" | "dropped"; result: string }[];
   learnings: { text: string; evidence: string; at: string }[];
-  updates?: number; last_update_at?: string;
+  updates?: number; last_update_at?: string; v?: number;
 };
 export type GoalUpdate = { measured: string; learned: string; changing: string };
 export type Pace = {

@@ -36,7 +36,9 @@ def step_schema() -> dict:
 
 
 STEP_GUIDANCE = """Steps: 3 to 6 plain-English steps, in order, saying how Oton will \
-pursue the goal. Keep preparing and doing apart, so approval points are obvious: "Write a \
+pursue the goal. Every step is real work that moves this goal's own number (for a posting goal: \
+find topics, write and design posts, publish, reply to comments), not process (no steps that are \
+only about approvals, which happen on their own) and not work that belongs to another goal. Keep preparing and doing apart, so approval points are obvious: "Write a \
 personalised first email to each person" (create_draft) comes before "Send each email" \
 (send_message). action_type is the riskiest kind of action in the step: research, read_data, \
 create_draft and propose_code happen on their own; engage (likes, follows), reply (replies and \
