@@ -3,7 +3,7 @@
 import { Activity, ArrowRight, Check, Hand, Plus, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useState } from "react";
 
 import { KIND_BADGE } from "@/components/ApprovalCard";
 import { GoalProgress } from "@/components/goal";
@@ -11,17 +11,19 @@ import { EmployeeAvatar } from "@/components/Shell";
 import { ConnectChecklist } from "@/components/ConnectChecklist";
 import { TargetLine } from "@/components/Target";
 import { Badge, Card, cx, ErrorNote } from "@/components/ui";
+import dynamic from "next/dynamic";
 import { CATEGORY_ICON, UseCaseCard } from "@/components/UseCaseLibrary";
 import { WorkLog } from "@/components/WorkLog";
 import { YourRole } from "@/components/YourRole";
 import { GoalPanel } from "@/components/GoalPanel";
 import { StartGoal } from "@/components/StartGoal";
 import { Opportunities } from "@/components/Opportunities";
-import { HeroBackdrop, heroFromUrl, HeroKey } from "@/components/HeroBackdrop";
 import { ActivityItem, andMore, Campaign, num, Opportunity, OrgInfo, Overview, SetupInfo, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
 import { useCountUp, useLiteMotion } from "@/lib/motion";
 import { CATEGORIES, FEATURED, findUseCase } from "@/lib/useCases";
 
+
+const SoftAurora = dynamic(() => import("@/components/reactbits/SoftAurora"), { ssr: false });
 
 type Gap = { f: Opportunity; goal: Campaign };
 
@@ -36,8 +38,6 @@ export default function HomePage() {
   const { data: setup } = useApi<SetupInfo>("/api/org/setup", { live: false, pollMs: 5000 });
   const [starting, setStarting] = useState<Campaign[] | null>(null);
   const [panel, setPanel] = useState<Campaign | null>(null);
-  const [hero, setHero] = useState<HeroKey>("dark");
-  useEffect(() => setHero(heroFromUrl()), []);
   const researching = setup?.setup && ["queued", "running"].includes(setup.setup.status);
 
   if (error) return <ErrorNote>Can&apos;t reach the backend ({error}). Is <code>./scripts/dev.sh</code> running?</ErrorNote>;
@@ -80,7 +80,7 @@ export default function HomePage() {
   return (
     <div className="space-y-8">
       <Pulse
-        hero={hero} lite={lite} ov={ov} log={log || []} hello={`${hello}${firstName ? `, ${firstName}` : ""}`} orgName={orgName}
+        lite={lite} ov={ov} log={log || []} hello={`${hello}${firstName ? `, ${firstName}` : ""}`} orgName={orgName}
         live={live.length} onTrack={onTrack} results={results} actionsEver={actionsEver} open={open} fixing={fixing}
         ideas={otherIdeas} onStart={(g) => setStarting([g])}
       />
@@ -216,7 +216,7 @@ export default function HomePage() {
 }
 
 /** The top of Home: what Oton has done for you, or what you're missing while it sits idle, with the next move. */
-// Class names for the hero on its dark and its light background.
+// Class names for the hero (on its dark background).
 const DARK = {
   section: "bg-ink text-white", hello: "text-white/55", sub: "text-white/70", strong: "text-white", warn: "text-amber-200",
   grey: "text-white/55", primary: "bg-lime-300 text-ink hover:bg-lime-200",
@@ -228,23 +228,12 @@ const DARK = {
   idleOn: "text-white/90", idleOff: "text-white/55", chipOn: "bg-lime-300/15 text-lime-200",
   chipBtn: "bg-white/10 text-white/70 hover:bg-lime-300 hover:text-ink", chipOff: "bg-white/10 text-white/50",
 };
-const LIGHT: typeof DARK = {
-  section: "bg-white text-ink ring-1 ring-inset ring-line", hello: "text-muted", sub: "text-stone-600", strong: "text-ink", warn: "text-signal-700",
-  grey: "text-ink/40", primary: "bg-brand-600 text-white hover:bg-brand-700",
-  secondary: "bg-white text-ink ring-1 ring-inset ring-line hover:bg-stone-50", ghost: "text-stone-600 hover:text-ink",
-  miniVal: "text-ink", miniHot: "text-signal-600", miniLabel: "text-muted group-hover:text-ink", miniDim: "text-ink/35",
-  panel: "bg-white/80 ring-line shadow-[var(--shadow-card)] backdrop-blur-md", panelLabel: "text-muted",
-  nowBox: "bg-brand-50 ring-brand-200 hover:bg-brand-100", nowTitle: "text-brand-800", feedHover: "hover:bg-stone-50",
-  feedDot: "bg-brand-500", feedText: "text-ink", feedMeta: "text-muted", idleDot: "bg-stone-300", idleLi: "border-stone-300 bg-white/60",
-  idleOn: "text-ink", idleOff: "text-stone-500", chipOn: "bg-brand-50 text-brand-700",
-  chipBtn: "bg-stone-100 text-stone-600 hover:bg-brand-600 hover:text-white", chipOff: "bg-stone-100 text-stone-500",
-};
 
-function Pulse({ hero, lite, ov, log, hello, orgName, live, onTrack, results, actionsEver, open, fixing, ideas, onStart }: {
-  hero: HeroKey; lite: boolean; ov: Overview; log: ActivityItem[]; hello: string; orgName: string; live: number; onTrack: number;
+function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsEver, open, fixing, ideas, onStart }: {
+  lite: boolean; ov: Overview; log: ActivityItem[]; hello: string; orgName: string; live: number; onTrack: number;
   results: number; actionsEver: number; open: Gap[]; fixing: Gap[]; ideas: Campaign[]; onStart: (g: Campaign) => void;
 }) {
-  const t = hero === "dark" ? DARK : LIGHT;
+  const t = DARK;
   const delivered = actionsEver > 0 || results > 0;
   const top = open.find((x) => x.goal.can_manage !== false);
 
@@ -280,7 +269,10 @@ function Pulse({ hero, lite, ov, log, hello, orgName, live, onTrack, results, ac
   return (
     <section className={cx("relative overflow-hidden rounded-3xl shadow-[var(--shadow-pop)]", t.section)}>
       <div aria-hidden className="absolute inset-0">
-        <HeroBackdrop kind={hero} lite={lite} />
+        {lite
+          ? <div className="h-full w-full bg-[radial-gradient(60%_60%_at_80%_100%,rgba(132,204,22,0.35),transparent)]" />
+          : <SoftAurora color1="#d9f99d" color2="#10b981" brightness={0.9} bandHeight={0.2} noiseAmplitude={0.6} speed={0.8} />}
+        <div className="absolute inset-0 bg-[linear-gradient(100deg,rgba(21,26,14,0.92)_0%,rgba(21,26,14,0.7)_45%,rgba(21,26,14,0.25)_100%)]" />
       </div>
 
       <div className="relative grid gap-8 p-6 md:p-8 lg:grid-cols-[minmax(0,1fr)_360px]">
