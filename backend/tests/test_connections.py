@@ -146,3 +146,53 @@ async def test_one_overview_of_every_tool_the_goals_use(monkeypatch):
         await c.post("/api/sites/signed-in", json={"site": "mail.google.com"})
         tools = {t["key"]: t for t in (await c.get("/api/connections/overview")).json()["tools"]}
         assert tools["gmail"]["status"] == "signed_in"
+
+
+async def test_each_tool_has_one_way_to_connect_and_x_goes_through_the_desktop_helper(monkeypatch):
+    from app.catalog import TOOLS, connect_method
+
+    monkeypatch.setattr(get_settings(), "composio_api_key", "c-key")
+    monkeypatch.setattr(get_settings(), "agent_chrome", False)  # hosted: websites run on the desktop helper
+    async with client() as c:
+        await sign_in_with_org(c, "founder@acme.test", departments=("marketing",))
+        org = await org_of(c)
+        goal = (await c.post("/api/campaigns", json={
+            "name": "Post 3x a week", "goal_description": "Post on LinkedIn and X", "primary_metric": "posts",
+            "budget_total": 10, "agent_id": agent_in(org, "Marketing"), "channels": ["LinkedIn", "X"]})).json()
+        r = (await c.get(f"/api/campaigns/{goal['id']}/readiness")).json()
+        methods = {t["key"]: t["method"] for t in r["tools"]}
+        assert methods == {"linkedin": "app", "twitter": "site"}
+        assert {t["key"]: t["can_connect_app"] for t in r["tools"]} == {"linkedin": True, "twitter": False}
+        # No computer connected yet: the screen explains how to set up the desktop helper first.
+        assert r["browser"]["where"] == "helper" and not r["browser"]["paired"]
+        ov = (await c.get("/api/connections/overview")).json()
+        assert {t["key"]: t["method"] for t in ov["tools"]} == {"linkedin": "app", "twitter": "site"}
+        assert ov["browser"]["where"] == "helper"
+    # Without app connections everything that has a website signs in there; code and data are their own.
+    assert connect_method(TOOLS["gmail"].as_dict(), False) == "site"
+    assert connect_method(TOOLS["gmail"].as_dict(), True) == "app"
+    assert connect_method(TOOLS["github"].as_dict(), True) == "github"
+    assert connect_method(TOOLS["wordpress"].as_dict(), False) is None
+
+
+async def test_goals_use_x_through_the_browser_not_an_app_connection():
+    from app.agent.executor import ToolExecutor
+    from app.agent.llm import MeteredClaude
+    from app.models import AgentRun
+    from tests.fakes import FakeAnthropic
+
+    async with client() as c:
+        await sign_in_with_org(c, "founder@acme.test", departments=("marketing",))
+        org = await org_of(c)
+        goal = (await c.post("/api/campaigns", json={
+            "name": "Post", "goal_description": "Post on X", "primary_metric": "posts", "budget_total": 10,
+            "agent_id": agent_in(org, "Marketing"), "channels": ["X"]})).json()
+    async with session_scope() as s:
+        run = AgentRun(campaign_id=goal["id"], cycle_number=1, status="running")
+        s.add(run)
+        await s.flush()
+        run_id = run.id
+    ex = ToolExecutor(MeteredClaude(client=FakeAnthropic(lambda kw: [])), goal["id"], run_id, org["org"]["id"])
+    ex._hub = type("Hub", (), {"enabled": True})()
+    out = await ex.call("app_request_connection", {"app": "twitter", "reason": "post"}, "t1")
+    assert out.is_error and "used through the browser" in out.content and "x.com" in out.content

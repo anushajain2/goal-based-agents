@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.llm import MeteredClaude
 from app.agent.playbook import default_playbook, generate_playbook, tools_needed
+from app.catalog import connect_method
 from app.connectors.composio_hub import hub_for_org
 from app.db import get_session
 from app.models import (
@@ -261,12 +262,16 @@ async def readiness(campaign_id: str, s: AsyncSession = Depends(get_session), me
         else:
             status = ("connected" if t["app"] and t["app"] in connected
                       else "signed_in" if t["site"] and domain_of(t["site"]) in sites else "missing")
-        tools.append({**t, "status": status, "can_connect_app": bool(hub.enabled and t["app"])})
+        method = connect_method(t, hub.enabled)
+        tools.append({**t, "status": status, "method": method, "can_connect_app": method == "app"})
     servers = (await s.execute(select(McpServer).where(McpServer.org_id == c.org_id)
                                .order_by(McpServer.created_at))).scalars().all()
     dept, people = await _people(s, c)
+    from app.api.connections import browser_info
+
     return {
         "tools": tools,
+        "browser": await browser_info(s, c.org_id),
         "composio_enabled": hub.enabled,
         "mcp_servers": [{"id": m.id, "name": m.name, "tools": len(m.tools or []), "error": m.last_error} for m in servers],
         "permissions": await permissions.effective(s, campaign_id),

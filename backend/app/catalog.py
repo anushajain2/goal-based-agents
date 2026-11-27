@@ -16,9 +16,22 @@ class Tool:
     site: str | None  # website to sign in to in Oton Chrome
     login_url: str | None = None
     kind: str = "app"  # "app" (connector or site), "github" or "postgres" (connected in Settings)
+    via: str = ""  # "browser": always used through the website (signed in on the desktop helper)
 
     def as_dict(self) -> dict:
         return asdict(self)
+
+
+def connect_method(tool: dict, apps_enabled: bool) -> str | None:
+    """The one way Oton connects a tool: "app" (sign in on the app's own page, through Composio),
+    "site" (sign in to the website once, in Oton's browser window), "github" or "postgres"."""
+    if tool.get("kind") in ("github", "postgres"):
+        return tool["kind"]
+    if tool.get("via") == "browser" and tool.get("site"):
+        return "site"
+    if tool.get("app") and apps_enabled:
+        return "app"
+    return "site" if tool.get("site") else None
 
 
 TOOLS: dict[str, Tool] = {t.key: t for t in [
@@ -27,7 +40,8 @@ TOOLS: dict[str, Tool] = {t.key: t for t in [
     Tool("googlecalendar", "Google Calendar", "googlecalendar", "calendar.google.com", "https://calendar.google.com"),
     Tool("calendly", "Calendly", "calendly", "calendly.com", "https://calendly.com/login"),
     Tool("linkedin", "LinkedIn", "linkedin", "linkedin.com", "https://www.linkedin.com/login"),
-    Tool("twitter", "X (Twitter)", "twitter", "x.com", "https://x.com/login"),
+    # X: posting through the API needs your own X app and paid credits; the website works as is.
+    Tool("twitter", "X (Twitter)", "twitter", "x.com", "https://x.com/login", via="browser"),
     Tool("instagram", "Instagram", "instagram", "instagram.com", "https://www.instagram.com/accounts/login/"),
     Tool("facebook", "Facebook", "facebook", "facebook.com", "https://www.facebook.com/login"),
     Tool("reddit", "Reddit", "reddit", "reddit.com", "https://www.reddit.com/login"),

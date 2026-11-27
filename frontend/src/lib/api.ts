@@ -248,10 +248,15 @@ export type Autonomy = {
   regulated: string | null;
 };
 export type Permissions = { action_types: Permission[]; department: string | null; approvers: string[]; built_in_rules: string[]; can_edit: boolean };
+export type ConnectMethod = "app" | "site" | "github" | "postgres";
+/** Where website sign-ins happen: Oton Chrome on this computer, or the desktop helper's window. */
+export type BrowserInfo = {
+  where: "local" | "helper"; paired: boolean; online: boolean; device: { name: string } | null; download_url: string | null;
+};
 export type ToolNeed = {
   key: string; label: string; app: string | null; site: string | null; login_url: string | null;
   steps: number[]; required: boolean; status: "connected" | "signed_in" | "missing"; can_connect_app: boolean;
-  kind: "app" | "github" | "postgres";
+  kind: "app" | "github" | "postgres"; method?: ConnectMethod | null;
 };
 export type Deliverable = {
   id: string; kind: "prd" | "analysis" | "report"; title: string; summary: string; content: string;
@@ -260,7 +265,7 @@ export type Deliverable = {
 };
 export type IntegrationInfo = { id: string; kind: "github" | "postgres" | "github_pending" | "composio"; name: string; config: Record<string, unknown>; error: string | null };
 export type Readiness = {
-  tools: ToolNeed[]; composio_enabled: boolean; mcp_servers: { id: string; name: string; tools: number; error: string | null }[];
+  tools: ToolNeed[]; browser?: BrowserInfo; composio_enabled: boolean; mcp_servers: { id: string; name: string; tools: number; error: string | null }[];
   permissions: Permission[]; autonomy: Autonomy; department: string | null; approvers: string[]; playbook: Playbook | null;
 };
 export type McpServerInfo = {

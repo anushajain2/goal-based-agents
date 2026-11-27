@@ -92,6 +92,7 @@ async def test_x_without_its_own_app_gets_a_clear_message_not_a_crash(api, monke
                                "Composio does not have managed credentials for this toolkit.")
 
     fake_client = SimpleNamespace(auth_configs=AuthConfigs())
+    monkeypatch.setattr(composio_hub, "_hubs", {})  # no hub (and real client) cached by earlier tests
     monkeypatch.setattr(composio_hub.ComposioHub, "_client", fake_client)
     monkeypatch.setattr(get_settings(), "composio_api_key", "c-key")
     r = await api.post("/api/connections/twitter/connect")

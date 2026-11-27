@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.browser import chrome
+from app.catalog import connect_method
 from app.config import get_settings
 from app.connectors.composio_hub import OwnAppNeeded, hub_for_org
 from app.db import get_session
@@ -133,7 +134,7 @@ async def overview(s: AsyncSession = Depends(get_session), me: Member = Depends(
     for g in goals:
         steps = (g.playbook or {}).get("steps") or []
         for t in tools_needed(g):
-            e = tools.setdefault(t["key"], {**{k: t[k] for k in ("key", "label", "app", "site", "login_url", "kind")},
+            e = tools.setdefault(t["key"], {**{k: t[k] for k in ("key", "label", "app", "site", "login_url", "kind", "via")},
                                             "goals": [], "required": False, "on_its_own": [], "needs_ok": []})
             e["goals"].append({"id": g.id, "name": g.name, "status": g.status})
             e["required"] = e["required"] or (t["required"] and g.status != "draft")
@@ -154,7 +155,8 @@ async def overview(s: AsyncSession = Depends(get_session), me: Member = Depends(
             state = ("connected" if t["app"] and t["app"] in connected
                      else "signed_in" if t["site"] and domain_of(t["site"]) in sites else "missing")
         live = sum(1 for g in t["goals"] if g["status"] != "draft")
-        out.append({**t, "status": state, "live_goals": live, "can_connect_app": bool(hub.enabled and t["app"])})
+        method = connect_method(t, hub.enabled)
+        out.append({**t, "status": state, "live_goals": live, "method": method, "can_connect_app": method == "app"})
     # Missing tools that live goals need first, then the rest; connected ones last.
     out.sort(key=lambda t: (t["status"] != "missing", -t["live_goals"], t["label"]))
     servers = (await s.execute(select(McpServer).where(McpServer.org_id == me.org_id))).scalars().all()
@@ -163,10 +165,18 @@ async def overview(s: AsyncSession = Depends(get_session), me: Member = Depends(
         "summary": {"needed": len(out), "connected": sum(1 for t in out if t["status"] != "missing"),
                     "missing_live": sum(1 for t in out if t["status"] == "missing" and t["live_goals"])},
         "composio": {"enabled": hub.enabled, "source": hub.source, "error": error},
+        "browser": await browser_info(s, me.org_id),
         "github_sign_in": bool(get_settings().github_client_id and get_settings().github_client_secret),
         "code_and_data": sorted(k for k in linked if k in ("github", "postgres")),
         "mcp_servers": len(servers),
     }
+
+
+async def browser_info(s: AsyncSession, org_id: str) -> dict:
+    """Where website sign-ins happen: Oton Chrome on this computer, or the desktop helper's window."""
+    if get_settings().agent_chrome_enabled:
+        return {"where": "local", "paired": True, "online": True, "device": None, "download_url": None}
+    return {"where": "helper", **await _helper_status(s, org_id)}
 
 
 async def _helper_status(s: AsyncSession, org_id: str) -> dict:

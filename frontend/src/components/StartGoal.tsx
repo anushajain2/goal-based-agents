@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Clock, Database, ExternalLink, GitBranch, Globe, Hand, Loader2, Lock, Plug, Play, RefreshCw, Server, X, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Clock, Database, ExternalLink, GitBranch, Hand, Loader2, Lock, Plug, Play, Server, X, Zap } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { AgentSummary, api, Campaign, DepartmentInfo, Mode, OrgInfo, Readiness, ToolNeed, usd, useApi } from "@/lib/api";
+import { AgentSummary, api, BrowserInfo, Campaign, DepartmentInfo, Mode, OrgInfo, Readiness, ToolNeed, usd, useApi } from "@/lib/api";
 import { AutonomyChoice, AutonomySetup, initialChoice, modeFromChoice } from "./AutonomySetup";
 import { BudgetBreakdown } from "./Budget";
+import { connectHint, useConnect } from "./ConnectTool";
 import { DatabaseForm, GitHubForm } from "./Connections";
 import { PlanStory, WhatItWillDo } from "./GoalEngine";
 import { StepList, stepCounts, teamName } from "./GoalPlan";
@@ -84,7 +85,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
   needs.sort((a, b) => Number(a.status !== "missing") - Number(b.status !== "missing") || Number(b.required) - Number(a.required));
   const missing = needs.filter((n) => n.required && n.status === "missing");
   const servers = Object.values(ready)[0]?.mcp_servers || [];
-  const composio = !!Object.values(ready)[0]?.composio_enabled;
+  const browser = Object.values(ready)[0]?.browser;
   const total = goals.reduce((t, g) => t + g.budget.total, 0);
 
   async function start() {
@@ -158,7 +159,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
                 </span>
               </p>
               {needs.length === 0 && <div className="rounded-xl border border-line bg-white px-4 py-3 text-sm">It only needs the web for now. Nothing to connect.</div>}
-              {needs.map((n) => <ToolCard key={n.key} n={n} composio={composio} onChanged={load} />)}
+              {needs.map((n) => <ToolCard key={n.key} n={n} browser={browser} onChanged={load} />)}
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-line bg-white px-4 py-2.5 text-xs text-muted">
                 <Server size={14} /> {servers.length ? `Your MCP servers: ${servers.map((s) => s.name).join(", ")}` : "Have your own tools or an MCP server?"}
                 <Link href="/settings#mcp" target="_blank" className="inline-flex items-center gap-1 font-semibold text-brand-600 hover:underline">{servers.length ? "Manage" : "Add one"} <ExternalLink size={11} /></Link>
@@ -214,35 +215,15 @@ function StepDot({ n, active, done, label }: { n: number; active: boolean; done:
   );
 }
 
-function ToolCard({ n, composio, onChanged }: { n: Need; composio: boolean; onChanged: () => void }) {
-  const [opened, setOpened] = useState(false);
+function ToolCard({ n, browser, onChanged }: { n: Need; browser?: BrowserInfo | null; onChanged: () => void }) {
   const [form, setForm] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const done = n.status !== "missing";
   const auto = n.uses.filter((u) => u.mode === "auto");
   const heads = n.uses.filter((u) => u.mode === "heads_up");
   const asks = n.uses.filter((u) => u.mode === "ask");
   const agents = [...new Set(n.uses.map((u) => u.agent))];
-
-  async function connectApp() {
-    setErr(null);
-    try {
-      const r = await api<{ redirect_url: string }>(`/api/connections/${n.app}/connect`, { method: "POST" });
-      window.open(r.redirect_url, "_blank", "noopener");
-      setOpened(true);
-    } catch (e) {
-      setErr((e as Error).message);
-    }
-  }
-  async function openSite() {
-    setErr(null);
-    try {
-      await api("/api/browser/open", { method: "POST", json: { url: n.login_url || n.site } });
-      setOpened(true);
-    } catch (e) {
-      setErr((e as Error).message);
-    }
-  }
+  const { button, help, error } = useConnect(n, browser, onChanged, typeof window !== "undefined" ? window.location.pathname : "/goals");
+  const hint = connectHint(n, browser);
 
   const icon = n.kind === "github" ? <GitBranch size={15} /> : n.kind === "postgres" ? <Database size={15} /> : <Plug size={15} />;
   return (
@@ -251,18 +232,15 @@ function ToolCard({ n, composio, onChanged }: { n: Need; composio: boolean; onCh
         <span className={cx("grid h-8 w-8 shrink-0 place-items-center rounded-lg", done ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500")}>{done ? <Check size={16} /> : icon}</span>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold">{n.label}</div>
-          <div className="truncate text-xs text-muted">{agents.length ? `For ${agents.join(", ")}` : "One of the channels you picked"}</div>
+          <div className="truncate text-xs text-muted">
+            {agents.length ? `For ${agents.join(", ")}` : "One of the channels you picked"}{!done && hint ? ` · ${hint}` : ""}
+          </div>
         </div>
         {done ? (
           <span className="text-xs font-semibold text-emerald-700">{n.status === "connected" ? "Connected" : "Signed in"}</span>
         ) : n.kind !== "app" ? (
           <Button size="sm" variant="primary" onClick={() => setForm(!form)}>Connect</Button>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {composio && n.app && <Button size="sm" variant="primary" onClick={connectApp}>Connect</Button>}
-            {n.site && <Button size="sm" onClick={openSite}><Globe size={13} /> Sign in</Button>}
-          </div>
-        )}
+        ) : button}
       </div>
       {(auto.length > 0 || heads.length > 0 || asks.length > 0) && (
         <div className="mt-2 grid gap-1 pl-11 text-[12.5px]">
@@ -273,17 +251,8 @@ function ToolCard({ n, composio, onChanged }: { n: Need; composio: boolean; onCh
       )}
       {!done && form && n.kind === "github" && <div className="mt-3 pl-11"><GitHubForm onDone={() => { setForm(false); onChanged(); }} /></div>}
       {!done && form && n.kind === "postgres" && <div className="mt-3 pl-11"><DatabaseForm onDone={() => { setForm(false); onChanged(); }} /></div>}
-      {!done && opened && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 pl-11 text-xs text-muted">
-          {n.site && !(composio && n.app) ? (
-            <>Sign in in the Oton Chrome window, then
-              <Button size="sm" variant="ghost" onClick={async () => { await api("/api/sites/signed-in", { method: "POST", json: { site: n.site } }); onChanged(); }}><Check size={13} /> I&apos;ve signed in</Button></>
-          ) : (
-            <Button size="sm" variant="ghost" onClick={onChanged}><RefreshCw size={13} /> Check again</Button>
-          )}
-        </div>
-      )}
-      {err && <p className="mt-1.5 pl-11 text-xs text-red-600">{err}</p>}
+      {!done && help && <div className="mt-2.5 rounded-lg bg-canvas px-3 py-2.5 pl-11 text-[12.5px] leading-relaxed text-stone-700">{help}</div>}
+      {error && <p className="mt-1.5 pl-11 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

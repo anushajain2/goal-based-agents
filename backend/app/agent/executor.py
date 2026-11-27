@@ -26,6 +26,7 @@ from sqlalchemy import select
 from app.agent import quality
 from app.agent.llm import MeteredClaude
 from app.browser import chrome
+from app.catalog import TOOLS
 from app.browser.controller import BrowserError, BrowserForOrg, HelperOffline, is_commit
 from app.connectors.composio_hub import ComposioHub, OwnAppNeeded, hub_for_org
 from app.connectors.database import QueryError, run_read_only
@@ -354,6 +355,11 @@ class ToolExecutor:
         if not (await self.hub()).enabled:
             return Outcome("App connectors are not configured. Use the browser instead.", is_error=True)
         app = inp["app"].lower()
+        site_only = next((t for t in TOOLS.values() if t.app == app and t.via == "browser"), None)
+        if site_only:
+            return Outcome(f"{site_only.label} is used through the browser here, not as a connected app: open "
+                           f"{site_only.site} with the browser tools (ask with browser_request_login if you're not "
+                           "signed in).", is_error=True)
         if await (await self.hub()).is_connected(app, self.owner_id):
             return Outcome(f"{app} is already connected.")
         async with session_scope() as s:

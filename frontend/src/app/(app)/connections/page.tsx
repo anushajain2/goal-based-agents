@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CircleAlert, Database, ExternalLink, GitBranch, Hand, KeyRound, Loader2, Plug, Zap } from "lucide-react";
+import { Check, CircleAlert, Database, ExternalLink, GitBranch, Hand, Plug, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -8,24 +8,26 @@ import { Suspense, useEffect, useState } from "react";
 import { DatabaseForm, GitHubForm } from "@/components/Connections";
 import { AgentChrome, McpServers } from "@/components/ConnectionsExtras";
 import { Badge, Button, Card, cx, ErrorNote, Input, Label, PageHeader, Select } from "@/components/ui";
-import { api, IntegrationInfo, OrgInfo, useApi } from "@/lib/api";
+import { api, BrowserInfo, ConnectMethod, IntegrationInfo, OrgInfo, useApi } from "@/lib/api";
+import { connectHint, useConnect } from "@/components/ConnectTool";
 
 type ToolStatus = {
   key: string; label: string; app: string | null; site: string | null; login_url: string | null; kind: "app" | "github" | "postgres";
   goals: { id: string; name: string; status: string }[]; required: boolean; on_its_own: string[]; needs_ok: string[];
-  status: "connected" | "signed_in" | "missing"; live_goals: number; can_connect_app: boolean;
+  status: "connected" | "signed_in" | "missing"; live_goals: number; can_connect_app: boolean; method?: ConnectMethod | null;
 };
 type ConnectionsOverview = {
   tools: ToolStatus[];
   summary: { needed: number; connected: number; missing_live: number };
   composio: { enabled: boolean; source: "platform" | "org" | null; error: string | null };
+  browser?: BrowserInfo;
   github_sign_in: boolean;
   code_and_data: string[];
   mcp_servers: number;
 };
 type AppConnections = { composio_enabled: boolean; apps: { id: string; app: string; status: string }[]; error: string | null };
 
-const POPULAR = ["gmail", "linkedin", "hubspot", "slack", "googlecalendar", "googlesheets", "notion", "twitter", "shopify", "stripe", "mixpanel", "quickbooks"];
+const POPULAR = ["gmail", "linkedin", "hubspot", "slack", "googlecalendar", "googlesheets", "notion", "shopify", "stripe", "mixpanel", "quickbooks", "calendly"];
 
 export default function ConnectionsPage() {
   return <Suspense><ConnectionsInner /></Suspense>;
@@ -74,7 +76,7 @@ function ConnectionsInner() {
           <Card className="px-5 py-6 text-[14px] text-muted">None of your goals needs an app or site yet. Start a goal and its tools show up here.</Card>
         ) : (
           <Card className="divide-y divide-line overflow-hidden">
-            {data.tools.map((t) => <ToolRow key={t.key} t={t} githubSignIn={data.github_sign_in} admin={admin} onChanged={reload} />)}
+            {data.tools.map((t) => <ToolRow key={t.key} t={t} githubSignIn={data.github_sign_in} admin={admin} browser={data.browser} onChanged={reload} />)}
           </Card>
         )}
       </section>
@@ -91,7 +93,7 @@ function ConnectionsInner() {
 
       <section className="space-y-3">
         <Label>Websites and your own tools</Label>
-        <AgentChrome />
+        <div id="desktop-helper" className="scroll-mt-20"><AgentChrome /></div>
         <McpServers />
       </section>
     </div>
@@ -116,32 +118,26 @@ function ReadyMeter({ connected, needed }: { connected: number; needed: number }
   );
 }
 
-function ToolRow({ t, githubSignIn, admin, onChanged }: { t: ToolStatus; githubSignIn: boolean; admin: boolean; onChanged: () => void }) {
+function ToolRow({ t, githubSignIn, admin, browser, onChanged }: {
+  t: ToolStatus; githubSignIn: boolean; admin: boolean; browser?: BrowserInfo; onChanged: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [opened, setOpened] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const done = t.status !== "missing";
+  const connect = useConnect(t, browser, onChanged, "/connections");
+  const hint = connectHint(t, browser);
 
-  async function run(fn: () => Promise<unknown>) {
+  async function signInGitHub() {
     setBusy(true);
     setErr(null);
     try {
-      await fn();
+      window.location.href = (await api<{ url: string }>("/api/integrations/github/sign-in")).url;
     } catch (e) {
       setErr((e as Error).message);
-    } finally {
       setBusy(false);
     }
   }
-  const connectApp = () => run(async () => {
-    const r = await api<{ redirect_url: string }>(`/api/connections/${encodeURIComponent(t.app!)}/connect?back=/connections`, { method: "POST" });
-    window.open(r.redirect_url, "_blank", "noopener");
-    setOpened(true);
-  });
-  const openSite = () => run(async () => { await api("/api/browser/open", { method: "POST", json: { url: t.login_url || t.site } }); setOpened(true); });
-  const markSignedIn = () => run(async () => { await api("/api/sites/signed-in", { method: "POST", json: { site: t.site } }); onChanged(); });
-  const signInGitHub = () => run(async () => { window.location.href = (await api<{ url: string }>("/api/integrations/github/sign-in")).url; });
 
   const icon = t.kind === "github" ? <GitBranch size={17} /> : t.kind === "postgres" ? <Database size={17} /> : <span className="text-[15px] font-bold">{t.label.slice(0, 1)}</span>;
   return (
@@ -155,7 +151,7 @@ function ToolRow({ t, githubSignIn, admin, onChanged }: { t: ToolStatus; githubS
               : t.live_goals ? <Badge tone="amber">Needed now</Badge> : <Badge>Not connected</Badge>}
           </div>
           <div className="mt-0.5 truncate text-[12.5px] text-muted" title={t.goals.map((g) => g.name).join(", ")}>
-            Used by {t.goals[0]?.name}{t.goals.length > 1 ? ` and ${t.goals.length - 1} more` : ""}
+            Used by {t.goals[0]?.name}{t.goals.length > 1 ? ` and ${t.goals.length - 1} more` : ""}{!done && hint ? ` · ${hint}` : ""}
           </div>
           <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
             {t.on_its_own.length > 0 && <span className="inline-flex items-center gap-1 text-emerald-700"><Zap size={12} /> On its own: {t.on_its_own.join(", ")}</span>}
@@ -163,38 +159,22 @@ function ToolRow({ t, githubSignIn, admin, onChanged }: { t: ToolStatus; githubS
           </div>
         </div>
         {!done && (
-          <div className="flex flex-wrap items-center gap-2">
-            {t.kind === "github" ? (
-              admin && (githubSignIn
-                ? <Button size="sm" variant="primary" disabled={busy} onClick={signInGitHub}><GitBranch size={13} /> Sign in with GitHub</Button>
-                : <Button size="sm" variant="primary" onClick={() => setOpen(!open)}>Connect</Button>)
-            ) : t.kind === "postgres" ? (
-              admin && <Button size="sm" variant="primary" onClick={() => setOpen(!open)}>Connect</Button>
-            ) : t.can_connect_app ? (
-              <Button size="sm" variant="primary" disabled={busy} onClick={connectApp}>{busy ? <Loader2 size={13} className="animate-spin" /> : <Plug size={13} />} Connect</Button>
-            ) : t.site ? (
-              opened
-                ? <Button size="sm" variant="primary" disabled={busy} onClick={markSignedIn}><Check size={13} /> I&apos;ve signed in</Button>
-                : <Button size="sm" variant="primary" disabled={busy} onClick={openSite}><KeyRound size={13} /> Sign in</Button>
-            ) : null}
-            {t.kind === "app" && t.can_connect_app && t.site && (
-              <button onClick={openSite} className="text-[12px] font-semibold text-muted hover:text-ink">or sign in in Oton Chrome</button>
-            )}
-          </div>
+          t.kind === "github" ? (
+            admin && (githubSignIn
+              ? <Button size="sm" variant="primary" disabled={busy} onClick={signInGitHub}><GitBranch size={13} /> Connect</Button>
+              : <Button size="sm" variant="primary" onClick={() => setOpen(!open)}>Connect</Button>)
+          ) : t.kind === "postgres" ? (
+            admin && <Button size="sm" variant="primary" onClick={() => setOpen(!open)}>Connect</Button>
+          ) : connect.button
         )}
       </div>
-      {opened && t.can_connect_app && !done && (
-        <p className="mt-2 pl-14 text-[12.5px] text-muted">Finish signing in in the new tab; this updates when you come back.</p>
-      )}
-      {opened && !t.can_connect_app && t.site && !done && (
-        <p className="mt-2 pl-14 text-[12.5px] text-muted">Sign in to {t.site} in the Oton Chrome window, then click &quot;I&apos;ve signed in&quot;. Oton never sees your password.</p>
-      )}
+      {!done && connect.help && <div className="mt-3 ml-14 rounded-lg bg-canvas px-3 py-2.5 text-[12.5px] leading-relaxed text-stone-700">{connect.help}</div>}
       {open && !done && (
         <div className="mt-3 pl-14">
           {t.kind === "github" ? <GitHubForm onDone={() => { setOpen(false); onChanged(); }} /> : <DatabaseForm onDone={() => { setOpen(false); onChanged(); }} />}
         </div>
       )}
-      {err && <div className="mt-2 pl-14"><ErrorNote>{err}</ErrorNote></div>}
+      {(err || connect.error) && <div className="mt-2 pl-14"><ErrorNote>{err || connect.error}</ErrorNote></div>}
     </div>
   );
 }
