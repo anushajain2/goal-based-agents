@@ -7,7 +7,9 @@ two Apify Store actors (no cookies, no one's account used) and counted exactly:
 * LinkedIn (company pages and people): harvestapi/linkedin-company-posts, which takes both.
 * X: apidojo/tweet-scraper, one search per handle for its own posts since the start date.
 
-Both runs go at once; a run that fails leaves those accounts as they were.
+Both runs go at once; a run that fails leaves those accounts as they were. A company whose
+LinkedIn page nobody found is looked up by name first (harvestapi/linkedin-company), and the
+page is used only if it is clearly that company's (see find_linkedin_pages).
 """
 
 from __future__ import annotations
@@ -28,6 +30,8 @@ log = logging.getLogger(__name__)
 API = "https://api.apify.com/v2"
 LINKEDIN_ACTOR = "harvestapi~linkedin-company-posts"
 X_ACTOR = "apidojo~tweet-scraper"
+COMPANY_ACTOR = "harvestapi~linkedin-company"
+PER_COMPANY = Decimal("0.004")
 # What a run costs, from the actors' Store prices (pay per result), for the setup cost shown.
 LINKEDIN_PER_POST = Decimal("0.002")
 X_PER_TWEET = Decimal("0.0004")
@@ -57,6 +61,40 @@ def x_handle(url: str) -> str | None:
     else:
         return None
     return None if h.lower() in {"intent", "share", "home", "i", "search", "hashtag"} else h.lower()
+
+
+def _domain(url: str) -> str:
+    raw = (url or "").strip().lower()
+    raw = re.sub(r"^[a-z]+://", "", raw).split("/")[0].split(":")[0]
+    return raw.removeprefix("www.")
+
+
+async def find_linkedin_pages(companies: list[tuple[str, str]]) -> tuple[dict[str, str], Decimal]:
+    """{name: LinkedIn page URL} for companies (name, domain), from a LinkedIn search by name.
+
+    A search returns its best match, which may be another company with the same name, so a page
+    counts only if its website is the company's domain or, when it lists no website, its
+    address is the domain's name (e.g. linkedin.com/company/otonai for otonai.co)."""
+    names = [n for n, _ in companies if n]
+    if not names or not enabled():
+        return {}, Decimal(0)
+    items = await _run(COMPANY_ACTOR, {"searches": names}, "name,linkedinUrl,website,universalName,originalQuery")
+    if items is None:
+        return {}, Decimal(0)
+    by_name = {n.lower(): d for n, d in companies}
+    out: dict[str, str] = {}
+    for it in items:
+        asked = str(_get(it, "originalQuery.search") or "")
+        domain = by_name.get(asked.lower())
+        url = linkedin_url(str(it.get("linkedinUrl") or ""))
+        if not domain or not url:
+            continue
+        site = _domain(str(it.get("website") or ""))
+        slug = url.rsplit("/", 1)[-1]
+        label = domain.split(".")[0]
+        if (site and (site == domain or site.endswith("." + domain))) or (not site and slug.replace("-", "") == label.replace("-", "")):
+            out[next(n for n, _ in companies if n.lower() == asked.lower())] = url
+    return out, PER_RUN + PER_COMPANY * len(items)
 
 
 async def _run(actor: str, run_input: dict, fields: str) -> list[dict] | None:
@@ -147,15 +185,25 @@ async def _x(handles: list[str], since: datetime) -> dict[str, list[dict]] | Non
     return out
 
 
-async def count_posts(accounts: list[dict]) -> tuple[list[dict], Decimal]:
+def _x_of(a: dict, linked_x: set[str] | None) -> str | None:
+    """The account's X handle, if it's an x.com URL or a handle a company's site links to."""
+    url = str(a.get("url") or "")
+    h = x_handle(url)
+    if h and (re.search(r"(?:x|twitter)\.com/", url, re.IGNORECASE) or h in (linked_x or set())):
+        return h
+    return None
+
+
+async def count_posts(accounts: list[dict], linked_x: set[str] | None = None) -> tuple[list[dict], Decimal]:
     """The same accounts, with posts_30d and engagement_30d counted from their actual posts.
 
-    Accounts Apify can't place (no usable URL) or whose run failed come back unchanged."""
+    Accounts Apify can't place (no usable URL, or a bare X handle no site links to) or whose
+    run failed come back unchanged."""
     if not enabled():
         return accounts, Decimal(0)
     since = datetime.now(UTC) - timedelta(days=DAYS)
     li = sorted({u for a in accounts if a.get("platform") == "linkedin" and (u := linkedin_url(a.get("url") or ""))})
-    xs = sorted({h for a in accounts if a.get("platform") == "x" and (h := x_handle(a.get("url") or a.get("name") or ""))})
+    xs = sorted({h for a in accounts if a.get("platform") == "x" and (h := _x_of(a, linked_x))})
 
     async def none():
         return None
@@ -177,7 +225,7 @@ async def count_posts(accounts: list[dict]) -> tuple[list[dict], Decimal]:
             key = linkedin_url(a.get("url") or "")
             found = li_posts.get(key) if key else None
         elif a.get("platform") == "x" and x_posts is not None:
-            key = x_handle(a.get("url") or a.get("name") or "")
+            key = _x_of(a, linked_x)
             found = x_posts.get(key) if key else None
         if found is None:
             out.append(a)

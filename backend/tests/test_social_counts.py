@@ -36,6 +36,15 @@ X = [  # what apidojo/tweet-scraper returns
      "author": {"userName": "routeco"}, "isRetweet": True, "isReply": False, "likeCount": 500, "replyCount": 0},
 ]
 
+COMPANIES = [  # what harvestapi/linkedin-company returns for a search: its best match per name
+    {"name": "Arkestro", "linkedinUrl": "https://www.linkedin.com/company/arkestro/", "website": "https://arkestro.com/",
+     "originalQuery": {"search": "Arkestro"}},
+    {"name": "Oton", "linkedinUrl": "https://www.linkedin.com/company/otonai/", "website": None,
+     "originalQuery": {"search": "Oton"}},
+    {"name": "Routeco Ltd", "linkedinUrl": "https://www.linkedin.com/company/routeco-uk/", "website": "https://routeco.co.uk",
+     "originalQuery": {"search": "Routeco"}},  # same name, another company
+]
+
 
 @pytest.fixture
 def apify(monkeypatch):
@@ -54,6 +63,8 @@ def apify(monkeypatch):
             actor = path.split("/")[3]
             if seen.get("fail") == actor:
                 return httpx.Response(500)
+            if actor == "harvestapi~linkedin-company":
+                return httpx.Response(200, json=COMPANIES)
             return httpx.Response(200, json=LINKEDIN if "linkedin" in actor else X)
         return httpx.Response(404)
 
@@ -76,7 +87,7 @@ ACCOUNTS = [
 
 
 async def test_counts_each_accounts_posts_from_the_last_30_days(apify):
-    accounts, cost = await social.count_posts(ACCOUNTS)
+    accounts, cost = await social.count_posts(ACCOUNTS, linked_x={"routeco"})
     acme_li, acme_x, route_x, rita, route_li = accounts
     # Only posts from the last 30 days; likes plus comments.
     assert (acme_li["posts_30d"], acme_li["engagement_30d"], acme_li["coverage"]) == (2, 17, "verified")
@@ -100,9 +111,16 @@ async def test_counts_each_accounts_posts_from_the_last_30_days(apify):
     assert cost == Decimal("0.001") * 2 + Decimal("0.002") * 3 + Decimal("0.0004") * 1
 
 
+async def test_a_guessed_x_handle_is_not_counted(apify):
+    """A bare handle no site links to may be someone else's account: it's left as the AI read it."""
+    accounts, _ = await social.count_posts(ACCOUNTS)
+    assert accounts[2] == ACCOUNTS[2]
+    assert [t.split(" since:")[0] for t in apify["inputs"]["apidojo~tweet-scraper"]["searchTerms"]] == ["from:acme"]
+
+
 async def test_a_failed_run_leaves_those_accounts_alone(apify):
     apify["fail"] = "apidojo~tweet-scraper"
-    accounts, _ = await social.count_posts(ACCOUNTS)
+    accounts, _ = await social.count_posts(ACCOUNTS, linked_x={"routeco"})
     assert accounts[0]["posts_30d"] == 2  # LinkedIn still counted
     assert accounts[1] == ACCOUNTS[1] and accounts[2] == ACCOUNTS[2]
 
@@ -118,7 +136,7 @@ async def test_without_a_token_nothing_is_called(monkeypatch):
 
 
 async def test_scorecard_says_the_numbers_were_counted(apify):
-    accounts, _ = await social.count_posts(ACCOUNTS)
+    accounts, _ = await social.count_posts(ACCOUNTS, linked_x={"routeco"})
     rows = social_rows({"accounts": accounts}, "Acme", [{"name": "Routeco", "domain": "routeco.test"}])
     li = next(r for r in rows if r["key"] == "social_linkedin")
     assert li["you"]["display"] == "2 posts · 17 likes and comments"
@@ -130,3 +148,66 @@ def test_urls_and_handles():
     assert social.linkedin_url("https://example.com") is None
     assert social.x_handle("https://twitter.com/Acme_HQ?lang=en") == "acme_hq"
     assert social.x_handle("@acme") == "acme" and social.x_handle("x.com/intent/tweet") is None
+
+
+class FakeClaude:
+    """Answers the social read the way the model did on a real run: "Acme (acme.test)" for Acme."""
+
+    async def create(self, **kw):
+        accounts = [{**a, "company": "Acme (acme.test)"} if a["company"] == "Acme" else a for a in ACCOUNTS]
+        text = json.dumps({"accounts": accounts, "videos": [{"company": "Acme (acme.test)", "found": False, "where": "",
+                                                             "url": "", "views_or_engagement": ""}]})
+
+        from types import SimpleNamespace
+
+        return SimpleNamespace(content=[{"type": "text", "text": text}], cost=Decimal("0.1"), stop_reason="end_turn")
+
+
+async def test_the_social_read_puts_back_the_company_names_and_counts(apify):
+    from app.agent.opportunities import read_social
+
+    comps = [{"name": "Routeco", "domain": "routeco.test"}]
+    social_read, cost = await read_social(FakeClaude(), "Acme", "acme.test", comps,
+                                          {"routeco.test": {"socials": {"x": "RouteCo"}}})
+    assert {a["company"] for a in social_read["accounts"]} == {"Acme", "Routeco"}
+    assert social_read["videos"][0]["company"] == "Acme"
+    rows = social_rows(social_read, "Acme", comps)
+    li = next(r for r in rows if r["key"] == "social_linkedin")
+    assert li["you"]["display"] == "2 posts · 17 likes and comments"
+    x = next(r for r in rows if r["key"] == "social_x")
+    assert x["others"] == [{"name": "Routeco", "display": "1 post · 8 likes and comments"}]  # linked from its site
+    assert cost > Decimal("0.1")
+
+
+async def test_profiles_a_site_links_to_are_used_and_blank_ones_mean_none_found(apify):
+    """Real run: the model left Zycus's X blank though zycus.com links @Zycus, and left Oton's
+    LinkedIn blank because it couldn't be sure the page was Oton's."""
+    from app.agent.opportunities import read_social
+
+    class Blank(FakeClaude):
+        async def create(self, **kw):
+            from types import SimpleNamespace
+
+            accounts = [{"company": "Acme", "who": "company", "name": "Acme", "platform": "linkedin", "url": "",
+                         "coverage": "blocked", "posts_30d": None, "engagement_30d": None, "note": "Not sure"},
+                        {"company": "Routeco", "who": "company", "name": "Routeco", "platform": "x", "url": "",
+                         "coverage": "blocked", "posts_30d": None, "engagement_30d": None, "note": ""}]
+            return SimpleNamespace(content=[{"type": "text", "text": json.dumps({"accounts": accounts, "videos": []})}],
+                                   cost=Decimal("0.1"), stop_reason="end_turn")
+
+    comps = [{"name": "Routeco", "domain": "routeco.test"}]
+    sites = {"routeco.test": {"socials": {"x": "RouteCo", "linkedin": "linkedin.com/company/acme"}}}
+    social_read, _ = await read_social(Blank(), "Acme", "acme.test", comps, sites)
+    rows = {r["key"]: r for r in social_rows(social_read, "Acme", comps)}
+    assert rows["social_x"]["others"] == [{"name": "Routeco", "display": "1 post · 8 likes and comments"}]
+    assert rows["social_linkedin"]["you"]["display"] == "No account found"
+    assert rows["social_linkedin"]["others"] == [{"name": "Routeco", "display": "2 posts · 17 likes and comments"}]
+
+
+async def test_linkedin_pages_found_by_name_only_when_clearly_theirs(apify):
+    pages, cost = await social.find_linkedin_pages([("Arkestro", "arkestro.com"), ("Oton", "otonai.co"),
+                                                    ("Routeco", "routeco.test")])
+    assert pages == {"Arkestro": "https://www.linkedin.com/company/arkestro",  # its website is arkestro.com
+                     "Oton": "https://www.linkedin.com/company/otonai"}  # no website listed; address is otonai
+    assert apify["inputs"]["harvestapi~linkedin-company"] == {"searches": ["Arkestro", "Oton", "Routeco"]}
+    assert cost == Decimal("0.001") + Decimal("0.004") * 3
