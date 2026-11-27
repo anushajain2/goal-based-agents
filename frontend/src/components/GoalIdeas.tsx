@@ -64,12 +64,12 @@ export function GoalIdeas({ org, goals, onChanged }: { org: OrgInfo | null | und
           <h2 className="flex items-center gap-2 text-lg font-bold"><Sparkles size={17} className="text-brand-600" /> {recommended || others.length ? "More ideas" : "Goal ideas"}</h2>
           <p className="text-sm text-muted">{USE_CASES.length} goals Oton works well on, across sales, marketing, research, fundraising, hiring and more. Pick one to set it up; you can change everything before it starts.</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="grid gap-x-6 gap-y-3 border-y border-line py-4 sm:grid-cols-2 lg:grid-cols-4">
           <How icon={<CheckCircle2 size={18} />} title="You set the finish line" text="Each goal says exactly when a result counts, so you can judge the work." />
           <How icon={<Wallet size={18} />} title="It stays within budget" text="A hard spending limit, with the cost of every work session shown." />
           <How icon={<Hand size={18} />} title="It asks first" text="Posting, messaging and spending wait for your OK until you say otherwise." />
           <How icon={<Eye size={18} />} title="You see everything" text="Every plan, step, action and decision is in the work log." />
-        </div>
+        </ul>
         <UseCaseLibrary onPick={(u) => router.push(`/goals/new?uc=${u.id}`)} onCustom={() => router.push("/goals/new")} />
       </section>
 
@@ -81,10 +81,12 @@ export function GoalIdeas({ org, goals, onChanged }: { org: OrgInfo | null | und
 
 function How({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return (
-    <div className="rounded-xl border border-line bg-white p-4">
-      <div className="text-brand-600">{icon}</div>
-      <div className="mt-2 text-[13.5px] font-semibold">{title}</div>
-      <div className="mt-0.5 text-xs text-muted">{text}</div>
-    </div>
+    <li className="flex gap-3">
+      <span aria-hidden className="mt-0.5 shrink-0 text-brand-600">{icon}</span>
+      <span className="min-w-0">
+        <span className="block text-[13.5px] font-semibold">{title}</span>
+        <span className="mt-0.5 block text-[13px] leading-snug text-muted">{text}</span>
+      </span>
+    </li>
   );
 }

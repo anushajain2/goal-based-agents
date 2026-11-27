@@ -118,7 +118,7 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
 
           {latest && latest.status === "done" && (
             <section>
-              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted">
+              <div className="mb-1.5 flex items-center gap-2 text-[12px] font-bold text-muted">
                 Latest review · {timeAgo(latest.created_at)}
                 {latest.health && <Badge tone={HEALTH[latest.health].tone}>{HEALTH[latest.health].label}</Badge>}
               </div>
@@ -182,7 +182,7 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
 
           {reviews && reviews.length > 1 && (
             <section>
-              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Earlier reviews</div>
+              <div className="mb-1.5 text-[12px] font-bold text-muted">Earlier reviews</div>
               <ul className="space-y-1.5 text-[12.5px]">
                 {reviews.slice(1, 6).map((r) => (
                   <li key={r.id} className="flex items-center gap-2">
@@ -213,7 +213,7 @@ function LooksAt() {
   ];
   return (
     <div>
-      <div className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted"><Eye size={12} /> Looks at</div>
+      <div className="mb-1.5 flex items-center gap-1 text-[12px] font-bold text-muted"><Eye size={12} /> Looks at</div>
       <ul className="flex flex-wrap gap-1.5">
         {items.map(([icon, label, on]) => (
           <li key={label} className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold",

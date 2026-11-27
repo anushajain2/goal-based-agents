@@ -133,7 +133,7 @@ export default function Landing() {
           <div className="pointer-events-none absolute left-1/2 top-[-200px] h-[500px] w-[900px] max-w-full -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(140,154,75,0.32),transparent)]" />
           <div className="relative mx-auto max-w-5xl">
             <div className="text-center">
-              <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-brand-300">Why Oton</div>
+              <div className="text-[13px] font-semibold text-brand-300">Why Oton</div>
               <h2 className="display mt-3 text-balance text-[38px] leading-[1.04] sm:text-[60px]">
                 <span className="text-white/40">Others tell you what&apos;s wrong.</span>
                 <br />
@@ -291,7 +291,7 @@ function ScanPreview() {
               <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-semibold text-emerald-700">9 doing well</span>
             </div>
           </div>
-          <div className="mt-6 grid grid-cols-[1.6fr_1fr_100px] gap-4 border-b border-[#f2f4f7] px-1 pb-2.5 text-[11.5px] font-semibold uppercase tracking-[0.05em] text-stone-400 lg:grid-cols-[2fr_1.1fr_1.2fr_110px]">
+          <div className="mt-6 grid grid-cols-[1.6fr_1fr_100px] gap-4 border-b border-[#f2f4f7] px-1 pb-2.5 text-[11.5px] font-semibold text-stone-400 lg:grid-cols-[2fr_1.1fr_1.2fr_110px]">
             <div>Check</div><div>You</div><div className="hidden lg:block">Best competitor</div><div>Status</div>
           </div>
           {SCAN.map(([check, you, them, how, level]) => {
@@ -314,7 +314,7 @@ function ScanPreview() {
       </div>
 
       <div className="absolute right-[-64px] top-[-44px] hidden w-[312px] rounded-2xl border border-[#e4e7ec] bg-white px-[18px] py-4 text-left shadow-[0_30px_60px_-20px_rgba(16,24,40,0.28),0_2px_6px_rgba(16,24,40,0.05)] xl:block">
-        <div className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.05em] text-brand-700"><Sparkles size={13} />Biggest opportunity</div>
+        <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-brand-700"><Sparkles size={13} />Biggest opportunity</div>
         <div className="mb-1.5 mt-2 text-[15px] font-semibold tracking-[-0.01em]">Show up when buyers search for route planning</div>
         <div className="text-[12.5px] leading-snug text-muted">About 590 searches a month go to competitors. First step: page 1 for 3 searches.</div>
         <div className="mt-3.5 flex items-center gap-2">
@@ -323,7 +323,7 @@ function ScanPreview() {
         </div>
       </div>
       <div className="absolute bottom-[-88px] left-[-48px] hidden w-[262px] rounded-2xl border border-[#e4e7ec] bg-white px-[18px] py-4 text-left shadow-[0_30px_60px_-20px_rgba(16,24,40,0.28),0_2px_6px_rgba(16,24,40,0.05)] xl:block">
-        <div className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.05em] text-rose-700"><MessageSquare size={13} />Asked ChatGPT</div>
+        <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-rose-700"><MessageSquare size={13} />Asked ChatGPT</div>
         <div className="mt-2 text-[13.5px] leading-snug text-stone-700">“Best route planning software for a small fleet?”</div>
         <div className="mt-1.5 text-[12.5px] leading-snug text-muted">Recommends Routeco, OptiDrive and Fleetbase. Not you.</div>
       </div>
@@ -535,7 +535,7 @@ function WebsiteStart({ signedIn, onDark }: { signedIn: boolean; onDark?: boolea
 function Title({ kicker, title, sub }: { kicker: string; title: ReactNode; sub?: string }) {
   return (
     <div className="mx-auto max-w-3xl text-center">
-      <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-brand-600">{kicker}</div>
+      <div className="text-[13px] font-semibold text-brand-600">{kicker}</div>
       <h2 className="display mt-3 text-balance text-[36px] leading-[1.06] sm:text-[52px]">{title}</h2>
       {sub && <p className="mt-4 text-[17px] text-stone-600">{sub}</p>}
     </div>

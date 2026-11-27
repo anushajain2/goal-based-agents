@@ -16,7 +16,7 @@ export function CompanyProfileCard({ profile, name, action }: { profile: Company
   return (
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted">What we learned about {name}</div>
+        <div className="text-xs font-semibold text-muted">What we learned about {name}</div>
         {action}
       </div>
       <p className="mt-1.5 text-[15px] leading-relaxed">{profile.summary}</p>

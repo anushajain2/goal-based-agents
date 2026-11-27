@@ -126,7 +126,7 @@ export default function OpportunitiesPage() {
         <Link href="/goals" className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm hover:bg-emerald-50">
           <CheckCircle2 size={17} className="text-emerald-600" />
           <span className="flex-1"><b>{on} of {all.length}</b> {on === 1 ? "is" : "are"} being fixed: {on === 1 ? "its goal is" : "their goals are"} on.</span>
-          <span className="font-semibold text-emerald-800">See goals →</span>
+          <span className="font-semibold text-emerald-800">See goals</span>
         </Link>
       )}
 

@@ -44,7 +44,7 @@ export function progressOf(c: Campaign): { done: number | null; target: number |
 export function ProgressBar({ pct, className, tone = "brand" }: { pct: number | null; className?: string; tone?: "brand" | "gray" }) {
   return (
     <div className={cx("h-1.5 overflow-hidden rounded-full bg-stone-100", className)}>
-      <div className={cx("h-full rounded-full transition-all", tone === "brand" ? "bg-brand-500" : "bg-stone-400")} style={{ width: `${pct ?? 0}%` }} />
+      <div className={cx("h-full rounded-full transition-[width]", tone === "brand" ? "bg-brand-500" : "bg-stone-400")} style={{ width: `${pct ?? 0}%` }} />
     </div>
   );
 }

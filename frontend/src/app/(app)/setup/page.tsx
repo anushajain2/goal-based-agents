@@ -56,7 +56,7 @@ function ResearchLive({ info }: { info: SetupInfo }) {
 
         <div className="relative grid gap-10 p-6 md:p-10 lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="rise min-w-0">
-            <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-lime-300">
+            <div className="flex items-center gap-2 text-[12px] font-semibold text-lime-300">
               <span className="signal-dot" /> Checking {info.org.name} live
             </div>
             <h1 className="mt-3 text-[30px] font-bold leading-[1.1] tracking-[-0.02em] md:text-[40px]">
@@ -226,7 +226,7 @@ export default function SetupPage() {
 
       {working && (info.org.website || info.org.description) && (
         <Card className="p-4 text-sm">
-          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">What you told us</div>
+          <div className="mb-1 text-xs font-semibold text-muted">What you told us</div>
           {info.org.website && <p className="text-brand-700">{info.org.website}</p>}
           {info.org.description && <p className="mt-1 text-stone-700">{info.org.description}</p>}
         </Card>
@@ -243,7 +243,7 @@ export default function SetupPage() {
                   onClick={async () => { await api("/api/org/setup/basic", { method: "POST" }); router.push("/team?welcome=1&basic=1"); }}
                   className="text-sm font-semibold text-muted hover:text-ink"
                 >
-                  Or start with a basic team (Sales, Marketing, Customer Research) →
+                  Or start with a basic team (Sales, Marketing, Customer Research)
                 </button>
               )}
             </>
@@ -270,7 +270,7 @@ function Learned({ profile, name }: { profile: CompanyProfile; name: string }) {
       <button onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 px-4 py-3 text-left">
         <Sparkles size={16} className="mt-0.5 shrink-0 text-brand-600" />
         <span className="min-w-0 flex-1">
-          <span className="block text-[11px] font-bold uppercase tracking-wide text-muted">What we learned about {name}</span>
+          <span className="block text-[12px] font-bold text-muted">What we learned about {name}</span>
           <span className="block text-[13.5px] leading-snug">{profile.summary}</span>
         </span>
         <ChevronDown size={16} className={cx("mt-1 shrink-0 text-muted transition", open && "rotate-180")} />

@@ -84,7 +84,7 @@ export const SuggestGoals = forwardRef<SuggestGoalsHandle, {
       )}
       {fresh.length > 0 && (
         <div className="border-t border-line p-5">
-          <div className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-muted">Suggested just now · {fresh.length} goal{fresh.length === 1 ? "" : "s"}</div>
+          <div className="mb-3 text-[12px] font-semibold text-muted">Suggested just now · {fresh.length} goal{fresh.length === 1 ? "" : "s"}</div>
           <ul className="grid gap-2.5 md:grid-cols-2">
             {fresh.map((g) => (
               <li key={g.id} className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3">

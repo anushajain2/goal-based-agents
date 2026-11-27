@@ -235,7 +235,7 @@ function AuthShowcase({ signup }: { signup: boolean }) {
         <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_30%,rgba(0,0,0,0.45),transparent)]" />
       </div>
       <div className="relative flex h-full flex-col justify-center px-14 py-16 text-white">
-        <p className="rise text-[13px] font-semibold uppercase tracking-[0.12em] text-lime-300/90" style={delay(200)}>
+        <p className="rise text-[13px] font-semibold text-lime-300/90" style={delay(200)}>
           {signup ? "Your first scan" : "Welcome back"}
         </p>
         <h2 className="rise mt-3 max-w-md text-[44px] font-bold leading-[1.04] tracking-[-0.035em]" style={delay(300)}>

@@ -23,7 +23,7 @@ export function Funnel({ a, compact }: { a: GoalApproach; compact?: boolean }) {
                 <div className="line-clamp-2 text-[12px] font-medium leading-snug text-stone-600">{s.name}</div>
                 <div className="mt-0.5 flex items-center gap-2">
                   <span className="tabular text-[20px] font-bold leading-tight">{fmt(s.now)}</span>
-                  {stuck && <span className="rounded-full bg-signal-500 px-1.5 text-[10px] font-bold uppercase tracking-wide text-white">Bottleneck</span>}
+                  {stuck && <span className="rounded-full bg-signal-500 px-1.5 text-[12px] font-bold text-white">Bottleneck</span>}
                 </div>
                 {!compact && s.benchmark && <div className="truncate text-[11px] text-muted" title={s.benchmark}>Good: {s.benchmark}</div>}
               </div>
@@ -200,7 +200,7 @@ function Part({ n, title, children }: { n: number; title: string; children: Reac
     <section className="flex gap-3.5">
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[12px] font-bold text-white">{n}</span>
       <div className="min-w-0 flex-1">
-        <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted">{title}</h3>
+        <h3 className="text-[13px] font-semibold text-muted">{title}</h3>
         <div className="mt-2">{children}</div>
       </div>
     </section>

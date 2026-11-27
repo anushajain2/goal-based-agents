@@ -49,7 +49,7 @@ export default function HomePage() {
     <Link href="/setup" className="flex items-center gap-3 rounded-xl border border-brand-500/30 bg-brand-50/60 px-4 py-3 text-sm hover:bg-brand-50">
       <Sparkles size={16} className="animate-pulse text-brand-600" />
       <span className="flex-1">Oton is researching {setup?.org.name} to find what you&apos;re missing out on.</span>
-      <span className="font-semibold text-brand-600">See progress →</span>
+      <span className="font-semibold text-brand-600">See progress</span>
     </Link>
   );
   if (goals.length === 0) return <div className="space-y-4">{researchBanner}<FirstRun onPick={pick} org={org} /></div>;
@@ -226,8 +226,8 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
   let sub: ReactNode;
   if (delivered) {
     headline = ov.actions_this_week > 0
-      ? <><Num n={ov.actions_this_week} /> things done for {orgName} <span className="text-lime-300">this week</span></>
-      : <><Num n={actionsEver} /> things done for {orgName} <span className="text-lime-300">so far</span></>;
+      ? <><Num n={ov.actions_this_week} /> things done for {orgName} this week</>
+      : <><Num n={actionsEver} /> things done for {orgName} so far</>;
     sub = <>
       {results > 0 && <><b className="font-semibold text-white">{num(results)} results</b> so far. </>}
       {live > 0 ? `${live} goal${live === 1 ? " is" : "s are"} live. ` : <span className="text-amber-200">Nothing is running right now. </span>}
@@ -236,13 +236,13 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
           : ideas.length ? `${ideas.length} more goals picked for ${orgName} are ready to turn on.` : ""}
     </>;
   } else if (live > 0) {
-    headline = <>Your AI team <span className="text-lime-300">just got to work</span></>;
+    headline = <>Your AI team just got to work</>;
     sub = <>{live} goal{live === 1 ? " is" : "s are"} live; the first drafts usually land within a day.{open.length ? <> <span className="text-amber-200">More gaps we found still have nothing working on them.</span></> : ""}</>;
   } else if (open.length) {
-    headline = <>We found gaps and opportunities for {orgName} to grow. <span className="text-amber-200">Nothing is working on them yet.</span></>;
+    headline = <>We found gaps and opportunities for {orgName} to grow. <span className="text-white/55">Nothing is working on them yet.</span></>;
     sub = <>Each one has a goal ready to go. Nothing runs, and nothing is spent, until you turn it on.</>;
   } else {
-    headline = <>Your AI team is <span className="text-amber-200">waiting for its first goal</span></>;
+    headline = <>Your AI team is waiting for its first goal</>;
     sub = <>{ideas.length ? `${ideas.length} goals picked for ${orgName} are ready to turn on.` : "Pick a goal and Oton starts working on it today."}</>;
   }
 
@@ -262,10 +262,8 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
 
       <div className="relative grid gap-8 p-6 md:p-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="rise flex min-w-0 flex-col">
-          <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/50">
-            {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })} · {hello}
-          </div>
-          <h1 className="mt-3 max-w-[26ch] text-[28px] font-bold leading-[1.15] tracking-[-0.02em] md:text-[34px]">{headline}</h1>
+          <div className="text-[13.5px] font-medium text-white/55">{hello}</div>
+          <h1 className="display mt-2 max-w-[24ch] text-[30px] leading-[1.08] md:text-[38px]">{headline}</h1>
           <p className="mt-3 max-w-[60ch] text-[14.5px] leading-relaxed text-white/70">{sub}</p>
 
           <div className="mt-6 flex flex-wrap items-center gap-2.5">
@@ -306,7 +304,7 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
         <div className="rise min-w-0 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-inset ring-white/10 backdrop-blur-sm" style={{ animationDelay: "150ms" }}>
           {showFeed ? (
             <>
-              <div className="mb-3 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-white/50">
+              <div className="mb-3 flex items-center gap-2 text-[12px] font-semibold text-white/50">
                 {ov.now ? <><span className="signal-dot" /> Working now</> : <><Activity size={13} /> Latest from your AI team</>}
               </div>
               {ov.now && (
@@ -331,7 +329,7 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
             </>
           ) : (
             <>
-              <div className="mb-1 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-white/50">
+              <div className="mb-1 flex items-center gap-2 text-[12px] font-semibold text-white/50">
                 <span className="h-2 w-2 rounded-full bg-white/30" /> Right now: idle
               </div>
               <p className="mb-3 text-[12.5px] text-white/50">What Oton could be doing for {orgName} today:</p>
@@ -401,7 +399,7 @@ function FirstRun({ onPick, org }: { onPick: (id: string) => void; org: OrgInfo 
             <h2 className="text-lg font-bold">Popular first goals</h2>
             <p className="text-sm text-muted">Pick one to start; you can change everything before it begins.</p>
           </div>
-          <Link href="/goals?tab=ideas" className="text-sm font-semibold text-brand-600">See all {CATEGORIES.length} areas →</Link>
+          <Link href="/goals?tab=ideas" className="text-sm font-semibold text-brand-600">See all {CATEGORIES.length} areas</Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURED.map((id) => <UseCaseCard key={id} uc={findUseCase(id)!} onPick={(u) => onPick(u.id)} />)}

@@ -232,12 +232,12 @@ export function DesktopHelper({ downloadUrl }: { downloadUrl?: string }) {
         {!pairing && (devices || []).length === 0 && (
           <ol className="grid gap-3 sm:grid-cols-2">
             <li className="rounded-lg bg-canvas p-3">
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Step 1</div>
+              <div className="mb-1 text-[12px] font-semibold text-muted">Step 1</div>
               <div className="mb-2 font-medium">Install the helper</div>
               <a href={downloadUrl || "#"} target="_blank" rel="noreferrer"><Button size="sm"><Download size={14} /> Download</Button></a>
             </li>
             <li className="rounded-lg bg-canvas p-3">
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Step 2</div>
+              <div className="mb-1 text-[12px] font-semibold text-muted">Step 2</div>
               <div className="mb-2 font-medium">Connect it to Oton</div>
               <Button size="sm" variant="primary" onClick={connect}><Plus size={14} /> Connect a computer</Button>
             </li>
