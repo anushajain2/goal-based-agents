@@ -167,7 +167,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
                 </div>
 
                 {/* The prize: what fixing it gets you, and the one move to start */}
-                <Prize f={f} goal={steps.length > 1 ? goalFor(i, 0) : goal} steps={steps} canStart={canStart}
+                <Prize f={f} goal={steps.length > 1 ? goalFor(i, 0) ?? goal : goal} steps={steps} canStart={canStart}
                   onStart={(g) => onStart([g])} onOpen={onOpen} />
               </div>
 

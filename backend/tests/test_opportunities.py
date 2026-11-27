@@ -244,6 +244,9 @@ async def test_a_fix_goes_to_the_closest_team_when_its_own_is_missing(with_key, 
         assert goal_id  # no IT team: Engineering takes it
         made = next(x for x in (await c.get("/api/campaigns")).json() if x["id"] == goal_id)
         assert made["agent"]["name"] == "Eng Agent"
+        # The same goal again (e.g. the team plan already made it): linked, not dropped or duplicated.
+        assert await create_goal(org["org"]["id"], None, "it", {**spec, "name": "add a dmarc record"}) == goal_id
+        assert [x["name"] for x in (await c.get("/api/campaigns")).json()].count("Add a DMARC record") == 1
 
 
 async def test_practical_checks_get_the_measured_social_and_video_numbers(with_key, fake_site, monkeypatch):

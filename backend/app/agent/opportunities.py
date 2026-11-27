@@ -1177,7 +1177,11 @@ async def create_goal(org_id: str, requested_by: str | None, team_kind: str, goa
         s.add(agent)
         await s.flush()
     org = await s.get(Organization, org_id)
-    names = {x.lower() for (x,) in (await s.execute(select(Campaign.name).where(Campaign.org_id == org_id))).all()}
+    existing = {n.lower(): i for i, n in (await s.execute(
+        select(Campaign.id, Campaign.name).where(Campaign.org_id == org_id).order_by(Campaign.created_at))).all()}
+    if str(goal.get("name") or "").lower() in existing:  # the same goal already exists (e.g. the team plan made it)
+        return existing[goal["name"].lower()]
+    names = set(existing)
     created: dict = {"goals": []}
     await org_setup._add_goals(s, org_id, requested_by, agent, [goal], names,
                                org_setup.company_context(org, org.profile or {}), created)
