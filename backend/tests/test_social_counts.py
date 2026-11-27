@@ -76,7 +76,7 @@ ACCOUNTS = [
 
 
 async def test_counts_each_accounts_posts_from_the_last_30_days(apify):
-    accounts, cost = await social.count_posts(ACCOUNTS)
+    accounts, cost = await social.count_posts(ACCOUNTS, linked_x={"routeco"})
     acme_li, acme_x, route_x, rita, route_li = accounts
     # Only posts from the last 30 days; likes plus comments.
     assert (acme_li["posts_30d"], acme_li["engagement_30d"], acme_li["coverage"]) == (2, 17, "verified")
@@ -100,9 +100,16 @@ async def test_counts_each_accounts_posts_from_the_last_30_days(apify):
     assert cost == Decimal("0.001") * 2 + Decimal("0.002") * 3 + Decimal("0.0004") * 1
 
 
+async def test_a_guessed_x_handle_is_not_counted(apify):
+    """A bare handle no site links to may be someone else's account: it's left as the AI read it."""
+    accounts, _ = await social.count_posts(ACCOUNTS)
+    assert accounts[2] == ACCOUNTS[2]
+    assert [t.split(" since:")[0] for t in apify["inputs"]["apidojo~tweet-scraper"]["searchTerms"]] == ["from:acme"]
+
+
 async def test_a_failed_run_leaves_those_accounts_alone(apify):
     apify["fail"] = "apidojo~tweet-scraper"
-    accounts, _ = await social.count_posts(ACCOUNTS)
+    accounts, _ = await social.count_posts(ACCOUNTS, linked_x={"routeco"})
     assert accounts[0]["posts_30d"] == 2  # LinkedIn still counted
     assert accounts[1] == ACCOUNTS[1] and accounts[2] == ACCOUNTS[2]
 
@@ -118,7 +125,7 @@ async def test_without_a_token_nothing_is_called(monkeypatch):
 
 
 async def test_scorecard_says_the_numbers_were_counted(apify):
-    accounts, _ = await social.count_posts(ACCOUNTS)
+    accounts, _ = await social.count_posts(ACCOUNTS, linked_x={"routeco"})
     rows = social_rows({"accounts": accounts}, "Acme", [{"name": "Routeco", "domain": "routeco.test"}])
     li = next(r for r in rows if r["key"] == "social_linkedin")
     assert li["you"]["display"] == "2 posts · 17 likes and comments"
@@ -130,3 +137,34 @@ def test_urls_and_handles():
     assert social.linkedin_url("https://example.com") is None
     assert social.x_handle("https://twitter.com/Acme_HQ?lang=en") == "acme_hq"
     assert social.x_handle("@acme") == "acme" and social.x_handle("x.com/intent/tweet") is None
+
+
+class FakeClaude:
+    """Answers the social read the way the model did on a real run: "Acme (acme.test)" for Acme."""
+
+    async def create(self, **kw):
+        accounts = [{**a, "company": "Acme (acme.test)"} if a["company"] == "Acme" else a for a in ACCOUNTS]
+        text = json.dumps({"accounts": accounts, "videos": [{"company": "Acme (acme.test)", "found": False, "where": "",
+                                                             "url": "", "views_or_engagement": ""}]})
+
+        class R:
+            content = [{"type": "text", "text": text}]
+            cost = Decimal("0.1")
+            stop_reason = "end_turn"
+        return R()
+
+
+async def test_the_social_read_puts_back_the_company_names_and_counts(apify):
+    from app.agent.opportunities import read_social
+
+    comps = [{"name": "Routeco", "domain": "routeco.test"}]
+    social_read, cost = await read_social(FakeClaude(), "Acme", "acme.test", comps,
+                                          {"routeco.test": {"socials": {"x": "RouteCo"}}})
+    assert {a["company"] for a in social_read["accounts"]} == {"Acme", "Routeco"}
+    assert social_read["videos"][0]["company"] == "Acme"
+    rows = social_rows(social_read, "Acme", comps)
+    li = next(r for r in rows if r["key"] == "social_linkedin")
+    assert li["you"]["display"] == "2 posts · 17 likes and comments"
+    x = next(r for r in rows if r["key"] == "social_x")
+    assert x["others"] == [{"name": "Routeco", "display": "1 post · 8 likes and comments"}]  # linked from its site
+    assert cost > Decimal("0.1")

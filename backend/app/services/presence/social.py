@@ -147,15 +147,25 @@ async def _x(handles: list[str], since: datetime) -> dict[str, list[dict]] | Non
     return out
 
 
-async def count_posts(accounts: list[dict]) -> tuple[list[dict], Decimal]:
+def _x_of(a: dict, linked_x: set[str] | None) -> str | None:
+    """The account's X handle, if it's an x.com URL or a handle a company's site links to."""
+    url = str(a.get("url") or "")
+    h = x_handle(url)
+    if h and (re.search(r"(?:x|twitter)\.com/", url, re.I) or h in (linked_x or set())):
+        return h
+    return None
+
+
+async def count_posts(accounts: list[dict], linked_x: set[str] | None = None) -> tuple[list[dict], Decimal]:
     """The same accounts, with posts_30d and engagement_30d counted from their actual posts.
 
-    Accounts Apify can't place (no usable URL) or whose run failed come back unchanged."""
+    Accounts Apify can't place (no usable URL, or a bare X handle no site links to) or whose
+    run failed come back unchanged."""
     if not enabled():
         return accounts, Decimal(0)
     since = datetime.now(UTC) - timedelta(days=DAYS)
     li = sorted({u for a in accounts if a.get("platform") == "linkedin" and (u := linkedin_url(a.get("url") or ""))})
-    xs = sorted({h for a in accounts if a.get("platform") == "x" and (h := x_handle(a.get("url") or a.get("name") or ""))})
+    xs = sorted({h for a in accounts if a.get("platform") == "x" and (h := _x_of(a, linked_x))})
 
     async def none():
         return None
@@ -177,7 +187,7 @@ async def count_posts(accounts: list[dict]) -> tuple[list[dict], Decimal]:
             key = linkedin_url(a.get("url") or "")
             found = li_posts.get(key) if key else None
         elif a.get("platform") == "x" and x_posts is not None:
-            key = x_handle(a.get("url") or a.get("name") or "")
+            key = _x_of(a, linked_x)
             found = x_posts.get(key) if key else None
         if found is None:
             out.append(a)

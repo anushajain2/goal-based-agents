@@ -289,6 +289,8 @@ posts: LinkedIn and X, for each company's own account and its founders' personal
 How:
 - Start from the profiles each company's website links to (given). Find the founders (the company's \
 site, its LinkedIn page, news) and their LinkedIn and X profiles.
+- Only list an account you found and are sure belongs to that company or founder (linked from its \
+site, or its name and description match). Never guess a handle or URL from the company's name.
 - For each account, count the posts from the last 30 days and add up likes (reactions) and comments \
 (replies) on them. Read public posts: search for them (e.g. site:linkedin.com/posts "<company>"; \
 site:x.com <handle>) and open the posts and profile pages you can. Count only what you saw; if an \
@@ -361,9 +363,19 @@ async def read_social(claude: MeteredClaude, name: str, website: str, competitor
         data = json.loads(_texts(result.content) or "{}")
     except ValueError:
         data = {}
-    # Claude finds the accounts; Apify (when set up) counts their posts exactly.
-    accounts, c_apify = await social_counts.count_posts(data.get("accounts") or [])
-    return {"accounts": accounts, "videos": data.get("videos") or []}, cost + c_apify
+    # The model sometimes writes "Oton (otonai.co)" for "Oton": put back the names as given.
+    canon = {n.lower(): n for n, _ in companies}
+
+    def named(item: dict) -> dict:
+        c = re.sub(r"\s*\(.*\)\s*$", "", str(item.get("company") or "")).strip().lower()
+        return {**item, "company": canon.get(c, item.get("company") or "")}
+
+    # Claude finds the accounts; Apify (when set up) counts their posts exactly. A bare X handle
+    # counts only if a site links to it (a handle guessed from the name may be someone else's).
+    linked_x = {str(((sites.get(d) or {}).get("socials") or {}).get("x") or "").lower() for _, d in companies} - {""}
+    accounts, c_apify = await social_counts.count_posts([named(a) for a in data.get("accounts") or []],
+                                                        linked_x=linked_x)
+    return {"accounts": accounts, "videos": [named(v) for v in data.get("videos") or []]}, cost + c_apify
 
 
 def social_rows(social: dict, name: str, competitors: list[dict]) -> list[dict]:
@@ -381,7 +393,9 @@ def social_rows(social: dict, name: str, competitors: list[dict]) -> list[dict]:
         if a.get("posts_30d") is None or a.get("coverage") == "blocked":
             return "Couldn't read"
         eng = a.get("engagement_30d")
-        shown = f"{a['posts_30d']} posts" + (f" · {eng:,} likes and comments" if eng is not None else "")
+        n = a["posts_30d"]
+        shown = f"{n} post{'' if n == 1 else 's'}" + (
+            f" · {eng:,} {'like or comment' if eng == 1 else 'likes and comments'}" if eng is not None else "")
         return shown + (" (at least: only partly visible)" if a.get("coverage") == "partial" else "")
 
     def find(company: str, who: str, platform: str) -> list[dict]:
