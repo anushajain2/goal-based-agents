@@ -62,6 +62,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
     (found.unlock || []).length > 0 ? "what connecting your tools unlocks" : "",
   ].filter(Boolean);
   const byId = new Map((goals || []).map((g) => [g.id, g]));
+  const goalFor = (fi: number, si: number) => byId.get(found.findings[fi].milestones?.[si]?.goal_id || made[`${fi}:${si}`] || "");
   const firstSteps = found.findings.map((f) => (f.goal_id ? byId.get(f.goal_id) : undefined))
     .filter((g): g is Campaign => !!g && g.status === "draft" && g.can_manage !== false);
   const unique = [...new Map(firstSteps.map((g) => [g.id, g])).values()];
@@ -136,56 +137,54 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
           const goal = f.goal_id ? byId.get(f.goal_id) : undefined;
           const facts = factsOf(f);
           return (
-            <article key={i} className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
-              <h3 className="flex max-w-[60ch] items-start gap-2 text-[19px] font-semibold leading-snug tracking-[-0.015em] text-red-700">
-                <AlertTriangle size={20} className="mt-[3px] shrink-0" aria-label="Problem" /><span>{f.title}</span>
-                {isNew(f) && <span className="mt-1 shrink-0 rounded-full bg-lime-200 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-lime-900">New</span>}
-              </h3>
+            <article key={i} className="rise overflow-hidden rounded-3xl border border-line bg-white shadow-[var(--shadow-card)] transition hover:shadow-[var(--shadow-pop)]">
+              <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
+                {/* The problem, and the proof */}
+                <div className="min-w-0 p-6 md:p-7">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[11.5px] font-semibold text-red-700 ring-1 ring-inset ring-red-100">
+                      <AlertTriangle size={12} /> Gap
+                    </span>
+                    <Pull n={f.pull} />
+                    <span className="text-[11.5px] font-medium text-stone-400">{CONFIDENCE[f.confidence]}</span>
+                    {isNew(f) && <span className="rounded-full bg-lime-200 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-lime-900">New</span>}
+                  </div>
+                  <h3 className="mt-3 max-w-[40ch] text-[22px] font-bold leading-[1.2] tracking-[-0.02em] text-red-700">{f.title}</h3>
 
-              <div className="mt-5 text-[11.5px] font-semibold uppercase tracking-wide text-muted">
-                What we found <span className="font-medium normal-case tracking-normal text-stone-400">· {CONFIDENCE[f.confidence]}</span>
-              </div>
-              <ul className="mt-2 max-w-[75ch] space-y-2">
-                {facts.map((x, k) => (
-                  <li key={k} className="flex gap-3 text-[14.5px] leading-relaxed text-stone-800">
-                    <span className="mt-[10px] h-1.5 w-1.5 shrink-0 rounded-full bg-stone-400" />
-                    <span>{x}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {f.impact && (
-                <div className="mt-5 max-w-[75ch]">
-                  <div className="text-[11.5px] font-semibold uppercase tracking-wide text-muted">Why it matters</div>
-                  <p className="mt-1.5 text-[14.5px] leading-relaxed text-stone-700">{f.impact}</p>
-                  {f.estimate && (
-                    <p className="mt-1.5 text-[13px] text-muted">
-                      <b className="font-semibold">{f.estimate}</b>{f.assumption && <span> · {f.assumption}</span>}
-                    </p>
+                  <div className="mt-6 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">What we found</div>
+                  <ul className="mt-2.5 divide-y divide-dashed divide-line">
+                    {facts.map((x, k) => (
+                      <li key={k} className="flex gap-3 py-2 text-[14px] leading-relaxed text-stone-800">
+                        <span className="tabular mt-[3px] grid h-5 w-5 shrink-0 place-items-center rounded-md bg-stone-100 text-[11px] font-bold text-stone-500">{k + 1}</span>
+                        <span>{x}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {(f.sources || []).length > 0 && (
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11.5px] text-muted">Sources</span>
+                      {[...new Set(f.sources.map(domainOf).filter(Boolean))].slice(0, 4).map((d) => (
+                        <span key={d} className="rounded-full bg-canvas px-2 py-0.5 text-[11.5px] font-medium text-stone-600 ring-1 ring-inset ring-line">{d}</span>
+                      ))}
+                    </div>
                   )}
                 </div>
-              )}
 
-              <div className="mt-6">
-                {steps.length > 1 ? (
-                  <Steps steps={steps} total={f.total_usd || 0} goalFor={(si) => byId.get(steps[si].goal_id || made[`${i}:${si}`] || "")}
-                    canStart={canStart} busy={busy?.startsWith(`${i}:`) ? Number(busy.split(":")[1]) : null}
-                    onStart={(g) => onStart([g])} onOpen={onOpen} onFurther={(si) => goFurther(i, si)} />
-                ) : goal ? (
-                  <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                    <button onClick={() => onOpen(goal)} className="min-w-0 flex-1 truncate text-left text-[13px] text-muted hover:text-ink">
-                      Goal: <span className="font-semibold text-ink">{goal.name}</span>
-                      {steps[0] && <span className="tabular"> · {usd(steps[0].total_usd)}</span>}
-                    </button>
-                    <TurnOn goal={goal} canStart={canStart} onStart={() => onStart([goal])} />
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between gap-2 border-t border-line pt-3 text-[13px]">
-                    <span className="text-muted">No goal for this yet</span>
-                    <Link href="/goals/new" className="font-semibold text-brand-700 hover:underline">Set one up</Link>
-                  </div>
-                )}
+                {/* The prize: what fixing it gets you, and the one move to start */}
+                <Prize f={f} goal={steps.length > 1 ? goalFor(i, 0) : goal} steps={steps} canStart={canStart}
+                  onStart={(g) => onStart([g])} onOpen={onOpen} />
               </div>
+
+              {steps.length > 1 ? (
+                <Steps steps={steps} total={f.total_usd || 0} goalFor={(si) => goalFor(i, si)}
+                  canStart={canStart} busy={busy?.startsWith(`${i}:`) ? Number(busy.split(":")[1]) : null}
+                  onStart={(g) => onStart([g])} onOpen={onOpen} onFurther={(si) => goFurther(i, si)} />
+              ) : !goal ? (
+                <div className="flex items-center justify-between gap-2 border-t border-line px-6 py-3 text-[13px]">
+                  <span className="text-muted">No goal for this yet</span>
+                  <Link href="/goals/new" className="font-semibold text-brand-700 hover:underline">Set one up</Link>
+                </div>
+              ) : null}
             </article>
           );
         })}
@@ -302,50 +301,141 @@ function TurnOn({ goal, canStart, onStart }: { goal: Campaign; canStart: boolean
   );
 }
 
-/** A big fix in steps: what each gets you, how long, and what it costs. Start small, go further later. */
+const domainOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+
+/** How much they'll want to fix it (the check's 1-5 "pull"), as an impact meter. */
+function Pull({ n }: { n?: number }) {
+  if (!n) return null;
+  const label = n >= 4 ? "High impact" : n === 3 ? "Medium impact" : "Worth fixing";
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas px-2.5 py-1 text-[11.5px] font-semibold text-stone-700 ring-1 ring-inset ring-line">
+      <span className="flex items-end gap-[2px]" aria-hidden>
+        {[1, 2, 3, 4, 5].map((k) => <span key={k} className={cx("w-[3px] rounded-sm", k <= n ? "bg-brand-600" : "bg-stone-200")} style={{ height: 4 + k * 1.5 }} />)}
+      </span>
+      {label}
+    </span>
+  );
+}
+
+/** The right side of a finding: what fixing it gets you (now → goal, the payoff) and the one move to start. */
+function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
+  f: Opportunity; goal: Campaign | undefined; steps: Milestone[]; canStart: boolean; onStart: (g: Campaign) => void; onOpen: (g: Campaign) => void;
+}) {
+  const multi = steps.length > 1;
+  const price = steps[0]?.total_usd ?? goal?.budget?.total;
+  const total = f.total_usd || steps.reduce((t, m) => t + m.total_usd, 0);
+  const span = steps.reduce((t, m) => t + m.weeks, 0);
+  return (
+    <aside className="relative flex min-w-0 flex-col overflow-hidden bg-ink p-6 text-white md:p-7">
+      <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-lime-300/20 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-emerald-500/20 blur-3xl" />
+      <div className="relative text-[11px] font-bold uppercase tracking-[0.1em] text-lime-300">What fixing it gets you</div>
+
+      {f.metric_now && f.metric_goal && (
+        <div className="relative mt-4">
+          {f.metric_name && <div className="text-[12.5px] text-white/55">{f.metric_name}</div>}
+          <div className="mt-2 flex items-center gap-3">
+            <div className="min-w-0">
+              <div className="text-[10.5px] font-semibold uppercase tracking-wide text-white/40">Now</div>
+              <div className="truncate text-[26px] font-bold leading-tight text-red-300">{f.metric_now}</div>
+            </div>
+            <ArrowRight size={20} className="shrink-0 text-white/35" />
+            <div className="min-w-0">
+              <div className="text-[10.5px] font-semibold uppercase tracking-wide text-white/40">Goal</div>
+              <div className="truncate text-[26px] font-bold leading-tight text-lime-300">{f.metric_goal}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {f.estimate && (
+        <div className="relative mt-4 rounded-xl bg-lime-300/10 px-3.5 py-2.5 ring-1 ring-inset ring-lime-300/25">
+          <div className="text-[14px] font-semibold leading-snug text-lime-100">{f.estimate}</div>
+          {f.assumption && <div className="mt-0.5 text-[11.5px] leading-snug text-white/45">{f.assumption}</div>}
+        </div>
+      )}
+      {f.impact && <p className="relative mt-4 text-[13.5px] leading-relaxed text-white/70">{f.impact}</p>}
+
+      <div className="relative mt-auto pt-6">
+        {goal && goal.status !== "draft" ? (
+          <button onClick={() => onOpen(goal)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300/15 py-3 text-[14px] font-semibold text-lime-200 ring-1 ring-inset ring-lime-300/30 transition hover:bg-lime-300/20">
+            <span className="signal-dot" /> Being fixed now
+          </button>
+        ) : goal && canStart && goal.can_manage !== false ? (
+          <button onClick={() => onStart(goal)} className="group flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 py-3 text-[14.5px] font-bold text-ink shadow-[0_8px_24px_-8px_rgba(190,242,100,0.6)] transition hover:bg-lime-200">
+            {multi ? "Start step 1" : "Turn on the fix"}{price ? <span className="tabular font-semibold text-ink/60">· {usd(price)}</span> : null}
+            <ArrowRight size={16} className="transition group-hover:translate-x-0.5" />
+          </button>
+        ) : null}
+        {goal && (
+          <button onClick={() => onOpen(goal)} className="mt-2.5 block w-full truncate text-center text-[12px] text-white/50 transition hover:text-white">
+            {multi ? "Step 1: " : "Goal: "}<span className="font-medium text-white/75">{goal.name}</span>
+          </button>
+        )}
+        {multi && <p className="mt-1 text-center text-[11.5px] text-white/40">The full fix: {usd(total)} over {weeks(span)}. Go further only if it works.</p>}
+      </div>
+    </aside>
+  );
+}
+
+/** A big fix in steps, as a roadmap: what each gets you, how long, and what it costs. Step 1 starts from the card above. */
 function Steps({ steps, total, goalFor, canStart, busy, onStart, onOpen, onFurther }: {
   steps: Milestone[]; total: number; goalFor: (i: number) => Campaign | undefined; canStart: boolean; busy: number | null;
   onStart: (g: Campaign) => void; onOpen: (g: Campaign) => void; onFurther: (i: number) => void;
 }) {
   const allWeeks = steps.reduce((t, m) => t + m.weeks, 0);
   return (
-    <div className="border-t border-line pt-3">
-      <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2 text-[13px]">
-        <span><b className="font-semibold">Fixing it fully:</b> <span className="tabular">{usd(total)}</span> over {weeks(allWeeks)}</span>
-        <span className="text-muted">Start with step 1 for <b className="tabular font-semibold text-ink">{usd(steps[0].total_usd)}</b>. Go further only if it works.</span>
+    <div className="border-t border-line bg-canvas/70 px-6 py-5 md:px-7">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">The path to fixing it</span>
+        <span className="tabular text-[12.5px] text-muted">{usd(total)} over {weeks(allWeeks)} in all</span>
       </div>
-      <ol className="grid gap-2 lg:grid-cols-3">
+      <ol className="grid gap-3 lg:auto-cols-fr lg:grid-flow-col">
         {steps.map((m, i) => {
           const goal = goalFor(i);
+          const last = i === steps.length - 1;
+          const live = goal && goal.status !== "draft";
           return (
-            <li key={i} className={cx("flex flex-col rounded-xl p-3.5 ring-1 ring-inset", i === 0 ? "bg-brand-50/60 ring-brand-100" : "bg-canvas ring-line")}>
-              <div className="flex items-center gap-2 text-[11.5px] font-semibold uppercase tracking-[0.05em] text-muted">
-                {i === steps.length - 1 ? <Flag size={12} /> : <span className="grid h-4 w-4 place-items-center rounded-full bg-white text-[10px] ring-1 ring-line">{i + 1}</span>}
-                {i === 0 ? "Start here" : i === steps.length - 1 ? "Full result" : `Step ${i + 1}`} · {weeks(m.weeks)}
+            <li key={i} className={cx("relative flex flex-col rounded-2xl bg-white p-4 shadow-[var(--shadow-card)] ring-1 ring-inset",
+              i === 0 ? "ring-2 ring-brand-500/40" : "ring-line")}>
+              {!last && (
+                <span aria-hidden className="absolute -right-[14px] top-1/2 z-10 hidden h-6 w-6 -translate-y-1/2 place-items-center rounded-full bg-white text-stone-400 shadow-sm ring-1 ring-line lg:grid">
+                  <ChevronRight size={14} />
+                </span>
+              )}
+              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.06em]">
+                <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[10.5px]", live ? "bg-emerald-500 text-white" : i === 0 ? "bg-brand-600 text-white" : "bg-stone-100 text-stone-500")}>
+                  {live ? <Check size={11} strokeWidth={3} /> : last ? <Flag size={10} /> : i + 1}
+                </span>
+                <span className={i === 0 ? "text-brand-700" : "text-muted"}>{i === 0 ? "Start here" : last ? "Full result" : `Step ${i + 1}`}</span>
+                <span className="font-semibold normal-case tracking-normal text-stone-400">· {weeks(m.weeks)}</span>
               </div>
-              <div className="mt-1.5 text-[14px] font-semibold leading-snug">{m.name}</div>
+              <div className="mt-2 text-[14.5px] font-semibold leading-snug">{m.name}</div>
               {m.outcome && <div className="mt-0.5 text-[12.5px] leading-snug text-muted">{m.outcome}</div>}
               {(m.does || []).length > 0 && (
-                <ul className="mt-2 space-y-0.5 text-[12px] text-stone-700">
-                  {m.does!.slice(0, 3).map((d) => <li key={d} className="flex gap-1.5"><span className="text-brand-600">·</span><span className="line-clamp-1">{d}</span></li>)}
+                <ul className="mt-2.5 space-y-1 text-[12px] text-stone-700">
+                  {m.does!.slice(0, 3).map((d) => <li key={d} className="flex gap-1.5"><Check size={12} className="mt-[2px] shrink-0 text-brand-600" /><span className="line-clamp-1">{d}</span></li>)}
                 </ul>
               )}
-              <div className="mt-2 text-[12px] text-stone-600">
-                <span className="tabular text-[15px] font-semibold text-ink">{usd(m.total_usd)}</span>
-                <span className="text-muted"> · AI work {usd(m.ai_usd)}{m.paid_usd ? ` + ${usd(m.paid_usd)} spend` : ""}</span>
-                {m.paid_items.length > 0 && (
-                  <ul className="mt-1 space-y-0.5 text-[11.5px] text-muted">{m.paid_items.map((p) => <li key={p.item}>· {p.item}: {usd(p.usd)}</li>)}</ul>
-                )}
-              </div>
-              <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+              <div className="mt-auto flex items-end justify-between gap-2 pt-4">
+                <div className="min-w-0">
+                  <div className="tabular text-[17px] font-bold leading-none text-ink">{usd(m.total_usd)}</div>
+                  <div className="mt-1 truncate text-[11px] text-muted" title={m.paid_items.map((p) => `${p.item}: ${usd(p.usd)}`).join(", ")}>
+                    AI work {usd(m.ai_usd)}{m.paid_usd ? ` + ${usd(m.paid_usd)} spend` : ""}
+                  </div>
+                </div>
                 {goal ? (
-                  <>
-                    <button onClick={() => onOpen(goal)} className="text-[12px] text-muted hover:text-ink">See goal</button>
-                    <TurnOn goal={goal} canStart={canStart} onStart={() => onStart(goal)} />
-                  </>
+                  i === 0 && !live ? (
+                    <button onClick={() => onOpen(goal)} className="shrink-0 text-[12px] font-semibold text-muted hover:text-ink">See plan</button>
+                  ) : (
+                    <span className="flex shrink-0 items-center gap-2">
+                      <button onClick={() => onOpen(goal)} className="text-[12px] text-muted hover:text-ink">See goal</button>
+                      <TurnOn goal={goal} canStart={canStart} onStart={() => onStart(goal)} />
+                    </span>
+                  )
                 ) : canStart ? (
                   <button onClick={() => onFurther(i)} disabled={busy === i}
-                    className="ml-auto inline-flex h-8 items-center gap-1 rounded-lg border border-line bg-white px-3 text-[12.5px] font-semibold hover:border-stone-300 disabled:opacity-60">
+                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-line bg-white px-3 text-[12.5px] font-semibold hover:border-stone-300 disabled:opacity-60">
                     {busy === i ? <Loader2 size={13} className="animate-spin" /> : null} Go further <ArrowRight size={13} />
                   </button>
                 ) : null}

@@ -173,3 +173,8 @@ h1, h2, h3 {
   width: 0;
   border-left: 1.5px solid #d0d5dd;
 }
+
+/* A scan line sweeping down a mock page, for the company check while it runs. */
+@keyframes scanline { 0% { top: -4rem; } 100% { top: 100%; } }
+.scanline { animation: scanline 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+@media (prefers-reduced-motion: reduce) { .scanline { animation: none; top: 30%; } }
