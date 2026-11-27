@@ -93,12 +93,14 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5-mini"
     perplexity_api_key: str | None = None
     perplexity_model: str = "sonar"
+    x_bearer_token: str | None = None  # X API: company and competitor posting and engagement
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash"
     # What one call costs, for the setup cost shown to people (US$).
     serpapi_cost_usd: float = 0.015
     dataforseo_cost_usd: float = 0.08
     assistant_cost_usd: float = 0.01
+    x_cost_usd: float = 0.01
 
     # --- GitHub sign-in (optional) ---------------------------------------------
     # An OAuth app (github.com/settings/developers) lets people connect a repository with

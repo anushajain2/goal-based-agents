@@ -234,3 +234,46 @@ async def test_a_fix_goes_to_the_closest_team_when_its_own_is_missing(with_key, 
         assert goal_id  # no IT team: Engineering takes it
         made = next(x for x in (await c.get("/api/campaigns")).json() if x["id"] == goal_id)
         assert made["agent"]["name"] == "Eng Agent"
+
+
+async def test_practical_checks_get_the_measured_social_and_video_numbers(with_key, fake_site, monkeypatch):
+    """The customer-getting checks: Claude picks them, and each investigation sees what was measured
+    (social profiles, X activity, home page video) instead of guessing."""
+    import httpx
+
+    from app.agent.opportunities import LOOK_SYSTEM, PICK_SYSTEM
+    from app.config import get_settings
+    from app.services.presence import http
+    from tests.test_presence import QA, handler
+
+    monkeypatch.setattr(get_settings(), "x_bearer_token", "xt")
+    monkeypatch.setattr(http, "transport", httpx.MockTransport(handler))
+    keys = ["asking_for_you", "social_performance", "launch_video", "competitor_unhappy", "homepage_clarity",
+            "prospects_now", "funding_available"]
+
+    def pick_practical(kw):
+        return {"checks": [{"key": k, "score": 5 if i < 6 else 1, "why": "", "expect": ""} for i, k in enumerate(keys)],
+                "queries": [{"query": QA, "intent": "Ops lead"}],
+                "competitors": [{"name": "Routeco", "domain": "routeco.test"}],
+                "markets": [{"country": "Germany", "gl": "de", "hl": "de"}], "local": {"query": "", "cities": []}}
+
+    async with client() as c:
+        setup_id = await start_setup(c)
+        fake = FakeAnthropic(script, org_planner=lambda kw: PLAN, routes={"checks": pick_practical},
+                             scanner=lambda kw: {"findings": []})
+        await run_org_setup(setup_id, MeteredClaude(client=fake))
+        opp = (await c.get("/api/org/setup")).json()["org"]["profile"]["opportunities"]
+
+    assert [x["key"] for x in opp["checks"]] == keys[:5]  # the 5 strongest run; grants scored low
+    picker = next(x for x in fake.calls if x.get("system") == PICK_SYSTEM)
+    assert "next 10 customers" in picker["system"]
+    offered = picker["messages"][0]["content"]
+    assert all(f"- {k}:" in offered for k in keys)
+    looks = {x["messages"][0]["content"].split("The check: ")[1].split("\n")[0]: x["messages"][0]["content"]
+             for x in fake.calls if x.get("system") == LOOK_SYSTEM}
+    social = looks[checks.BY_KEY["social_performance"].title]
+    assert "Social profiles linked from Acme's site (acme.test): linkedin: linkedin.com/company/acme-routing, x: acmeroutes" in social
+    assert "X, last 30 days: you 3 posts · 18 likes, replies and reposts (bad); competitors: Routeco 10 posts · 500" in social
+    assert "Video on the home page: you None (bad); competitors: Routeco YouTube" in looks[checks.BY_KEY["launch_video"].title]
+    rows = {r["key"]: r for r in opp["scorecard"]}
+    assert rows["video"]["you"]["status"] == "bad" and rows["x_activity"]["you"]["status"] == "bad"

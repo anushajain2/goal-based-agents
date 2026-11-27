@@ -43,7 +43,7 @@ log = logging.getLogger(__name__)
 # (Google, AI assistants, the website scorecard) always run alongside.
 SHOW = 5  # findings shown
 CANDIDATES = 7  # findings asked for, ranked by how much the company will want to fix each
-MAX_CHECKS = 4
+MAX_CHECKS = 5
 MIN_SCORE = 3  # a check Claude scores lower than this (1-5) isn't worth running
 WEB_PER_CHECK = 5  # searches and page reads for each check
 STRONG = 3  # a finding outside sales and marketing makes the five only if it's at least this strong
@@ -56,15 +56,27 @@ MAX_MILESTONE_DAYS = 365
 
 # --- 1. pick ------------------------------------------------------------------------------------
 
-PICK_SYSTEM = """You plan a short, sharp health check of a company. The point: find the few \
-gaps that will make its founders say "we need to fix that now" and turn on an AI employee to fix it.
+PICK_SYSTEM = """You plan a short, sharp check of a company. Most companies we check are small and \
+early, and what they need most is customers. The question behind every check: where will this \
+company's next 10 customers come from, and what's in the way? Find the few gaps that will make its \
+founders say "we need to fix that now" and turn a goal on to fix it.
 
-From the candidate checks, score each 1-5 on how likely it is, for THIS company, to show a big, \
-specific, measurable gap next to its competitors that an AI employee can then close. Use what you \
-know about the company: what it sells, who buys it, its stage, its market, and the clues in the \
-research (a quiet blog, few reviews, a role open for months, a crowded search market). A check that \
-would probably come back "fine", or produce a vague result, scores low. Don't pick checks for \
-variety; pick the strongest. Say in a few words why, and the headline you expect.
+From the candidate checks, score each 1-5 on how likely it is, for THIS company, to show something \
+big, specific and measurable that leads to customers soon (within about 90 days) once fixed. Score \
+highest, in this order of value for an early company:
+1. buyers to talk to now: people publicly asking for what it sells, competitors' unhappy customers, \
+named companies with a fresh buying trigger, open briefs or tenders;
+2. why buyers don't choose it: an unclear home page, no customer proof, no trust or security answers \
+for big buyers, friction booking a call or buying;
+3. where competitors win attention and deals: social media (company and founders), a launch video, \
+comparison searches, directories buyers check;
+4. being ready to reach out: email that lands in inboxes, a way to book a call.
+Search and AI-assistant ranking for broad searches is slow and costly: score it high only for local \
+businesses, agencies, online stores, or when the market clearly searches for this. Website hygiene, \
+grants, hiring and legal pages rarely bring customers: score them low unless the research shows \
+something serious. Use what you know: what it sells, who buys it, its stage and the research. A \
+check that would probably come back "fine", or vague, scores low. Pick the strongest, not for \
+variety. Say in a few words why, and the headline you expect.
 
 Then write the searches a real customer would type when looking for what this company sells. Never \
 include the company's own name or brand in a search: we want to know if customers who don't know \
@@ -233,15 +245,17 @@ async def ai_answers(claude: MeteredClaude, queries: list[dict], name: str, mine
 
 # --- 3. look ------------------------------------------------------------------------------------
 
-LOOK_SYSTEM = """You are a sharp growth and operations analyst running one check on a company, \
-to show it something it's missing out on, concretely enough that it wants an AI employee to fix it.
+LOOK_SYSTEM = """You are a sharp growth analyst running one check on a company, to show it \
+something it's missing out on, concretely enough that it wants to turn a goal on to fix it.
 
 Rules:
 - Follow the steps. Use web_search and web_fetch to see for yourself; don't guess. Measure the \
 number the check is about for the company and for each competitor named.
 - Evidence first: say exactly what you saw, with numbers, dates and URLs ("12 reviews on G2 at \
 4.1; Routeco has 240 at 4.6"). If you couldn't verify something, say so instead of guessing.
-- Public, company-level information only. Never judge, rank or name individual employees.
+- Public information only. Founders' public posts about their company may be counted and compared; \
+never judge, rank or name other individual employees. People who post publicly asking for help or \
+reviewing a product may be quoted from what they posted.
 - If the company turns out to be doing well on this, say that plainly: a clear "no gap" is useful."""
 
 LOOK_TASK = """Company: {name} ({website})
@@ -250,6 +264,9 @@ Closest competitors: {competitors}
 
 What setup research found:
 {research}
+
+What was measured (use these numbers; don't re-measure them):
+{measured}
 
 The check: {title}
 The number it's about: {metric}
@@ -274,6 +291,16 @@ and score that 1-5 ("pull"). Drop anything vague, generic or minor, even if it's
 given; never change a rank or invent one.
 - Each finding has its number: what it's called, where they are now, and a realistic goal (e.g. \
 "negative reviews answered: 2 of 9 now, 9 of 9 goal"; "page-1 searches: 1 of 6 now, 4 of 6 goal").
+- Say what it costs them in customers: buyers missed, meetings or deals not won, people asking who \
+never heard back. Prefer findings that lead to customers soon over slow or cosmetic ones.
+- A missing launch or demo video: the fix is a goal whose first result is a 20-second launch video \
+made from their website (story, motion, music and share copy), then the posts that launch it on \
+LinkedIn and X; posting waits for their OK.
+- Social media: give the numbers side by side (posts and likes + comments in the last 30 days, for \
+the company page and the founders), and make the goal about posting better content more often to \
+win engagement and inbound deals.
+- Search ranking: only make a finding about it when the measured searches show real demand (more \
+than about 100 a month) or the company is local, an agency or an online store.
 - Write plainly and briefly; direct and helpful, not alarming. People skim these: the title says the \
 gap in a few words; the points are 2-4 short facts (who, what, how many, when), not a paragraph; \
 "impact" says in one or two plain sentences why it matters to their business (lost deals, revenue, \
@@ -436,7 +463,7 @@ def highlights(search: list[dict], ai: list[dict]) -> list[str]:
 
 
 async def look(claude: MeteredClaude, name: str, website: str, description: str, research: str, site_text: str,
-               picked: list[catalog.Check], competitors: list[dict]) -> tuple[str, list[dict], Decimal]:
+               picked: list[catalog.Check], competitors: list[dict], measured: str = "") -> tuple[str, list[dict], Decimal]:
     """Each chosen check as its own focused investigation, run in parallel."""
     web_checks = [c for c in picked if c.method == "web"]
     if not web_checks:
@@ -446,7 +473,8 @@ async def look(claude: MeteredClaude, name: str, website: str, description: str,
         task = LOOK_TASK.format(
             name=name, website=website or "(none)", description=description or "(not given)",
             competitors=", ".join(f"{x['name']} ({x['domain']})" for x in competitors) or "(find the closest 2)",
-            research=(research or "(none)")[:4000], title=c.title, metric=c.metric,
+            research=(research or "(none)")[:4000], measured=(measured or "(nothing measured)")[:4000],
+            title=c.title, metric=c.metric,
             steps="\n".join(f"{i}. {st}" for i, st in enumerate(c.steps, 1)))
         messages: list[dict] = [{"role": "user", "content": task}]
         tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": WEB_PER_CHECK},
@@ -571,7 +599,8 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
 
     # 3. Look at public pages for the rest.
     try:
-        notes, sources, c3 = await look(claude, name, website, description, research, site_text, picked, competitors)
+        notes, sources, c3 = await look(claude, name, website, description, research, site_text, picked, competitors,
+                                        measured_text)
         cost += c3
     except Exception as e:  # the measurements can still make findings
         log.warning("reading public pages failed: %s", e)

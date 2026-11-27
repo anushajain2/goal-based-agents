@@ -152,6 +152,49 @@ def page_tools(html: str) -> dict[str, list[str]]:
             for kind, tools in TOOLS.items()}
 
 
+# Videos on a page: embedded players and native <video>. A launch or demo video on the home page
+# is the first thing many buyers watch.
+VIDEO_PLAYERS = {"YouTube": ["youtube.com/embed", "youtube-nocookie.com/embed", "youtube.com/watch", "youtu.be/"],
+                 "Vimeo": ["player.vimeo.com", "vimeo.com/"], "Wistia": ["fast.wistia", "wistia.net", "wistia.com/medias"],
+                 "Loom": ["loom.com/embed", "loom.com/share"], "Vidyard": ["vidyard.com"], "Mux": ["stream.mux.com", "mux.com/"],
+                 "Video file": ["<video", ".mp4", ".webm"]}
+
+
+def page_videos(html: str) -> list[str]:
+    low = (html or "").lower()
+    return [name for name, marks in VIDEO_PLAYERS.items() if any(m in low for m in marks)]
+
+
+_SOCIAL = {
+    "linkedin": re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/(company|school|showcase)/([A-Za-z0-9_.%-]+)", re.I),
+    "linkedin_person": re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/([A-Za-z0-9_.%-]+)", re.I),
+    "x": re.compile(r"https?://(?:www\.)?(?:x|twitter)\.com/(?!intent|share|home|i/|search|hashtag)([A-Za-z0-9_]{1,15})(?=[/?\"'#\s]|$)", re.I),
+    "youtube": re.compile(r"https?://(?:www\.)?youtube\.com/(@[A-Za-z0-9_.-]+|channel/[A-Za-z0-9_-]+|c/[A-Za-z0-9_.-]+)", re.I),
+    "instagram": re.compile(r"https?://(?:www\.)?instagram\.com/([A-Za-z0-9_.]+)", re.I),
+    "tiktok": re.compile(r"https?://(?:www\.)?tiktok\.com/@([A-Za-z0-9_.]+)", re.I),
+}
+
+
+def social_links(html: str) -> dict[str, str]:
+    """The company's own profiles, as linked from its site (first match of each)."""
+    out: dict[str, str] = {}
+    for kind, rx in _SOCIAL.items():
+        m = rx.search(html or "")
+        if not m:
+            continue
+        if kind == "linkedin":
+            out[kind] = f"linkedin.com/{m.group(1).lower()}/{m.group(2)}"
+        elif kind == "linkedin_person":
+            out[kind] = f"linkedin.com/in/{m.group(1)}"
+        elif kind == "x":
+            out[kind] = m.group(1)
+        elif kind == "youtube":
+            out[kind] = f"youtube.com/{m.group(1)}"
+        else:
+            out[kind] = m.group(1)
+    return out
+
+
 async def home_html(url: str) -> str | None:
     try:
         async with client(20.0, follow=False) as c:

@@ -87,12 +87,27 @@ def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(404)
         page = ('<html><head><script src="https://www.googletagmanager.com/gtag/js?id=G-1"></script>'
                 '<script src="https://connect.facebook.net/en_US/fbevents.js"></script></head><body>'
-                '<a href="/about">About</a><a href="/old-page">Old</a><a href="https://outside.test/x">Out</a></body></html>')
+                '<a href="/about">About</a><a href="/old-page">Old</a><a href="https://outside.test/x">Out</a>'
+                '<a href="https://www.linkedin.com/company/acme-routing/">LinkedIn</a><a href="https://x.com/acmeroutes">X</a>'
+                '</body></html>')
         return httpx.Response(200, html=page)
     if u.host == "routeco.test":
         return httpx.Response(200, html='<script src="https://widget.intercom.io/w/x"></script>'
-                                       '<a href="https://calendly.com/routeco/demo">Book</a>')
-    if u.host == "outside.test":
+                                       '<a href="https://calendly.com/routeco/demo">Book</a>'
+                                       '<iframe src="https://www.youtube.com/embed/launch"></iframe>'
+                                       '<a href="https://twitter.com/routeco">X</a>')
+    if u.host == "api.x.com":
+        if "/users/by/username/" in u.path:
+            handle = u.path.rsplit("/", 1)[1]
+            return httpx.Response(200, json={"data": {"id": handle, "public_metrics": {"followers_count": 9000 if handle == "routeco" else 120}}})
+        if u.path.endswith("/tweets"):
+            assert request.headers["authorization"] == "Bearer xt" and p["exclude"] == "retweets,replies"
+            busy = "routeco" in u.path
+            posts = [{"public_metrics": {"like_count": 40, "reply_count": 8, "retweet_count": 2, "quote_count": 0}}] * (10 if busy else 3)
+            if not busy:
+                posts = [{"public_metrics": {"like_count": 5, "reply_count": 1, "retweet_count": 0, "quote_count": 0}}] * 3
+            return httpx.Response(200, json={"data": posts, "includes": {"media": [{"type": "video"}] if busy else []}})
+    if u.host in ("outside.test", "www.linkedin.com", "x.com"):
         return httpx.Response(200, html="ok")
     return httpx.Response(404)
 
@@ -101,7 +116,7 @@ def handler(request: httpx.Request) -> httpx.Response:
 def internet(monkeypatch):
     s = get_settings()
     for key, value in (("serpapi_key", "k"), ("dataforseo_login", "u"), ("dataforseo_password", "p"),
-                       ("google_api_key", "g"), ("openpagerank_key", "o"), ("openai_api_key", "x")):
+                       ("google_api_key", "g"), ("openpagerank_key", "o"), ("openai_api_key", "x"), ("x_bearer_token", "xt")):
         monkeypatch.setattr(s, key, value)
     monkeypatch.setattr(http, "transport", httpx.MockTransport(handler))
 
@@ -138,7 +153,7 @@ async def test_measures_google_by_country_and_scores_against_competitors(interne
     assert "ad pixels without a cookie consent tool" in rows["tracking"]["you"]["display"]
     assert rows["email_auth"]["you"]["display"].startswith("SPF ✓ · DKIM ✗ · DMARC ✗")
     assert rows["security"]["you"]["status"] == "bad"  # domain renews in 20 days
-    assert rows["broken_links"]["you"]["display"].startswith("1 broken of 3 links")
+    assert rows["broken_links"]["you"]["display"].startswith("1 broken of 5 links")
     assert rows["maps"]["you"]["status"] == "bad"
     text = presence.summary(m, list(rows.values()))
     assert 'Google Germany "route planning software": #2, 1,900 searches a month, difficulty 54/100' in text
@@ -146,5 +161,22 @@ async def test_measures_google_by_country_and_scores_against_competitors(interne
 
 async def test_without_keys_only_free_checks_run():
     m = await presence.measure("Acme", "https://acme.test", COMPS, [{"query": QA, "intent": ""}], MARKETS, None)
-    assert m["google"] == [] and m["assistants"] == [] and m["calls"] == {"serpapi": 0, "dataforseo": 0, "assistants": 0}
+    assert m["google"] == [] and m["assistants"] == [] and m["calls"] == {"serpapi": 0, "dataforseo": 0, "assistants": 0, "x": 0}
     assert presence.cost(m["calls"]) == 0
+
+
+async def test_social_profiles_launch_video_and_x_against_competitors(internet):
+    m = await presence.measure("Acme", "https://acme.test", COMPS, [{"query": QA, "intent": ""}], MARKETS[:1], None)
+    you, them = m["sites"]["acme.test"], m["sites"]["routeco.test"]
+    assert you["socials"] == {"linkedin": "linkedin.com/company/acme-routing", "x": "acmeroutes"} and you["videos"] == []
+    assert them["videos"] == ["YouTube"] and them["socials"]["x"] == "routeco"
+    assert you["x"] == {"handle": "acmeroutes", "followers": 120, "posts_30d": 3, "engagement_30d": 18, "videos_30d": 0}
+    assert them["x"]["posts_30d"] == 10 and them["x"]["engagement_30d"] == 500 and them["x"]["videos_30d"] == 1
+    assert m["calls"]["x"] == 2
+
+    rows = {r["key"]: r for r in presence.scorecard(m)}
+    assert rows["video"]["you"] == {"display": "None", "status": "bad"} and rows["video"]["others"][0]["display"] == "YouTube"
+    assert rows["x_activity"]["you"] == {"display": "3 posts · 18 likes, replies and reposts", "status": "bad"}
+    assert rows["x_activity"]["others"][0]["display"] == "10 posts · 500 likes, replies and reposts · 1 videos"
+    text = presence.summary(m, list(rows.values()))
+    assert "Social profiles linked from Acme's site (acme.test): linkedin: linkedin.com/company/acme-routing, x: acmeroutes" in text

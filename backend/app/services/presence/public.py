@@ -6,12 +6,14 @@
   popularity    Tranco's ranking of the most visited sites (free, no key)
   authority     Open PageRank's domain authority, 0-10
   meta_ads      ads running on Facebook and Instagram in an EU country (Meta Ad Library)
+  x_activity    X's official API: posts in the last 30 days, their likes, replies and reposts, videos
 """
 
 from __future__ import annotations
 
 import json
 import re
+from datetime import UTC, datetime, timedelta
 
 from app.config import get_settings
 
@@ -106,3 +108,26 @@ async def meta_ads(brand: str, country: str) -> int | None:
     if data is None:
         return None
     return sum(1 for a in data.get("data") or [] if _norm(brand) in _norm(a.get("page_name", "")))
+
+
+async def x_activity(handle: str | None) -> dict | None:
+    """Posting and engagement on X over the last 30 days (official API, platform key)."""
+    token = get_settings().x_bearer_token
+    if not token or not handle:
+        return None
+    auth = {"Authorization": f"Bearer {token}"}
+    user = await get_json(f"https://api.x.com/2/users/by/username/{handle}", params={"user.fields": "public_metrics"},
+                          headers=auth)
+    data = (user or {}).get("data") or {}
+    if not data.get("id"):
+        return None
+    since = (datetime.now(UTC) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    posts = await get_json(f"https://api.x.com/2/users/{data['id']}/tweets", headers=auth, params={
+        "start_time": since, "max_results": 100, "exclude": "retweets,replies",
+        "tweet.fields": "public_metrics,created_at", "expansions": "attachments.media_keys", "media.fields": "type"})
+    items = (posts or {}).get("data") or []
+    engagement = sum(sum((t.get("public_metrics") or {}).get(k, 0) for k in ("like_count", "reply_count", "retweet_count", "quote_count"))
+                     for t in items)
+    videos = sum(1 for m in ((posts or {}).get("includes") or {}).get("media") or [] if m.get("type") in ("video", "animated_gif"))
+    return {"handle": handle, "followers": (data.get("public_metrics") or {}).get("followers_count"),
+            "posts_30d": len(items), "engagement_30d": engagement, "videos_30d": videos}
