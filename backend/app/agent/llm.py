@@ -159,6 +159,12 @@ class MeteredClaude:
     ) -> CallResult:
         model, effort = self.model_for_task(task)
         role = TASKS[task][0]
+        # A Gemini model can write a structured answer (no tools); without a Gemini key the task's
+        # usual Claude model does it.
+        gemini = model.startswith("gemini") and not tools
+        if model.startswith("gemini") and (tools or not self.settings.gemini_api_key):
+            model, effort = slot_model(self.settings, role)
+            gemini = False
         max_tokens = max_tokens or self.settings.agent_max_tokens
         est_in = estimate_input_tokens(system, tools, messages)
         worst = ledger.worst_case_cost(model, est_in, max_tokens, max_web_searches)
@@ -174,6 +180,42 @@ class MeteredClaude:
                 )
                 entry_id = entry.id
 
+        try:
+            response = None
+            if gemini:
+                try:
+                    response = await _gemini_create(self.settings, model, effort, system, messages, max_tokens, output_format)
+                except Exception as e:  # noqa: BLE001 - a plan still gets written, by Claude
+                    log.warning("Gemini (%s) failed for %s, using Claude instead: %s", model, task, e)
+                    model, effort = slot_model(self.settings, role)
+            if response is None:
+                response = await self._claude_call(model, effort, max_tokens, messages, system, tools, output_format,
+                                                   agent_loop)
+        except Exception:
+            if entry_id:
+                async with session_scope() as s:
+                    await ledger.release(s, await s.get(LedgerEntry, entry_id))
+            raise
+
+        served_by = getattr(response, "model", None) or model
+        cost = ledger.cost_from_usage(served_by, response.usage)
+        await _record_usage(task, served_by, response.usage, cost, campaign_id)
+        if entry_id:
+            async with session_scope() as s:
+                await ledger.settle(
+                    s, await s.get(LedgerEntry, entry_id), cost,
+                    meta={"served_by": served_by, "usage": _usage_dict(response.usage)},
+                )
+        return CallResult(
+            response=response,
+            content=serialize_content(response.content),
+            cost=cost,
+            stop_reason=response.stop_reason,
+        )
+
+
+    async def _claude_call(self, model: str, effort: str, max_tokens: int, messages: list[dict], system, tools,
+                           output_format, agent_loop: bool):
         params: dict[str, Any] = {
             "model": model,
             "max_tokens": max_tokens,
@@ -206,38 +248,87 @@ class MeteredClaude:
             optional.pop("betas")
 
         try:
-            try:
-                response = await self.client.beta.messages.create(**params, **optional)
-            except anthropic.BadRequestError as e:
-                if not optional:
-                    raise
-                # The optional betas are conveniences (refusal fallback, context clearing,
-                # progress notes, lenient thinking replay). If the API rejects one of them,
-                # retry once without them rather than failing the whole session.
-                log.warning("Claude rejected optional features (%s); retrying without them", e.message)
-                params["thinking"] = {"type": "adaptive"}
-                response = await self.client.beta.messages.create(**params)
-        except Exception:
-            if entry_id:
-                async with session_scope() as s:
-                    await ledger.release(s, await s.get(LedgerEntry, entry_id))
-            raise
+            return await self.client.beta.messages.create(**params, **optional)
+        except anthropic.BadRequestError as e:
+            if not optional:
+                raise
+            # The optional betas are conveniences (refusal fallback, context clearing,
+            # progress notes, lenient thinking replay). If the API rejects one of them,
+            # retry once without them rather than failing the whole session.
+            log.warning("Claude rejected optional features (%s); retrying without them", e.message)
+            params["thinking"] = {"type": "adaptive"}
+            return await self.client.beta.messages.create(**params)
 
-        served_by = getattr(response, "model", None) or model
-        cost = ledger.cost_from_usage(served_by, response.usage)
-        await _record_usage(task, served_by, response.usage, cost, campaign_id)
-        if entry_id:
-            async with session_scope() as s:
-                await ledger.settle(
-                    s, await s.get(LedgerEntry, entry_id), cost,
-                    meta={"served_by": served_by, "usage": _usage_dict(response.usage)},
-                )
-        return CallResult(
-            response=response,
-            content=serialize_content(response.content),
-            cost=cost,
-            stop_reason=response.stop_reason,
-        )
+
+@dataclass
+class _Usage:
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    server_tool_use: Any = None
+
+    def model_dump(self, **_) -> dict:
+        return {"input_tokens": self.input_tokens, "output_tokens": self.output_tokens}
+
+
+@dataclass
+class _Response:
+    content: list
+    stop_reason: str
+    model: str
+    usage: _Usage
+
+
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+_GEMINI_THINKING = {"low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "xhigh"}
+
+
+def _gemini_parts(content) -> list[dict]:
+    if isinstance(content, str):
+        return [{"text": content}]
+    parts = []
+    for b in content or []:
+        if b.get("type") == "text" and b.get("text"):
+            parts.append({"text": b["text"]})
+        elif b.get("type") == "image" and (b.get("source") or {}).get("type") == "base64":
+            parts.append({"inlineData": {"mimeType": b["source"]["media_type"], "data": b["source"]["data"]}})
+    return parts
+
+
+async def _gemini_create(settings, model: str, effort: str, system, messages: list[dict], max_tokens: int,
+                         output_format: dict | None) -> _Response:
+    """One Gemini call that answers like a Messages API response (text content, usage)."""
+    import httpx
+
+    sys_text = system if isinstance(system, str) else "\n\n".join(
+        b.get("text", "") for b in system or [] if isinstance(b, dict))
+    config: dict[str, Any] = {"maxOutputTokens": max_tokens,
+                              "thinkingConfig": {"thinkingLevel": _GEMINI_THINKING.get(effort, "medium")}}
+    if output_format and output_format.get("schema"):
+        config.update(responseMimeType="application/json", responseJsonSchema=output_format["schema"])
+    body: dict[str, Any] = {
+        "contents": [{"role": "model" if m["role"] == "assistant" else "user", "parts": _gemini_parts(m["content"])}
+                     for m in messages],
+        "generationConfig": config,
+    }
+    if sys_text:
+        body["systemInstruction"] = {"parts": [{"text": sys_text}]}
+    async with httpx.AsyncClient(timeout=240) as client:
+        r = await client.post(GEMINI_URL.format(model=model), json=body,
+                              headers={"x-goog-api-key": settings.gemini_api_key})
+    if r.status_code >= 400:
+        raise RuntimeError(f"Gemini HTTP {r.status_code}: {r.text[:300]}")
+    data = r.json()
+    cand = (data.get("candidates") or [{}])[0]
+    text = "".join(p.get("text", "") for p in (cand.get("content") or {}).get("parts") or [] if not p.get("thought"))
+    if not text:
+        raise RuntimeError(f"Gemini returned no text ({cand.get('finishReason')})")
+    meta = data.get("usageMetadata") or {}
+    usage = _Usage(input_tokens=int(meta.get("promptTokenCount") or 0),
+                   output_tokens=int(meta.get("candidatesTokenCount") or 0) + int(meta.get("thoughtsTokenCount") or 0))
+    return _Response(content=[{"type": "text", "text": text}], stop_reason="end_turn",
+                     model=data.get("modelVersion") or model, usage=usage)
 
 
 async def _record_usage(task: str, model: str, usage, cost: Decimal, campaign_id: str | None) -> None:

@@ -37,7 +37,7 @@ MAX_LEARNINGS = 12
 MAX_EXPERIMENTS = 10
 STATUSES = ("planned", "testing", "working", "dropped")
 
-VERSION = 2  # approaches are strategies tied to the goal, each with an example (older ones are remade before start)
+VERSION = 3  # strategies in plain words, each with an example (older plans are remade before a goal starts)
 
 SYSTEM = """You decide how Oton will hit one business goal. It researches, builds lists, writes, \
 designs (images, short videos and animations), sends, posts and uses the company's apps, and asks a \
@@ -48,8 +48,8 @@ job, not a template.
 goal, best first, each clearly tied to the goal and its number. Be concrete about what Oton will make \
 or do and about what, so the owner can picture it; include creative ideas where they fit. No spam, \
 fake engagement or misleading claims.
-For each: a name (under 6 plain words), what it does (under 18 words), an example of one real output \
-for this company (under 20 words, no made-up numbers), why it fits, the main tool, and its milestone \
+For each: a name (under 6 plain words), what it does (under 25 words), an example of one real output \
+for this company (under 25 words, no made-up numbers), why it fits, the main tool, and its milestone \
 when the goal has milestones (else 1).
 2. The model, used to track progress (not shown up front): the 2-5 results in the world that lead to \
 the number, as a funnel, e.g. "Posts published" -> "Views" -> "Profile visits" -> "Signups"; for \
@@ -59,8 +59,19 @@ stage most likely to hold the goal back at the start, and why, in one sentence.
 3. The first experiment worth running, as a hypothesis with the change and how many attempts to judge \
 it on.
 
-The owner reads the approaches before turning the goal on: plain words, no jargon or acronyms. Don't \
-call it an AI employee, agent or lead: talk about the goal and say Oton does the work."""
+How to write the approaches: the owner reads them before turning the goal on, often in a hurry, and \
+must understand each one on first read without knowing anything about Oton.
+- The name says what Oton will do in everyday words, like a heading in a to-do list ("Weekly post: \
+one website mistake and how to fix it"), not a catchy label ("Gap of the week").
+- What it does: one sentence that says what Oton will make or do, how often, and how it helps this \
+goal, e.g. "Every Tuesday, a short LinkedIn post about one common website mistake we've seen at \
+companies like yours, and the fix, so founders follow you for practical advice."
+- The example is what someone would actually see: the first line of the post, the subject of the \
+email, the title of the video.
+- Use the words the owner uses. Don't use internal or technical terms ("gap", "scan", "check", \
+"finding", "funnel", "anonymised", "category test", "UGC", "ICP") unless you explain them in the same \
+sentence.
+- Don't call it an AI employee, agent or lead: talk about the goal and say Oton does the work."""
 
 
 def schema() -> dict:

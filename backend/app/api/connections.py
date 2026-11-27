@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.browser import chrome
 from app.config import get_settings
-from app.connectors.composio_hub import hub_for_org
+from app.connectors.composio_hub import OwnAppNeeded, hub_for_org
 from app.db import get_session
 from app.api.helper import send_to_helper
 from app.models import Campaign, RequestKind, RequestStatus, Screenshot, SiteSignIn, UserRequest
@@ -99,7 +99,10 @@ async def connect_app(app: str, back: str = "/connections", s: AsyncSession = De
     if not hub.enabled:
         raise HTTPException(400, "App connections aren't set up yet. Add a Composio key under Connections.")
     back = back if back.startswith("/") and not back.startswith("//") else "/connections"
-    return await hub.connect_link(app, me.org_id, callback_url=get_settings().frontend_origin + back)
+    try:
+        return await hub.connect_link(app, me.org_id, callback_url=get_settings().frontend_origin + back)
+    except OwnAppNeeded as e:
+        raise HTTPException(400, str(e)) from None
 
 
 # --- everything the organization's goals use, in one place -----------------------------------

@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
+from app.agent import approach as goal_approach
 from app.agent.llm import MeteredClaude
 from app.agent.runner import CycleRunner
 from app.api import plan as plan_api
@@ -46,7 +47,7 @@ async def test_how_a_goal_gets_hit_is_made_once_before_it_starts(api, monkeypatc
     assert len(fake.calls) == n
     full = (await api.get(f"/api/campaigns/{gid}")).json()
     assert full["approach"]["model"]["bottleneck"] == "Replies" and full["has_approach"]
-    assert made["approaches"][1]["example"].startswith("We cut a 40-van fleet's miles") and made["v"] == 2
+    assert made["approaches"][1]["example"].startswith("We cut a 40-van fleet's miles") and made["v"] == goal_approach.VERSION
     # The strategies are what the best person in this role would do, tied to this goal.
     system = next(k for k in fake.calls if "approaches" in k["output_config"].get("format", {}).get("schema", {}).get("properties", {}))["system"]
     assert "the best person in this role would actually use to hit this goal" in system
@@ -60,7 +61,7 @@ async def test_an_older_plan_is_remade_before_the_goal_starts(api, monkeypatch):
         (await s.get(Campaign, gid)).approach = {"model": {"stages": [{"name": "Posts approved"}], "bottleneck": "Posts approved"},
                                                  "approaches": [{"name": "Weekly batch approval in Slack", "what": "x"}]}
     made = (await api.post(f"/api/campaigns/{gid}/approach")).json()
-    assert made["v"] == 2 and "Weekly batch approval in Slack" not in [a["name"] for a in made["approaches"]]
+    assert made["v"] == goal_approach.VERSION and "Weekly batch approval in Slack" not in [a["name"] for a in made["approaches"]]
 
 
 def test_pace_says_how_far_behind_and_what_it_needs():

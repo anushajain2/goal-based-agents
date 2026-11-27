@@ -27,6 +27,8 @@ PRICES: dict[str, tuple[Decimal, Decimal, Decimal, Decimal]] = {
     "claude-opus-4-8": (Decimal(5), Decimal(25), Decimal("6.25"), Decimal("0.50")),
     "claude-sonnet-5-5": (Decimal(2), Decimal(10), Decimal("2.50"), Decimal("0.10")),
     "claude-haiku-5-5": (Decimal("0.10"), Decimal("0.50"), Decimal("0.125"), Decimal("0.01")),
+    # Gemini (no prompt caching used). Third-party listings, November 2026: check Google's pricing page.
+    "gemini-4-neon": (Decimal(3), Decimal(15), Decimal(3), Decimal(3)),
 }
 WEB_SEARCH_USD_PER_REQUEST = Decimal("0.01")  # $10 per 1,000 searches
 
@@ -44,7 +46,11 @@ def _q(x: Decimal) -> Decimal:
 def prices_for(model: str) -> tuple[Decimal, Decimal, Decimal, Decimal]:
     # Unknown model (e.g. a fallback we did not anticipate): price at the most expensive
     # known rate so the ledger errs on the side of over-counting.
-    return PRICES.get(model) or max(PRICES.values(), key=lambda p: p[1])
+    if model in PRICES:
+        return PRICES[model]
+    # A dated version of a known model (e.g. "gemini-4-neon-001"): the longest matching name.
+    known = max((k for k in PRICES if model.startswith(k)), key=len, default=None)
+    return PRICES[known] if known else max(PRICES.values(), key=lambda p: p[1])
 
 
 def _get(obj, name: str, default=0):

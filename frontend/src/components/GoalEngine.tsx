@@ -177,7 +177,7 @@ export function HowItsGoing({ c, update }: { c: Campaign; update?: { u: GoalUpda
 
 /** In the start flow: what Oton will do, before anyone turns it on. */
 /** How the goal gets hit, made on first look (once per goal). */
-const APPROACH_VERSION = 2;  // keep in step with backend/app/agent/approach.py
+const APPROACH_VERSION = 3;  // keep in step with backend/app/agent/approach.py
 
 function useApproach(goal: Campaign): { a: GoalApproach | null; failed: boolean } {
   // A goal not started yet with an older kind of plan asks for the current one (the server remakes it).

@@ -62,7 +62,8 @@ class Settings(BaseSettings):
     # (planner / worker / checker) or a model ID, and an effort. JSON, e.g.
     #   TASK_MODELS={"session_strategist": "worker", "findings": "claude-opus-5-5"}
     #   TASK_EFFORTS={"goal_steps": "low"}
-    task_models: dict[str, str] = {}
+    # Goal plans are written by Gemini 4 Neon when GEMINI_API_KEY is set (else Claude).
+    task_models: dict[str, str] = {"goal_plan": "gemini-4-neon"}
     task_efforts: dict[str, str] = {}
     # People who run this Oton (comma-separated emails): they see AI cost by task across all
     # organizations (/ops/costs).

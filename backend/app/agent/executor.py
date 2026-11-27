@@ -27,7 +27,7 @@ from app.agent import quality
 from app.agent.llm import MeteredClaude
 from app.browser import chrome
 from app.browser.controller import BrowserError, BrowserForOrg, HelperOffline, is_commit
-from app.connectors.composio_hub import ComposioHub, hub_for_org
+from app.connectors.composio_hub import ComposioHub, OwnAppNeeded, hub_for_org
 from app.connectors.database import QueryError, run_read_only
 from app.connectors.github import GitHub, GitHubError
 from app.connectors.github import content_only as github_content_only
@@ -363,7 +363,10 @@ class ToolExecutor:
             await self._log("blocked", f"Blocked: connect {app}", status="blocked", channel=app,
                             details={"reason": block.reason})
             return Outcome(f"Blocked by the user's guardrails: {block.reason}", is_error=True)
-        link = await (await self.hub()).connect_link(app, self.owner_id)
+        try:
+            link = await (await self.hub()).connect_link(app, self.owner_id)
+        except OwnAppNeeded as e:
+            return Outcome(f"{e} Use the browser for {app} meanwhile.", is_error=True)
         request_id = await self._create_request(
             kind=RequestKind.connect, tool_use_id=tool_use_id, title=f"Connect {app}",
             rationale=inp.get("reason", ""), scope=app, preview={"url": link["redirect_url"], "app": app},

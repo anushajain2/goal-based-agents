@@ -84,6 +84,23 @@ def _to_action(tool: Any) -> AppAction:
     )
 
 
+APP_NAMES = {"twitter": "X", "linkedin": "LinkedIn", "instagram": "Instagram", "facebook": "Facebook",
+             "tiktok": "TikTok", "youtube": "YouTube", "reddit": "Reddit"}
+
+
+class OwnAppNeeded(Exception):
+    """Composio has no shared login for this app (X is one): it needs the company's own developer app."""
+
+    def __init__(self, app: str):
+        self.app = app
+        name = APP_NAMES.get(app, app.title())
+        super().__init__(
+            f"{name} can't be connected with a shared login: it needs your own {name} developer app. "
+            f"Create an app in the {name} developer portal, then add it in Composio (Auth configs → {name} → your "
+            f"own OAuth 2.0 client ID and secret) and connect again: Oton uses it automatically. "
+            f"Or skip it: Oton can use {name} through the desktop helper, in your own browser.")
+
+
 class ComposioHub:
     def __init__(self, api_key: str | None = None, source: str = "platform") -> None:
         self.settings = get_settings()
@@ -172,12 +189,18 @@ class ComposioHub:
             client = self._client
             configs = client.auth_configs.list(toolkit_slug=app.lower())
             items = sorted(_get(configs, "items") or [], key=lambda x: str(_get(x, "created_at")), reverse=True)
-            if items:
+            if items:  # yours (e.g. your own X app), or one made earlier
                 auth_config_id = _get(items[0], "id")
             else:
-                auth_config_id = _get(
-                    client.auth_configs.create(app.lower(), {"type": "use_composio_managed_auth"}), "id"
-                )
+                try:
+                    auth_config_id = _get(
+                        client.auth_configs.create(app.lower(), {"type": "use_composio_managed_auth"}), "id"
+                    )
+                except Exception as e:
+                    # Some apps (X) have no Composio-managed login: say what to do instead of failing.
+                    if "managed credentials" in str(e) or "Default auth config not found" in str(e):
+                        raise OwnAppNeeded(app.lower()) from None
+                    raise
             request = client.connected_accounts.link(
                 self.user_id(owner_id), auth_config_id, callback_url=callback_url, allow_multiple=True
             )
