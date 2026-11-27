@@ -343,10 +343,10 @@ async def read_social(claude: MeteredClaude, name: str, website: str, competitor
     if social_counts.enabled():
         # Posts are counted exactly from each account's URL afterwards, so the searches go on
         # finding every account (company and founders) and its exact profile URL.
-        task += ("\n\nEach account's posts are counted separately from its URL, so spend your searches on "
-                 "finding every account and its exact profile URL (linkedin.com/company/..., linkedin.com/in/..., "
-                 "x.com/<handle>). Leave counts you didn't see as null.")
-        uses = 8
+        task += ("\n\nEach account's posts are counted separately from its URL, so don't open or count posts: "
+                 "spend your searches on finding the founders and every account's exact profile URL "
+                 "(linkedin.com/company/..., linkedin.com/in/..., x.com/<handle>). Leave counts null.")
+        uses = 10
     messages: list[dict] = [{"role": "user", "content": task}]
     tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": uses},
              {"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": uses}]
@@ -387,7 +387,21 @@ async def read_social(claude: MeteredClaude, name: str, website: str, competitor
                                  "note": "Linked from its website"})
             elif not mine[0].get("url"):
                 mine[0]["url"] = so[platform]
+    # A company whose LinkedIn page no one found: look it up by name (kept only if clearly theirs).
+    missing = [(n, d) for n, d in companies if d and not any(
+        a.get("company") == n and a.get("who") == "company" and a.get("platform") == "linkedin"
+        and social_counts.linkedin_url(a.get("url") or "") for a in accounts)]
+    pages, c_lookup = await social_counts.find_linkedin_pages(missing) if missing else ({}, Decimal("0"))
+    for n, url in pages.items():
+        mine = [a for a in accounts if a.get("company") == n and a.get("who") == "company" and a.get("platform") == "linkedin"]
+        if mine:
+            mine[0]["url"] = url
+        else:
+            accounts.append({"company": n, "who": "company", "name": n, "platform": "linkedin", "url": url,
+                             "coverage": "blocked", "posts_30d": None, "engagement_30d": None,
+                             "note": "Found by a LinkedIn search"})
     accounts, c_apify = await social_counts.count_posts(accounts, linked_x=linked_x)
+    c_apify += c_lookup
     return {"accounts": accounts, "videos": [named(v) for v in data.get("videos") or []]}, cost + c_apify
 
 

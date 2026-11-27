@@ -36,6 +36,15 @@ X = [  # what apidojo/tweet-scraper returns
      "author": {"userName": "routeco"}, "isRetweet": True, "isReply": False, "likeCount": 500, "replyCount": 0},
 ]
 
+COMPANIES = [  # what harvestapi/linkedin-company returns for a search: its best match per name
+    {"name": "Arkestro", "linkedinUrl": "https://www.linkedin.com/company/arkestro/", "website": "https://arkestro.com/",
+     "originalQuery": {"search": "Arkestro"}},
+    {"name": "Oton", "linkedinUrl": "https://www.linkedin.com/company/otonai/", "website": None,
+     "originalQuery": {"search": "Oton"}},
+    {"name": "Routeco Ltd", "linkedinUrl": "https://www.linkedin.com/company/routeco-uk/", "website": "https://routeco.co.uk",
+     "originalQuery": {"search": "Routeco"}},  # same name, another company
+]
+
 
 @pytest.fixture
 def apify(monkeypatch):
@@ -54,6 +63,8 @@ def apify(monkeypatch):
             actor = path.split("/")[3]
             if seen.get("fail") == actor:
                 return httpx.Response(500)
+            if actor == "harvestapi~linkedin-company":
+                return httpx.Response(200, json=COMPANIES)
             return httpx.Response(200, json=LINKEDIN if "linkedin" in actor else X)
         return httpx.Response(404)
 
@@ -191,3 +202,12 @@ async def test_profiles_a_site_links_to_are_used_and_blank_ones_mean_none_found(
     assert rows["social_x"]["others"] == [{"name": "Routeco", "display": "1 post · 8 likes and comments"}]
     assert rows["social_linkedin"]["you"]["display"] == "No account found"
     assert rows["social_linkedin"]["others"] == [{"name": "Routeco", "display": "2 posts · 17 likes and comments"}]
+
+
+async def test_linkedin_pages_found_by_name_only_when_clearly_theirs(apify):
+    pages, cost = await social.find_linkedin_pages([("Arkestro", "arkestro.com"), ("Oton", "otonai.co"),
+                                                    ("Routeco", "routeco.test")])
+    assert pages == {"Arkestro": "https://www.linkedin.com/company/arkestro",  # its website is arkestro.com
+                     "Oton": "https://www.linkedin.com/company/otonai"}  # no website listed; address is otonai
+    assert apify["inputs"]["harvestapi~linkedin-company"] == {"searches": ["Arkestro", "Oton", "Routeco"]}
+    assert cost == Decimal("0.001") + Decimal("0.004") * 3
