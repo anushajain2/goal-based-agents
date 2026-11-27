@@ -74,7 +74,8 @@ def findings(kw):
          "source_urls": [], "goal_id": "", "new_goal": None, "milestones": tiny},
         {"check": "", "team_kind": "finance", "title": "Pricing hidden", "evidence": "No pricing page.",
          "impact": "Some buyers leave.", "estimate": "", "assumption": "", "confidence": "low", "source_urls": [],
-         "goal_id": "not-a-goal", "new_goal": goal("Publish pricing", "Finance & admin"), "milestones": []},
+         "goal_id": "not-a-goal", "new_goal": goal("Publish pricing", "Finance & admin"), "milestones": [],
+         "sessions": 3},
     ]}
 
 
@@ -139,6 +140,8 @@ async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_
         # No Finance function and no close one: the goal brings its function with it.
         assert goals[pricing["goal_id"]]["name"] == "Publish pricing"
         assert goals[pricing["goal_id"]]["department"]["name"] == "Finance"
+        # A small fix is priced by the sessions it needs (3 x $0.30), not a week of sessions every cycle.
+        assert pricing["total_usd"] == 0.9 and goals[pricing["goal_id"]]["budget"]["total"] == 0.9
         # Connect to unlock, per team; a check becomes a goal for its team, once.
         unlock = {u["team_kind"]: u for u in opp["unlock"]}
         assert {"finance", "sales", "it"} <= set(unlock)

@@ -126,7 +126,6 @@ function ResearchLive({ info }: { info: SetupInfo }) {
                 );
               })}
             </ol>
-            {info.setup!.cost_usd > 0 && <p className="mt-6 text-[12px] text-white/40">Research cost so far {usd(info.setup!.cost_usd)}, paid by the workspace, not a goal&apos;s budget.</p>}
           </div>
         </div>
       </section>
@@ -222,7 +221,7 @@ export default function SetupPage() {
         )}
       </div>
 
-      <Steps steps={info.setup.steps} cost={info.setup.cost_usd} compact={status === "done"} />
+      {status === "failed" && <Steps steps={info.setup.steps} compact={false} />}
 
       {working && (info.org.website || info.org.description) && (
         <Card className="p-4 text-sm">
@@ -255,8 +254,8 @@ export default function SetupPage() {
 
       {status === "done" && (
         <>
-          {(info.org.profile || info.setup.plan?.profile)?.summary && <Learned profile={(info.org.profile || info.setup.plan!.profile)!} name={name} />}
           <SuggestedTeam info={info} onAdding={load} />
+          {(info.org.profile || info.setup.plan?.profile)?.summary && <Learned profile={(info.org.profile || info.setup.plan!.profile)!} name={name} />}
         </>
       )}
     </div>
@@ -280,7 +279,7 @@ function Learned({ profile, name }: { profile: CompanyProfile; name: string }) {
   );
 }
 
-function Steps({ steps, cost, compact }: { steps: SetupStep[]; cost: number; compact: boolean }) {
+function Steps({ steps, compact }: { steps: SetupStep[]; compact: boolean }) {
   const [open, setOpen] = useState(!compact);
   useEffect(() => setOpen(!compact), [compact]);
   return (
@@ -289,7 +288,6 @@ function Steps({ steps, cost, compact }: { steps: SetupStep[]; cost: number; com
         <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left text-sm">
           <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-600 text-white"><Check size={14} /></span>
           <span className="flex-1 font-semibold">Research done</span>
-          <span className="text-xs text-muted">Research cost {usd(cost)}</span>
           <ChevronDown size={16} className={cx("text-muted transition", open && "rotate-180")} />
         </button>
       )}
@@ -304,7 +302,6 @@ function Steps({ steps, cost, compact }: { steps: SetupStep[]; cost: number; com
               </div>
             </li>
           ))}
-          {!compact && cost > 0 && <li className="pl-9 text-xs text-muted">Research cost so far: {usd(cost)}. Paid by the organization, not from any goal&apos;s budget.</li>}
         </ol>
       )}
     </Card>
@@ -360,7 +357,7 @@ function SuggestedTeam({ info, onAdding }: { info: SetupInfo; onAdding: () => vo
       {/* Onboarding stays on what we found and the fixes for it. The team, the org chart and
           connecting tools live on their own pages (tools are also asked for when a goal is turned on). */}
       <Opportunities profile={info.org.profile} org={org} goals={goals} orgName={info.org.name} canStart={info.can_run}
-        onStart={setStarting} onOpen={setPanel} titled={false} />
+        onStart={setStarting} onOpen={setPanel} titled={false} details={false} />
       {!(info.org.profile?.opportunities?.findings || []).length && (
         <Card className="flex flex-wrap items-center gap-3 p-5">
           <div className="min-w-0 flex-1">
