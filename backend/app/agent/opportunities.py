@@ -41,9 +41,9 @@ log = logging.getLogger(__name__)
 # The budget for one scan. Fewer checks, chosen carefully and run deeply: Claude scores every check
 # that fits the company and runs the few most likely to show a big, fixable gap. Measurements
 # (Google, AI assistants, the website scorecard) always run alongside.
-SHOW = 5  # findings shown
-CANDIDATES = 7  # findings asked for, ranked by how much the company will want to fix each
-MAX_CHECKS = 5
+SHOW = 6  # findings shown
+CANDIDATES = 8  # findings asked for, ranked by how much the company will want to fix each
+MAX_CHECKS = 7  # the core checks for early companies plus Claude's strongest picks
 MIN_SCORE = 3  # a check Claude scores lower than this (1-5) isn't worth running
 WEB_PER_CHECK = 5  # searches and page reads for each check
 STRONG = 3  # a finding outside sales and marketing makes the five only if it's at least this strong
@@ -447,7 +447,14 @@ LinkedIn and X; posting waits for their OK.
 the company page and the founders), and make the goal about posting better content more often to \
 win engagement and inbound deals.
 - Search ranking: only make a finding about it when the measured searches show real demand (more \
-than about 100 a month) or the company is local, an agency or an online store.
+than about 100 a month) or the company is local, an agency or an online store. Search and AI-assistant \
+visibility (Google, ChatGPT, Perplexity, Gemini) together get one finding at most.
+- Cover the checks that were run: one finding for each check that found a real gap, before a second \
+finding on anything. For an early company, getting in front of buyers (people asking, social \
+media, a launch video, comparisons, a clear home page) matters more than search or AI rankings.
+- No analytics on the website (in the measurements) is a quick finding: they can't see which \
+channel brings visitors and customers, so they can't double down on what works. The fix is setting \
+up analytics with sign-up/booking events and a weekly channel report.
 - Write plainly and briefly; direct and helpful, not alarming. People skim these: the title says the \
 gap in a few words; the points are 2-4 short facts (who, what, how many, when), not a paragraph; \
 "impact" says in one or two plain sentences why it matters to their business (lost deals, revenue, \
@@ -693,7 +700,12 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
             seen.add(x["key"])
             chosen.append(x)
     chosen = sorted(chosen, key=lambda x: -int(x.get("score") or 0))  # stable: ties keep Claude's order
-    chosen = [x for x in chosen if int(x.get("score") or 0) >= MIN_SCORE][:MAX_CHECKS] or chosen[:2]
+    # The core checks always run for early companies; Claude's strongest picks fill the rest.
+    must = catalog.core(pack_key, size)
+    by_key = {x["key"]: x for x in chosen}
+    core_picks = [by_key.get(k) or {"key": k, "score": 5, "why": "Checked for every early company", "expect": ""} for k in must]
+    extra = [x for x in chosen if x["key"] not in must and int(x.get("score") or 0) >= MIN_SCORE]
+    chosen = (core_picks + extra)[:max(MAX_CHECKS, len(core_picks))] or chosen[:2]
     picked = [catalog.BY_KEY[x["key"]] for x in chosen]
     reasons = {x["key"]: {"why": str(x.get("why", ""))[:200], "expect": str(x.get("expect", ""))[:200],
                           "score": int(x.get("score") or 0)} for x in chosen}
@@ -709,6 +721,8 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     local = plan.get("local") or {}
     local = {"query": local.get("query", "")[:80], "cities": [c for c in local.get("cities") or [] if c][:3],
              "gl": markets[0]["gl"], "hl": markets[0]["hl"]} if local.get("query") and local.get("cities") else None
+
+    picked_keys = {c.key for c in picked}
 
     # 2. Measure: real Google results by country (Claude's web search when Google isn't set up),
     #    what AI assistants recommend, and the website, domain and presence against competitors.
@@ -732,7 +746,10 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
 
     async def measured():
         try:
-            return await presence.measure(name, website or "", competitors, queries, markets, local)
+            # Search rankings and AI-assistant answers only when a check needs them: measured
+            # every time, their hard numbers would crowd out everything else.
+            return await presence.measure(name, website or "", competitors, queries, markets, local,
+                                          rankings=bool(SEARCH_KEYS & picked_keys), ask_assistants="ai_answers" in picked_keys)
         except Exception as e:
             log.warning("market measurements failed: %s", e)
             return {}
@@ -833,10 +850,28 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     return {"findings": findings, "ran": len(picked), "cost": cost}
 
 
+SEARCH_KEYS = {"search_rank", "comparison_searches", "content_gaps"}
+VISIBILITY = {"search_rank", "ai_answers", "content_gaps"}  # one finding between them, at most
+_VISIBILITY_WORDS = re.compile(r"chatgpt|perplexity|gemini|claude|ai assistant|ai answer|ai overview|google rank|search rank"
+                               r"|page 1|first page of google", re.I)
+
+
+def _theme(f: dict) -> str:
+    key = f.get("check") or ""
+    if key in VISIBILITY or (key not in catalog.BY_KEY and _VISIBILITY_WORDS.search(f.get("title") or "")):
+        return "visibility"
+    return key or (f.get("title") or "").lower()
+
+
 def balanced(found: list[dict]) -> list[dict]:
-    """The SHOW findings the company will most want to fix. One outside sales and marketing joins the
-    five only if it's strong (pull >= STRONG); a weak one is never added for variety."""
-    ranked = sorted(found, key=lambda f: -int(f.get("pull") or 3))  # stable: Claude's order breaks ties
+    """The SHOW findings the company will most want to fix, one per check (and one about search and
+    AI-assistant visibility at most). One outside sales and marketing joins only if it's strong
+    (pull >= STRONG); a weak one is never added for variety."""
+    ranked, themes = [], set()
+    for f in sorted(found, key=lambda f: -int(f.get("pull") or 3)):  # stable: Claude's order breaks ties
+        if _theme(f) not in themes:
+            themes.add(_theme(f))
+            ranked.append(f)
     top = ranked[:SHOW]
     if top and all(f.get("team_kind") in catalog.GTM for f in top):
         other = next((f for f in ranked[SHOW:] if f.get("team_kind") not in catalog.GTM

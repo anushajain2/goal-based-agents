@@ -356,6 +356,20 @@ def runnable(pack_key: str | None) -> list[Check]:
     return [c for c in for_company(pack_key) if c.method not in ("tool", "measure")]
 
 
+# Early companies always get these checked, whatever the picker scores: where their next customers
+# come from and what showcases them (people asking, social media, a launch video, comparisons, a
+# clear home page). Claude picks the rest.
+EARLY_CORE = ["asking_for_you", "social_performance", "launch_video", "comparison_searches", "homepage_clarity"]
+
+
+def core(pack_key: str | None, size: str | None) -> list[str]:
+    """The checks that always run for this company (early companies only)."""
+    if size in ("mid", "large"):
+        return []
+    keys = {c.key for c in runnable(pack_key)}
+    return [k for k in EARLY_CORE if k in keys]
+
+
 def deeper(pack_key: str | None) -> list[Check]:
     return [c for c in for_company(pack_key) if c.method == "tool"]
 

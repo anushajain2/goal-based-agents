@@ -97,7 +97,7 @@ async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_
 
         st = (await c.get("/api/org/setup")).json()
         assert st["setup"]["status"] == "done"
-        assert st["setup"]["steps"][-1]["detail"] == "Ran 3 checks plus measurements · 4 things you could do better"
+        assert st["setup"]["steps"][-1]["detail"] == "Ran 7 checks plus measurements · 4 things you could do better"
         opp = st["org"]["profile"]["opportunities"]
 
         # Searches never use the company's name; its own site isn't a competitor.
@@ -111,9 +111,12 @@ async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_
         assert [a["rank"] for a in vis["ai"]] == [None, 2]
         search_call = next(x for x in fake.calls if x.get("system") == SEARCH_SYSTEM)
         assert Q2 not in search_call["messages"][0]["content"]
-        # Claude scored the checks; the strongest ran (highest first), the weak one didn't.
-        assert [(x["key"], x["score"]) for x in opp["checks"]] == [("search_rank", 5), ("ai_answers", 5), ("review_gap", 4)]
-        assert opp["checks"][2]["expect"] == "12 vs 240 reviews"
+        # An early company always gets the distribution checks; Claude's strongest picks fill the rest
+        # (highest first), and the weaker ones don't run.
+        core = checks.core(st["org"]["profile"].get("company_type"), st["org"]["profile"].get("size"))
+        assert len(core) >= 4 and {"social_performance", "launch_video"} <= set(core)
+        assert [x["key"] for x in opp["checks"]] == (core + ["search_rank", "ai_answers", "review_gap"])[:7]
+        assert opp["checks"][0]["why"] == "Checked for every early company"
 
         seo, compare, titles, pricing = opp["findings"]
         goals = {g["id"]: g for g in (await c.get("/api/campaigns")).json()}
@@ -275,7 +278,10 @@ async def test_practical_checks_get_the_measured_social_and_video_numbers(with_k
         await run_org_setup(setup_id, MeteredClaude(client=fake))
         opp = (await c.get("/api/org/setup")).json()["org"]["profile"]["opportunities"]
 
-    assert [x["key"] for x in opp["checks"]] == keys[:5]  # the 5 strongest run; grants scored low
+    # The core checks first, then the strongest of the rest; grants scored low and don't run.
+    ran = [x["key"] for x in opp["checks"]]
+    assert {"asking_for_you", "social_performance", "launch_video", "homepage_clarity"} <= set(ran[:5])
+    assert "competitor_unhappy" in ran and "prospects_now" in ran and "funding_available" not in ran
     picker = next(x for x in fake.calls if x.get("system") == PICK_SYSTEM)
     assert "next 10 customers" in picker["system"]
     offered = picker["messages"][0]["content"]
@@ -294,3 +300,27 @@ async def test_practical_checks_get_the_measured_social_and_video_numbers(with_k
     rows = {r["key"]: r for r in opp["scorecard"]}
     assert rows["video"]["you"]["status"] == "bad" and rows["social_linkedin"]["you"]["status"] == "bad"
     assert rows["social_linkedin"]["note"] == "Read from public posts by AI; approximate"
+
+
+def test_findings_cover_different_gaps_not_one_gap_many_ways():
+    from app.agent.opportunities import balanced
+
+    def f(check, title, pull=4, team="marketing"):
+        return {"check": check, "title": title, "pull": pull, "team_kind": team}
+
+    found = [f("ai_answers", "ChatGPT recommends competitors, not you", 5),
+             f("", "Gemini and Perplexity don't mention you", 5),
+             f("search_rank", "Competitors outrank you on Google", 5),
+             f("social_performance", "Routeco posts 5x more on LinkedIn", 4),
+             f("social_performance", "Founders are silent on X", 4),
+             f("launch_video", "No launch video", 4),
+             f("", "No analytics on the site", 3)]
+    shown = [x["title"] for x in balanced(found)]
+    assert shown == ["ChatGPT recommends competitors, not you", "Routeco posts 5x more on LinkedIn", "No launch video",
+                     "No analytics on the site"]
+
+
+def test_core_checks_are_for_early_companies():
+    assert checks.core("startup", "tiny") == checks.EARLY_CORE
+    assert checks.core("startup", "large") == []
+    assert "comparison_searches" not in checks.core("general", "small")  # not a check for this type

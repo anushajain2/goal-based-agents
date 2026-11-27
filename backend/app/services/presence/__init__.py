@@ -54,7 +54,7 @@ def recommendation_rank(recs: list[dict], name: str, mine: str, competitors: lis
 
 
 async def measure(name: str, website: str, competitors: list[dict], queries: list[dict], markets: list[dict],
-                  local: dict | None) -> dict:
+                  local: dict | None, *, rankings: bool = True, ask_assistants: bool = True) -> dict:
     """Everything measurable about the company and its competitors. Returns the raw measurements,
     the paid calls made (for the setup cost) and nothing that isn't backed by a source."""
     mine = host(website)
@@ -69,7 +69,7 @@ async def measure(name: str, website: str, competitors: list[dict], queries: lis
             return await coro
 
     async def google_rankings() -> list[dict]:
-        if not google.enabled() or not mine:
+        if not rankings or not google.enabled() or not mine:
             return []
         jobs = [(q, m) for m in markets[:3] for q in queries[:4]]
         found = await asyncio.gather(*[serp(google.search(q["query"], m["gl"], m["hl"])) for q, m in jobs])
@@ -117,6 +117,8 @@ async def measure(name: str, website: str, competitors: list[dict], queries: lis
 
     async def other_assistants() -> list[dict]:
         out = []
+        if not ask_assistants:
+            return out
         for who in assistants.configured():
             calls["assistants"] += 1
             answers = await assistants.ask(who, [q["query"] for q in queries[:4]])

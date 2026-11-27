@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Lightbulb, Loader2, Plug, Search, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Lightbulb, Loader2, Plug, RefreshCw, Search, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -60,6 +60,18 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
     .filter((g): g is Campaign => !!g && g.status === "draft" && g.can_manage !== false);
   const unique = [...new Map(firstSteps.map((g) => [g.id, g])).values()];
 
+  async function recheck() {
+    setBusy("recheck");
+    setErr(null);
+    try {
+      await api("/api/org/setup", { method: "POST", json: {} });
+      window.location.href = "/setup";  // shows the check's progress, then the new results
+    } catch (e) {
+      setErr((e as Error).message);
+      setBusy(null);
+    }
+  }
+
   async function goFurther(fi: number, si: number) {
     const key = `${fi}:${si}`;
     setBusy(key);
@@ -84,11 +96,19 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
             <p className="text-sm text-muted">What we found about {orgName}, with evidence. Each gap has a goal ready to turn on, and big ones come in steps with their price.</p>
           </div>
         ) : <div />}
+        <div className="flex flex-wrap items-center gap-2">
+        {canStart && (
+          <button onClick={recheck} disabled={busy === "recheck"} title="Run the company check again with the latest checks (your goals stay)"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-60">
+            {busy === "recheck" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Check again
+          </button>
+        )}
         {canStart && unique.length > 1 && (
           <button onClick={() => onStart(unique)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700">
             Start {unique.length} first steps <ArrowRight size={15} />
           </button>
         )}
+        </div>
       </div>
       {err && <ErrorNote>{err}</ErrorNote>}
       {!collapsed && (found.checks || []).some((c) => c.why) && (
