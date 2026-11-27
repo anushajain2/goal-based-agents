@@ -38,6 +38,8 @@ export type Storyboard = {
     name: string;
     url: string;
     logo?: string; // file name, optional
+    logoAspect?: number; // width / height of the logo image
+    logoBg?: string; // the colour behind the logo on the site (the screenshot includes it)
     font?: string; // a Google Fonts family to try first; Inter when it can't load
     colors: { bg: string; fg: string; accent: string; accent2?: string; muted?: string };
     dark: boolean;

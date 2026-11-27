@@ -44,6 +44,8 @@ class Capture:
     dark: bool = False
     font: str | None = None
     logo: str | None = None  # file name in the job folder
+    logo_aspect: float | None = None  # width / height
+    logo_bg: str | None = None  # the colour behind it on the site (part of the screenshot)
     shots: list[dict] = field(default_factory=list)  # {src, width, height, y}
 
 
@@ -119,7 +121,7 @@ _READ_BRAND = r"""
     .map(text).filter((t) => t.length > 30 && t.length < 260).slice(0, 4);
   const logoEl = document.querySelector("header img[alt*=logo i], header img[src*=logo i], header [class*=logo i] img, header [class*=logo i] svg, a[href='/'] img, a[href='/'] svg, header svg");
   let logoBox = null;
-  if (logoEl && visible(logoEl)) { const r = logoEl.getBoundingClientRect(); if (r.width > 16 && r.height > 12 && r.width < 500) logoBox = { x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height }; }
+  if (logoEl && visible(logoEl)) { const r = logoEl.getBoundingClientRect(); if (r.width > 16 && r.height > 12 && r.width < 500) logoBox = { x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height, bg: paints(logoEl) || bodyBg }; }
   return {
     title: document.title, description: document.querySelector("meta[name=description]")?.content || document.querySelector("meta[property='og:description']")?.content || "",
     headline: text(h1), headings: [...document.querySelectorAll("h2, h3")].filter(visible).map(text).filter((t) => t && t.length < 120).slice(0, 12),
@@ -197,6 +199,8 @@ async def capture(url: str, job: Path, fmt: str = "landscape") -> Capture:
                     await page.screenshot(path=str(job / "logo.png"), clip={"x": b["x"], "y": b["y"], "width": b["w"], "height": b["h"]},
                                           omit_background=True)
                     cap.logo = "logo.png"
+                    cap.logo_aspect = round(b["w"] / b["h"], 3) if b["h"] else None
+                    cap.logo_bg = b.get("bg")
                 except Exception:  # noqa: BLE001
                     cap.logo = None
 

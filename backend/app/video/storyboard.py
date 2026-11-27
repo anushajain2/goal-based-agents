@@ -331,6 +331,10 @@ def finalize(raw: dict, cap: Capture, *, name: str, fmt: str = "landscape") -> d
           "shots": shots, "scenes": ordered}
     if cap.logo:
         sb["brand"]["logo"] = cap.logo
+        if cap.logo_aspect:
+            sb["brand"]["logoAspect"] = cap.logo_aspect
+        if cap.logo_bg and _HEX.match(cap.logo_bg):
+            sb["brand"]["logoBg"] = _hex(cap.logo_bg, "#ffffff")
     if cap.font:
         sb["brand"]["font"] = cap.font
 

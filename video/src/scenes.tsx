@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 
-import { BrowserFrame, clamp, Cursor, easeInOut, onColor, Rise, Words } from "./parts";
+import { BrowserFrame, clamp, Cursor, easeInOut, Logo, onColor, Rise, Words } from "./parts";
 import type { Scene, Storyboard } from "./types";
 
 type Ctx = { sb: Storyboard; frames: number };
@@ -47,12 +47,7 @@ export const Reveal: React.FC<Ctx & { s: Extract<Scene, { type: "reveal" }> }> =
   const spacing = interpolate(frame, [0, 26], [0.12, -0.04], { ...clamp, easing: easeInOut });
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: width * 0.08, fontFamily: font(sb), textAlign: "center" }}>
-      {sb.brand.logo && (
-        <Img
-          src={staticFile(sb.brand.logo)}
-          style={{ height: 120 * u, maxWidth: width * 0.3, objectFit: "contain", marginBottom: 34 * u, transform: `scale(${pop})`, opacity: pop }}
-        />
-      )}
+      <Logo brand={sb.brand} height={Math.min(120 * u, (width * 0.3) / (sb.brand.logoAspect || 1))} style={{ marginBottom: 34 * u, transform: `scale(${pop})`, opacity: pop }} />
       <div style={{ fontSize: 150 * u, fontWeight: 800, letterSpacing: `${spacing}em`, color: sb.brand.colors.fg, lineHeight: 1, opacity: Math.min(1, pop * 1.4) }}>
         {s.title}
       </div>
@@ -219,7 +214,7 @@ export const Outro: React.FC<Ctx & { s: Extract<Scene, { type: "outro" }> }> = (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: width * 0.08, fontFamily: font(sb), textAlign: "center" }}>
       {sb.brand.logo && (
         <Rise>
-          <Img src={staticFile(sb.brand.logo)} style={{ height: 84 * u, maxWidth: width * 0.25, objectFit: "contain", marginBottom: 34 * u }} />
+          <Logo brand={sb.brand} height={Math.min(84 * u, (width * 0.25) / (sb.brand.logoAspect || 1))} style={{ marginBottom: 34 * u }} />
         </Rise>
       )}
       <div style={{ fontSize: 96 * u, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.05, color: sb.brand.colors.fg, maxWidth: width * 0.84, textWrap: "balance" }}>

@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Easing, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 
 /** Ease in/out for camera moves: slow start, slow settle. */
 export const easeInOut = Easing.bezier(0.65, 0, 0.35, 1);
@@ -233,3 +233,35 @@ export function onColor(hex: string): string {
   const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
   return lum > 0.45 ? "#0c111d" : "#ffffff";
 }
+
+function luminance(hex: string): number {
+  const m = hex.replace("#", "").match(/^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i);
+  if (!m) return 0;
+  const [r, g, b] = [m[1], m[2], m[3]].map((h) => parseInt(h, 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** The logo, cut from a screenshot of the site. An app-icon-shaped logo gets rounded corners (so the
+ * header's colour in its corners disappears); a wordmark on a background that would clash sits on a
+ * small chip of that background, like a sticker, instead of a hard rectangle. */
+export const Logo: React.FC<{ brand: { logo?: string; logoAspect?: number; logoBg?: string; colors: { bg: string } }; height: number; style?: React.CSSProperties }> = ({
+  brand,
+  height,
+  style,
+}) => {
+  if (!brand.logo) return null;
+  const aspect = brand.logoAspect || 1;
+  const img = <Img src={staticFile(brand.logo)} style={{ height, width: height * aspect, display: "block", objectFit: "contain" }} />;
+  if (aspect > 0.8 && aspect < 1.25) {
+    return <div style={{ borderRadius: height * 0.24, overflow: "hidden", boxShadow: "0 10px 40px rgba(0,0,0,0.25)", ...style }}>{img}</div>;
+  }
+  const bg = brand.logoBg;
+  const la = bg ? luminance(bg) : 0, lb = luminance(brand.colors.bg);
+  const clash = bg && (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05) > 1.6;
+  if (!clash) return <div style={style}>{img}</div>;
+  return (
+    <div style={{ background: bg, padding: `${height * 0.28}px ${height * 0.45}px`, borderRadius: height * 0.36, boxShadow: "0 10px 40px rgba(0,0,0,0.25)", ...style }}>
+      {img}
+    </div>
+  );
+};
