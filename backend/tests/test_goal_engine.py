@@ -47,11 +47,9 @@ async def test_how_a_goal_gets_hit_is_made_once_before_it_starts(api, monkeypatc
     full = (await api.get(f"/api/campaigns/{gid}")).json()
     assert full["approach"]["model"]["bottleneck"] == "Replies" and full["has_approach"]
     assert made["approaches"][1]["example"].startswith("We cut a 40-van fleet's miles") and made["v"] == 2
-    # The strategies are for this goal's own number: not process, not other goals' work.
+    # The strategies are what the best person in this role would do, tied to this goal.
     system = next(k for k in fake.calls if "approaches" in k["output_config"].get("format", {}).get("schema", {}).get("properties", {}))["system"]
-    assert "NOT approaches: anything about the process (approvals" in system
-    assert "work that belongs to a different goal" in system
-    assert "never internal steps such as drafting, approving or scheduling" in system
+    assert "the best person in this role would actually use to hit this goal" in system
 
 
 async def test_an_older_plan_is_remade_before_the_goal_starts(api, monkeypatch):

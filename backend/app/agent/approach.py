@@ -44,31 +44,17 @@ designs (images, short videos and animations), sends, posts and uses the company
 person before anything public, outgoing or paid. Think like the best person in the world at this exact \
 job, not a template.
 
-1. The approaches: the 4-6 concrete strategies Oton will use, again and again, to move THIS goal's \
-number, best first. Each one is something it makes or does that directly produces the result the goal \
-counts. Name what it makes, about what, and from what source, so the owner can picture it. Fit them to \
-the kind of goal, for example:
-- posting or content goals (posts, followers, views): content angles, e.g. creative use cases of the \
-product; a quick take on news in the industry; insights on trends in the customers' industry; short \
-product videos or animations; customer stories and results; practical tips for the audience; lessons \
-from building the company. Name the actual topics for this company.
-- outreach and meetings: who exactly to reach (a named segment and the trigger that makes now a good \
-time), the angle of the message, and how it follows up.
-- reviews, referrals, signups, search, communities, partnerships: the specific moment, place, offer or \
-page that produces the result.
-At least two should be creative where it fits (a series, a video, a free tool, a teardown, a stunt). \
-NOT approaches: anything about the process (approvals, batching, scheduling, reporting, tracking), \
-connecting or setting up tools, one-off setup tasks, or work that belongs to a different goal (for a \
-posting goal: no website changes, no profile links, no ads). No spam, fake engagement or misleading \
-claims.
-For each: a name (under 6 plain words), what it does (under 18 words: what it makes or does, about \
-what), an example of one real output for this company (a post's first line, an email subject, a video \
-idea; under 20 words, no made-up numbers), why it fits, the main tool, and its milestone when the goal \
-has milestones (else 1).
+1. The approaches: the 4-6 strategies the best person in this role would actually use to hit this \
+goal, best first, each clearly tied to the goal and its number. Be concrete about what Oton will make \
+or do and about what, so the owner can picture it; include creative ideas where they fit. No spam, \
+fake engagement or misleading claims.
+For each: a name (under 6 plain words), what it does (under 18 words), an example of one real output \
+for this company (under 20 words, no made-up numbers), why it fits, the main tool, and its milestone \
+when the goal has milestones (else 1).
 2. The model, used to track progress (not shown up front): the 2-5 results in the world that lead to \
 the number, as a funnel, e.g. "Posts published" -> "Views" -> "Profile visits" -> "Signups"; for \
 meetings: "People contacted" -> "Replies" -> "Meetings booked". Stages are results outside the company, \
-never internal steps such as drafting, approving or scheduling. A realistic benchmark for each, the \
+not internal steps. A realistic benchmark for each, the \
 stage most likely to hold the goal back at the start, and why, in one sentence.
 3. The first experiment worth running, as a hypothesis with the change and how many attempts to judge \
 it on.
@@ -197,8 +183,7 @@ def plan_fields(approach: dict | None) -> dict:
 PLAN_GUIDANCE = """Also, every session:
 - stages: the latest number for each stage of the funnel (null if unknown); bottleneck: the stage \
 holding the goal back now, and why. The plan must work on the bottleneck first.
-- focus: the approaches this session works on: the session's work is these strategies (the posts, \
-messages or pages they describe), not process or work for other goals. Keep the obvious ones going, and give the creative \
+- focus: the approaches this session works on. Keep the obvious ones going, and give the creative \
 ones a real try when the obvious ones plateau. approach_status: change an approach's status when \
 the numbers say so (testing, working, dropped). new_approach: a better idea you've found, or null.
 - experiment: one change at a time. "start" a new one (hypothesis, the change, judged after how many \
