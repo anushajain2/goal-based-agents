@@ -373,8 +373,21 @@ async def read_social(claude: MeteredClaude, name: str, website: str, competitor
     # Claude finds the accounts; Apify (when set up) counts their posts exactly. A bare X handle
     # counts only if a site links to it (a handle guessed from the name may be someone else's).
     linked_x = {str(((sites.get(d) or {}).get("socials") or {}).get("x") or "").lower() for _, d in companies} - {""}
-    accounts, c_apify = await social_counts.count_posts([named(a) for a in data.get("accounts") or []],
-                                                        linked_x=linked_x)
+    accounts = [named(a) for a in data.get("accounts") or []]
+    # A profile the company's own site links to is its account, whatever the model wrote.
+    for n, d in companies:
+        so = (sites.get(d) or {}).get("socials") or {}
+        for platform in ("linkedin", "x"):
+            if not so.get(platform):
+                continue
+            mine = [a for a in accounts if a.get("company") == n and a.get("who") == "company" and a.get("platform") == platform]
+            if not mine:
+                accounts.append({"company": n, "who": "company", "name": n, "platform": platform, "url": so[platform],
+                                 "coverage": "blocked", "posts_30d": None, "engagement_30d": None,
+                                 "note": "Linked from its website"})
+            elif not mine[0].get("url"):
+                mine[0]["url"] = so[platform]
+    accounts, c_apify = await social_counts.count_posts(accounts, linked_x=linked_x)
     return {"accounts": accounts, "videos": [named(v) for v in data.get("videos") or []]}, cost + c_apify
 
 
@@ -384,6 +397,8 @@ def social_rows(social: dict, name: str, competitors: list[dict]) -> list[dict]:
     # An account that couldn't be read has no numbers, whatever came back.
     accounts = [{**a, "posts_30d": None, "engagement_30d": None} if a.get("coverage") == "blocked" else a
                 for a in social.get("accounts") or []]
+    # No address and nothing counted: no account was found (not one we couldn't read).
+    accounts = [a for a in accounts if a.get("url") or a.get("posts_30d") is not None]
     note = ("Counted from each account's public posts" if any(a.get("source") == "apify" for a in accounts)
             else "Read from public posts by AI; approximate")
 

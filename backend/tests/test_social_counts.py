@@ -166,3 +166,28 @@ async def test_the_social_read_puts_back_the_company_names_and_counts(apify):
     x = next(r for r in rows if r["key"] == "social_x")
     assert x["others"] == [{"name": "Routeco", "display": "1 post · 8 likes and comments"}]  # linked from its site
     assert cost > Decimal("0.1")
+
+
+async def test_profiles_a_site_links_to_are_used_and_blank_ones_mean_none_found(apify):
+    """Real run: the model left Zycus's X blank though zycus.com links @Zycus, and left Oton's
+    LinkedIn blank because it couldn't be sure the page was Oton's."""
+    from app.agent.opportunities import read_social
+
+    class Blank(FakeClaude):
+        async def create(self, **kw):
+            from types import SimpleNamespace
+
+            accounts = [{"company": "Acme", "who": "company", "name": "Acme", "platform": "linkedin", "url": "",
+                         "coverage": "blocked", "posts_30d": None, "engagement_30d": None, "note": "Not sure"},
+                        {"company": "Routeco", "who": "company", "name": "Routeco", "platform": "x", "url": "",
+                         "coverage": "blocked", "posts_30d": None, "engagement_30d": None, "note": ""}]
+            return SimpleNamespace(content=[{"type": "text", "text": json.dumps({"accounts": accounts, "videos": []})}],
+                                   cost=Decimal("0.1"), stop_reason="end_turn")
+
+    comps = [{"name": "Routeco", "domain": "routeco.test"}]
+    sites = {"routeco.test": {"socials": {"x": "RouteCo", "linkedin": "linkedin.com/company/acme"}}}
+    social_read, _ = await read_social(Blank(), "Acme", "acme.test", comps, sites)
+    rows = {r["key"]: r for r in social_rows(social_read, "Acme", comps)}
+    assert rows["social_x"]["others"] == [{"name": "Routeco", "display": "1 post · 8 likes and comments"}]
+    assert rows["social_linkedin"]["you"]["display"] == "No account found"
+    assert rows["social_linkedin"]["others"] == [{"name": "Routeco", "display": "2 posts · 17 likes and comments"}]

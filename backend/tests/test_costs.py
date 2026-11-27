@@ -67,7 +67,7 @@ async def test_only_operators_see_cost_by_task(api, monkeypatch):
 
 def test_social_numbers_say_how_much_could_be_seen():
     acc = lambda company, posts, eng, coverage: {"company": company, "who": "company", "name": company, "platform": "linkedin",  # noqa: E731
-                                                 "url": "", "coverage": coverage, "posts_30d": posts, "engagement_30d": eng, "note": ""}
+                                                 "url": f"linkedin.com/company/{company}", "coverage": coverage, "posts_30d": posts, "engagement_30d": eng, "note": ""}
     rows = social_rows({"accounts": [acc("Acme", 3, 20, "partial"), acc("Routeco", 12, 900, "blocked")]}, "Acme",
                        [{"name": "Routeco", "domain": "routeco.test"}])
     li = next(r for r in rows if r["key"] == "social_linkedin")
