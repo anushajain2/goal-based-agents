@@ -138,7 +138,7 @@ function TeamPage() {
         <Link href="/setup" className="flex items-center gap-3 rounded-xl border border-dashed border-brand-500/40 bg-brand-50/40 px-4 py-3 text-sm hover:bg-brand-50">
           <Sparkles size={16} className="text-brand-600" />
           <span className="flex-1"><b>Research {org.org.name}</b> and get suggested goals that fit where you are.</span>
-          <span className="font-semibold text-brand-600">Start →</span>
+          <span className="font-semibold text-brand-600">Start</span>
         </Link>
       )}
 
@@ -186,7 +186,7 @@ function DepartmentCard({ d, org, goals, onOpen, onChange }: {
       </div>
 
       <div className="flex-1 space-y-1 p-3">
-        <div className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Goals</div>
+        <div className="px-1 pb-1 text-[12px] font-semibold text-muted">Goals</div>
         {teamGoals.length === 0 && <p className="px-1 text-sm text-muted">No goals yet.</p>}
         {teamGoals.map((g) => (
           <button key={g.id} onClick={() => onOpen(g)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-stone-50">
@@ -209,7 +209,7 @@ function DepartmentCard({ d, org, goals, onOpen, onChange }: {
 
       <div className="border-t border-line px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted"><Users size={12} /> People · approve this team&apos;s work</span>
+          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-muted"><Users size={12} /> People · approve this team&apos;s work</span>
           {admin && !editingPeople && <button onClick={() => setEditingPeople(true)} className="text-xs font-semibold text-brand-600 hover:underline">Edit</button>}
         </div>
         {editingPeople ? (

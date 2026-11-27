@@ -40,13 +40,13 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
           <h2 className="text-lg font-bold leading-snug">{goal.name}</h2>
 
           <section className="rounded-xl bg-brand-50 px-4 py-3">
-            <div className="text-[11px] font-bold uppercase tracking-wide text-brand-700">{goal.first_deliverable ? "In your first week you get" : "The goal"}</div>
+            <div className="text-[12px] font-bold text-brand-700">{goal.first_deliverable ? "In your first week you get" : "The goal"}</div>
             <p className="mt-1 text-[15px] leading-snug text-ink">{goal.first_deliverable || goal.goal_description}</p>
           </section>
 
           {goal.target?.target && (
             <section>
-              <h3 className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Target</h3>
+              <h3 className="mb-1.5 text-[12px] font-bold text-muted">Target</h3>
               <TargetLine goal={goal} />
               <p className="mt-1 text-[11.5px] text-muted">An ongoing goal: Oton suggests a new target as results come in, and you approve it.</p>
               <div className="mt-2"><TargetHistory target={goal.target} /></div>
@@ -55,7 +55,7 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
 
           {(goal.key_results?.length || 0) > 0 && (
             <section>
-              <h3 className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Also tracking</h3>
+              <h3 className="mb-1.5 text-[12px] font-bold text-muted">Also tracking</h3>
               <ul className="space-y-1">
                 {goal.key_results.map((kr) => (
                   <li key={kr} className="flex items-start gap-2 text-[13.5px]"><Target size={14} className="mt-0.5 shrink-0 text-stone-600" /> {kr}</li>
@@ -65,7 +65,7 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
           )}
 
           <section>
-            <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">How it works</h3>
+            <h3 className="mb-2.5 text-[12px] font-bold text-muted">How it works</h3>
             {book && perms ? <StepList steps={book.steps} modeOf={modeOf} team={team} /> : <p className="text-sm text-muted">Working out the steps…</p>}
             <p className="mt-3 flex items-start gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[12.5px] text-emerald-900">
               <Lock size={14} className="mt-0.5 shrink-0" />
@@ -77,13 +77,13 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
 
           {goal.done_when && (
             <section>
-              <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">What counts as one</h3>
+              <h3 className="mb-1 text-[12px] font-bold text-muted">What counts as one</h3>
               <p className="flex gap-1.5 text-[13px]"><Flag size={13} className="mt-0.5 shrink-0 text-muted" /> {goal.done_when}</p>
             </section>
           )}
 
           <section>
-            <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Cost</h3>
+            <h3 className="mb-1 text-[12px] font-bold text-muted">Cost</h3>
             {basis?.starter ? (
               <p className="text-[13px]">
                 <b>{usd(goal.budget.total)}</b> covers the first week (about {basis.sessions} work sessions). The whole goal would take about{" "}
@@ -96,7 +96,7 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
 
           {goal.suggested_reason && (
             <section>
-              <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Why this goal</h3>
+              <h3 className="mb-1 text-[12px] font-bold text-muted">Why this goal</h3>
               <p className="flex gap-1.5 text-[13px] text-stone-700"><Sparkles size={13} className="mt-0.5 shrink-0 text-brand-600" /> {goal.suggested_reason}</p>
             </section>
           )}

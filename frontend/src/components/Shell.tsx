@@ -103,7 +103,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </Link>
 
         <nav className="flex flex-col gap-0.5 px-3">{NAV.slice(0, 5).map(navItem)}</nav>
-        <div className="mx-5 mb-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.06em] text-stone-400">More</div>
+        <div className="mx-5 mb-2 mt-5 text-[12px] font-semibold text-stone-400">More</div>
         <nav className="flex flex-col gap-0.5 px-3">{NAV.slice(5).map(navItem)}</nav>
 
         <div className="mt-auto space-y-3 p-3">
@@ -156,7 +156,7 @@ export function Shell({ children }: { children: ReactNode }) {
             ))}
           </nav>
         </header>
-        <main className="rise mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 md:px-10 md:py-9">{children}</main>
+        <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 md:px-10 md:py-9">{children}</main>
       </div>
     </div>
   );

@@ -41,13 +41,18 @@ async def session_cost(s: AsyncSession, org_id: str | None, campaign_id: str | N
 
 
 def compute(per_session: float, cycle_hours: float, days: float, paid_spend: float = 0.0,
-            basis: str = "typical", history_sessions: int = 0) -> dict:
+            basis: str = "typical", history_sessions: int = 0, max_sessions: int | None = None) -> dict:
+    """`max_sessions`: the sessions the work really needs, when that's fewer than one per cycle over its
+    length (one-off jobs like DNS records or a page aren't worked on every few hours for weeks)."""
     cycle_hours = max(float(cycle_hours or 6), 0.5)
     days = max(float(days or DEFAULT_DAYS), 1)
     sessions = math.ceil(days * 24 / cycle_hours)
+    if max_sessions:
+        sessions = min(sessions, max(1, int(max_sessions)))
     ai = sessions * per_session
     paid = max(float(paid_spend or 0), 0)
-    suggested = max(5, math.ceil((ai + paid) / 5) * 5)  # round up to the next $5
+    # The exact cost, to the cent: no rounding up, so people see what the work really costs.
+    suggested = max(0.01, round(ai + paid, 2))
     return {
         "per_session_usd": round(per_session, 3), "sessions": sessions, "cycle_hours": cycle_hours, "days": days,
         "ai_usd": round(ai, 2), "paid_spend_usd": round(paid, 2), "suggested_usd": suggested,

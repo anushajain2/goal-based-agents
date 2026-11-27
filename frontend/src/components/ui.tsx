@@ -25,7 +25,7 @@ export function Button({
     <button
       {...props}
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg border font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200",
+        "inline-flex items-center justify-center gap-1.5 rounded-lg border font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
         size === "sm" ? "h-8 px-3 text-[12.5px]" : "h-9 px-4 text-sm",
         styles[variant],
         className,
@@ -171,7 +171,7 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
   return (
     <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
-        {eyebrow && <div className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-brand-600">{eyebrow}</div>}
+        {eyebrow && <div className="mb-1.5 text-[12px] font-semibold text-brand-600">{eyebrow}</div>}
         <h1 className="display text-[30px] leading-[1.1]">{title}</h1>
         {subtitle && <p className="mt-1 max-w-2xl text-[14px] text-muted">{subtitle}</p>}
       </div>
@@ -182,5 +182,5 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
 
 /** A small section label. */
 export function Label({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("text-[11px] font-semibold uppercase tracking-[0.06em] text-stone-500", className)}>{children}</div>;
+  return <div className={cx("text-[12px] font-semibold text-stone-500", className)}>{children}</div>;
 }

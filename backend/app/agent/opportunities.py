@@ -468,7 +468,9 @@ or AI-answer visibility for competitive searches, paid ads, PR, a marketplace la
 into 2-3 milestones: a first step that's cheap and quick with a concrete outcome they'll see (e.g. \
 "page 1 for 3 long-tail searches in 6 weeks"), then bigger steps up to the full result (e.g. "top 3 \
 for the main search in 6 months"). Each milestone is a goal for the right team, with how often the \
-AI employee works on it, how many weeks, and any real money it needs beyond the AI's own work \
+AI employee works on it, how many weeks, how many work sessions it really needs (one-off setup \
+work like DNS records, a profile or a page takes a few sessions, not weeks of them), and any real \
+money it needs beyond the AI's own work \
 (ads, tools, freelancers, directory fees, PR distribution), itemised with realistic prices. Don't \
 pad: if no extra spend is needed, list none.
   Smaller fixes get a single new goal and no milestones.
@@ -511,12 +513,15 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
             "name": {"type": "string", "description": "e.g. 'Page 1 for 3 long-tail searches'"},
             "outcome": {"type": "string", "description": "What they'll have at the end, concretely"},
             "weeks": {"type": "number"},
+            "sessions": {"type": "integer", "description": (
+                "Work sessions this step really needs. One-off jobs (DNS records, a profile, a page or two, "
+                "a video) need 1-6; ongoing work (posting, outreach, SEO) needs one per cycle over the weeks")},
             "paid_items": {"type": "array", "items": {
                 "type": "object", "properties": {"item": {"type": "string"}, "usd": {"type": "number"}},
                 "required": ["item", "usd"], "additionalProperties": False}},
             "goal": goal,
         },
-        "required": ["name", "outcome", "weeks", "paid_items", "goal"],
+        "required": ["name", "outcome", "weeks", "sessions", "paid_items", "goal"],
         "additionalProperties": False,
     }
     finding = {
@@ -930,7 +935,8 @@ def _milestones(raw: list[dict], per: float, basis: str, n: int, org_setup) -> l
         items = [{"item": str(i.get("item", ""))[:80], "usd": round(max(float(i.get("usd") or 0), 0), 2)}
                  for i in m.get("paid_items") or [] if i.get("item")][:6]
         paid = sum(i["usd"] for i in items)
-        budget = estimate.compute(per, goal["cycle_hours"], days, paid, basis, n)
+        budget = estimate.compute(per, goal["cycle_hours"], days, paid, basis, n,
+                                  max_sessions=int(m.get("sessions") or 0) or None)
         goal.update(duration_days=days, paid_spend_usd=paid, budget_basis={**budget, "milestone": True},
                     budget_usd=budget["suggested_usd"])
         out.append({"name": m["name"][:120], "outcome": (m.get("outcome") or "")[:300], "weeks": round(days / 7, 1),

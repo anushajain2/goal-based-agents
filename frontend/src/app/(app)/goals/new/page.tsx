@@ -277,7 +277,7 @@ function NewGoal() {
                 <Field label="Total budget (USD)">
                   <div className="relative">
                     <DollarSign size={15} className="absolute left-2.5 top-2.5 text-muted" />
-                    <Input className="pl-7" type="number" min="1" step="1" value={budget} onChange={(e) => setBudget(e.target.value)} />
+                    <Input className="pl-7" type="number" min="0.01" step="0.01" value={budget} onChange={(e) => setBudget(e.target.value)} />
                   </div>
                 </Field>
                 <Field label="Daily cap (optional)" hint="Work pauses for the day when reached.">

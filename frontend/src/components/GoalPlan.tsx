@@ -358,7 +358,7 @@ export function GoalPlan({ goal, defaultOpen = true }: { goal: Campaign; default
         <div className="space-y-4 border-t border-line p-4">
           <div>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-[12px] font-bold uppercase tracking-wide text-muted">Step by step</h3>
+              <h3 className="text-[12px] font-bold text-muted">Step by step</h3>
               {perms?.can_edit && goal.can_manage !== false && book && (
                 <button onClick={() => setShowAll(!showAll)} className="text-sm font-semibold text-brand-600 hover:underline">
                   {showAll ? "Done" : "Customize"}
@@ -390,7 +390,7 @@ export function GoalPlan({ goal, defaultOpen = true }: { goal: Campaign; default
           {error && <ErrorNote>{error}</ErrorNote>}
           {perms && showAll && (
             <div className="space-y-3">
-              <h3 className="text-[12px] font-bold uppercase tracking-wide text-muted">Every kind of action it could take</h3>
+              <h3 className="text-[12px] font-bold text-muted">Every kind of action it could take</h3>
               <PermissionsEditor perms={perms} onChange={change} busy={busy} />
               <details className="rounded-md bg-stone-50 px-3 py-2 text-xs">
                 <summary className="cursor-pointer font-semibold text-muted">Rules that always apply ({perms.built_in_rules.length})</summary>

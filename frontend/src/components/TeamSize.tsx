@@ -37,7 +37,7 @@ export function TeamSize({ profile, canAdd, onAdding }: { profile: CompanyProfil
       )}
       {later.length > 0 && (
         <div className={profile.size || profile.pack_label ? "mt-3" : ""}>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Add when you&apos;re ready</div>
+          <div className="mb-1.5 text-[12px] font-bold text-muted">Add when you&apos;re ready</div>
           <ul className="flex flex-wrap gap-2">
             {later.map((x) => {
               const key = x.kind || x.name;

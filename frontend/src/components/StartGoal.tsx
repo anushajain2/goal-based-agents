@@ -172,7 +172,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
                 <AutonomySetup autonomy={autonomies[0]} inPlan={inPlan} choice={choice} onChange={setChoice} multiple={goals.length > 1}
                   team={ready[goals[0].id] ? teamName(ready[goals[0].id]) : "your team"} />
               )}
-              <h3 className="px-1 pt-1 text-[12px] font-bold uppercase tracking-wide text-muted">Who it asks</h3>
+              <h3 className="px-1 pt-1 text-[12px] font-bold text-muted">Who it asks</h3>
               {agentIds.map((id) => <Routing key={id} agentId={id} org={org} onChanged={reloadOrg} />)}
               <details className="rounded-xl border border-line bg-white">
                 <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
@@ -393,12 +393,12 @@ function GoalReview({ goal, modeOf, team }: { goal: Campaign; modeOf: (k: string
       )}
       {book && (
         <div>
-          <div className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">Step by step</div>
+          <div className="mb-2.5 text-xs font-semibold text-muted">Step by step</div>
           <StepList steps={book.steps} modeOf={modeOf} team={team} />
         </div>
       )}
       <div className="rounded-lg border border-line bg-white px-3 py-2.5">
-        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Budget: {usd(goal.budget.total)}{goal.budget_basis?.starter ? " for the first week" : ""}, a hard limit</div>
+        <div className="mb-1 text-xs font-semibold text-muted">Budget: {usd(goal.budget.total)}{goal.budget_basis?.starter ? " for the first week" : ""}, a hard limit</div>
         {goal.budget_basis?.starter
           ? <p className="text-[12.5px] text-stone-700">About {goal.budget_basis.sessions} work sessions. When it&apos;s used up, work pauses and you decide whether to add more (the whole goal would take about {usd(goal.budget_basis.full_usd || 0)}).</p>
           : goal.budget_basis ? <BudgetBreakdown basis={goal.budget_basis} total={goal.budget.total} compact /> : <p className="text-xs text-muted">When it runs out, work pauses.</p>}

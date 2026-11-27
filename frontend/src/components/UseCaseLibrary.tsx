@@ -67,7 +67,7 @@ export function UseCaseCard({ uc, onPick, cta = "Start this goal" }: { uc: UseCa
       className="group flex h-full flex-col rounded-xl border border-line bg-white p-4 text-left transition hover:-translate-y-0.5 hover:border-brand-500 hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+        <span className="flex items-center gap-1.5 text-[12px] font-semibold text-muted">
           <span className="text-stone-400">{CATEGORY_ICON[uc.categoryKey]}</span>
           {uc.sub}
         </span>
@@ -138,7 +138,7 @@ export function UseCaseLibrary({ onPick, onCustom }: { onPick: (uc: UseCase) => 
                       <p className="text-xs text-muted">{c.blurb}</p>
                     </div>
                     {items.length > 3 && (
-                      <button onClick={() => setCat(c.key)} className="shrink-0 text-xs font-semibold text-brand-600 hover:underline">See all {items.length} →</button>
+                      <button onClick={() => setCat(c.key)} className="shrink-0 text-xs font-semibold text-brand-600 hover:underline">See all {items.length}</button>
                     )}
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

@@ -125,14 +125,14 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
         <div className={cx("space-y-2 rounded-lg border border-line p-3 text-sm", !detail && "mt-3")}>
           {req.preview.current?.target != null && req.preview.current.period && (
             <div className="flex flex-wrap items-baseline gap-x-2">
-              <span className="w-12 shrink-0 text-xs font-semibold uppercase text-muted">{req.preview.change.type === "new_goal" || req.preview.change.type === "new_agent" ? "Target" : "Now"}</span>
+              <span className="w-12 shrink-0 text-xs font-semibold text-muted">{req.preview.change.type === "new_goal" || req.preview.change.type === "new_agent" ? "Target" : "Now"}</span>
               <span>{num(req.preview.current.target)} {req.campaign_metric || "results"} {PER_PERIOD[req.preview.current.period]}
                 {req.preview.current.progress != null && <span className="text-muted"> · {num(req.preview.current.progress)} so far</span>}</span>
             </div>
           )}
           {req.preview.change.type === "target" && req.preview.change.period && (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="w-12 shrink-0 text-xs font-semibold uppercase text-emerald-700">New</span>
+              <span className="w-12 shrink-0 text-xs font-semibold text-emerald-700">New</span>
               {canDecide && !decided ? (
                 <input inputMode="decimal" aria-label="New target" className="h-8 w-20 rounded-md border border-line px-2 text-sm font-semibold"
                   value={edits.target ?? ""} onChange={(e) => setEdits({ ...edits, target: e.target.value })} />

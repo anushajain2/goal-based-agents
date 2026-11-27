@@ -112,12 +112,12 @@ function Department({ d, org, goals, onGoalClick, onChanged }: {
       <TeamCard d={d} org={org} onChanged={onChanged} />
       <div className="px-2.5 pt-2.5"><LeadCard d={d} org={org} onChanged={onChanged} /></div>
       <div className="space-y-1.5 p-2.5">
-        <div className="px-1 pt-1 text-[10.5px] font-semibold uppercase tracking-wide text-stone-400">Goals</div>
+        <div className="px-1 pt-1 text-[12px] font-semibold text-stone-400">Goals</div>
         {goals && mine.length === 0 && <p className="px-1 text-[12px] text-muted">No goals yet.</p>}
         {live.length > 0 && <GoalChips goals={live} onGoalClick={onGoalClick} />}
         {later.length > 0 && (
           <div>
-            {live.length > 0 && <div className="px-1 pb-0.5 pt-1 text-[10.5px] font-semibold uppercase tracking-wide text-stone-400">Not started</div>}
+            {live.length > 0 && <div className="px-1 pb-0.5 pt-1 text-[12px] font-semibold text-stone-400">Not started</div>}
             <GoalChips goals={later} onGoalClick={onGoalClick} muted />
           </div>
         )}

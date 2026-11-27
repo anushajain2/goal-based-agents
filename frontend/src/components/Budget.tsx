@@ -22,8 +22,8 @@ export function BudgetBreakdown({ basis, total, pace, compact }: {
       </div>
       {basis.paid_spend_usd > 0 && <div>+ {usd(basis.paid_spend_usd)} it may spend on ads or purchases</div>}
       <div>
-        = <b>{usd(basis.suggested_usd)}</b> suggested{basis.suggested_usd > basis.ai_usd + basis.paid_spend_usd + 0.01 ? " (rounded up)" : ""}
-        {total !== undefined && Math.abs(total - basis.suggested_usd) >= 0.5 && <> · you set <b>{usd(total)}</b></>}
+        = <b>{usd(basis.suggested_usd)}</b> suggested
+        {total !== undefined && Math.abs(total - basis.suggested_usd) >= 0.01 && <> · you set <b>{usd(total)}</b></>}
       </div>
       {basis.starter && basis.full_usd ? (
         <div>The whole goal ({Math.round(basis.full_days || 30)} days) would take about {usd(basis.full_usd)}. Add more once you&apos;ve seen results.</div>

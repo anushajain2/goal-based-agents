@@ -123,7 +123,7 @@ function GoalPage() {
 
       {(c.key_results?.length || 0) > 0 && (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-2xl border border-line bg-white px-4 py-3 text-[13px] shadow-[var(--shadow-card)]">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-stone-700">Key results</span>
+          <span className="text-[12px] font-bold text-stone-700">Key results</span>
           {c.key_results.map((kr) => <span key={kr} className="inline-flex items-center gap-1.5"><Target size={13} className="text-stone-600" /> {kr}</span>)}
         </div>
       )}
@@ -188,7 +188,7 @@ function GoalPage() {
             <button disabled={busy} onClick={async () => {
               setBusy(true);
               try {
-                await api(`/api/campaigns/${c.id}`, { method: "PATCH", json: { budget_total: c.budget.total + (c.budget_basis?.suggested_usd || 5) } });
+                await api(`/api/campaigns/${c.id}`, { method: "PATCH", json: { budget_total: c.budget.total + (c.budget_basis?.suggested_usd || 1) } });
                 await reload();
               } finally {
                 setBusy(false);
@@ -231,7 +231,7 @@ function GoalPage() {
             <div className="min-w-0">
               {requests && requests.length > 0 && (
                 <div className="mb-4 space-y-3 lg:hidden">
-                  <h3 className="text-[13px] font-bold uppercase tracking-wide text-signal-700">Needs you</h3>
+                  <h3 className="text-[13px] font-bold text-signal-700">Needs you</h3>
                   {requests.map((r) => <ApprovalCard key={r.id} req={r} onDone={() => { reloadRequests(); reload(); }} />)}
                 </div>
               )}
@@ -243,7 +243,7 @@ function GoalPage() {
             </div>
             <aside className="space-y-4">
               <div className={requests && requests.length > 0 ? "hidden lg:block" : ""}>
-                <h3 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-muted">Needs you</h3>
+                <h3 className="mb-2 text-[13px] font-bold text-muted">Needs you</h3>
                 {requests && requests.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-xs text-muted">
                     <Inbox size={18} className="mx-auto mb-1 text-stone-300" />Nothing waiting. It asks the {c.department?.name || "team"} team here before anything that isn&apos;t pre-approved.
@@ -253,13 +253,13 @@ function GoalPage() {
                 )}
               </div>
               <div>
-                <h3 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-muted">Current strategy</h3>
+                <h3 className="mb-2 text-[13px] font-bold text-muted">Current strategy</h3>
                 <div className="whitespace-pre-wrap rounded-lg bg-stone-50 px-3 py-2.5 text-[13px] leading-relaxed">
                   {c.strategy || <span className="text-muted">Written at the start of the first work session.</span>}
                 </div>
               </div>
               <div>
-                <h3 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-muted">Trend</h3>
+                <h3 className="mb-2 text-[13px] font-bold text-muted">Trend</h3>
                 <div className="rounded-lg border border-line p-2"><MetricChart points={series} label={c.primary_metric} /></div>
               </div>
             </aside>
@@ -478,7 +478,7 @@ function SettingsTab({ c, onSaved, onDeleted }: { c: Campaign; onSaved: () => vo
           </div>
         </Field>
         <Field label="Total budget (USD)" hint={`Already spent ${usd(c.budget.spent)}.`}>
-          <Input type="number" min="1" value={form.budget_total} onChange={set("budget_total")} />
+          <Input type="number" min="0.01" step="0.01" value={form.budget_total} onChange={set("budget_total")} />
         </Field>
         <Field label="Daily cap (USD)">
           <Input type="number" min="0" value={form.daily_cap} onChange={set("daily_cap")} placeholder="No cap" />

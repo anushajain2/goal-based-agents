@@ -116,13 +116,13 @@ function GoalsPage() {
         {shown === "ideas" ? null : data && rows.length === 0 ? (
           <Empty icon={<Target size={36} />} title={shown === "live" ? "Nothing live yet" : "Nothing here"}>
             {shown === "live"
-              ? <button onClick={() => setTab("ideas")} className="font-semibold text-brand-600">See goal ideas →</button>
-              : <Link href="/goals/new" className="font-semibold text-brand-600">Give Oton a goal →</Link>}
+              ? <button onClick={() => setTab("ideas")} className="font-semibold text-brand-600">See goal ideas</button>
+              : <Link href="/goals/new" className="font-semibold text-brand-600">Give Oton a goal</Link>}
           </Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-left text-[13px]">
-              <thead className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-stone-400">
+              <thead className="text-[11.5px] font-semibold text-stone-400">
                 <tr>
                   <th className="w-16 px-5 py-3 font-semibold">On</th>
                   <th className="px-2 py-3 font-semibold">Goal</th>

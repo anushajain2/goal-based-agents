@@ -137,7 +137,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
           const goal = f.goal_id ? byId.get(f.goal_id) : undefined;
           const facts = factsOf(f);
           return (
-            <article key={i} className="rise overflow-hidden rounded-3xl border border-line bg-white shadow-[var(--shadow-card)] transition hover:shadow-[var(--shadow-pop)]">
+            <article key={i} className="overflow-hidden rounded-3xl border border-line bg-white shadow-[var(--shadow-card)]">
               <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
                 {/* The problem, and the proof */}
                 <div className="min-w-0 p-6 md:p-7">
@@ -147,27 +147,19 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
                     </span>
                     <Pull n={f.pull} />
                     <span className="text-[11.5px] font-medium text-stone-400">{CONFIDENCE[f.confidence]}</span>
-                    {isNew(f) && <span className="rounded-full bg-lime-200 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-lime-900">New</span>}
+                    {isNew(f) && <span className="rounded-full bg-lime-200 px-2 py-0.5 text-[12px] font-bold text-lime-900">New</span>}
                   </div>
-                  <h3 className="mt-3 max-w-[40ch] text-[22px] font-bold leading-[1.2] tracking-[-0.02em] text-red-700">{f.title}</h3>
+                  <h3 className="display mt-3 max-w-[40ch] text-[24px] leading-[1.15] text-red-700">{f.title}</h3>
 
-                  <div className="mt-6 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">What we found</div>
+                  <div className="mt-6 text-[12px] font-bold text-muted">What we found</div>
                   <ul className="mt-2.5 divide-y divide-dashed divide-line">
                     {facts.map((x, k) => (
                       <li key={k} className="flex gap-3 py-2 text-[14px] leading-relaxed text-stone-800">
-                        <span className="tabular mt-[3px] grid h-5 w-5 shrink-0 place-items-center rounded-md bg-stone-100 text-[11px] font-bold text-stone-500">{k + 1}</span>
+                        <span aria-hidden className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />
                         <span>{x}</span>
                       </li>
                     ))}
                   </ul>
-                  {(f.sources || []).length > 0 && (
-                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11.5px] text-muted">Sources</span>
-                      {[...new Set(f.sources.map(domainOf).filter(Boolean))].slice(0, 4).map((d) => (
-                        <span key={d} className="rounded-full bg-canvas px-2 py-0.5 text-[11.5px] font-medium text-stone-600 ring-1 ring-inset ring-line">{d}</span>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 {/* The prize: what fixing it gets you, and the one move to start */}
@@ -199,7 +191,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 bg-white/70 px-4 py-3 text-[13.5px] font-semibold text-brand-700 transition hover:border-stone-400 hover:bg-white">
           {expanded ? <>Show less <ChevronUp size={15} /></> : (
             <>
-              Show all{hiddenCount > 0 ? ` ${listed.length} findings` : ""}
+              Show all{hiddenCount > 0 ? " findings" : ""}
               {extras.length > 0 && <span className="font-normal text-muted">{hiddenCount > 0 ? ", plus " : ": "}{extras.join(", ")}</span>}
               <ChevronDown size={15} />
             </>
@@ -301,7 +293,8 @@ function TurnOn({ goal, canStart, onStart }: { goal: Campaign; canStart: boolean
   );
 }
 
-const domainOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+/** "Email records set" -> "email records set", so "3 of 3 email records set" reads as a sentence (keeps acronyms). */
+const lower = (x: string) => (/^[A-Z][A-Z]/.test(x) ? x : x.charAt(0).toLowerCase() + x.slice(1));
 
 /** How much they'll want to fix it (the check's 1-5 "pull"), as an impact meter. */
 function Pull({ n }: { n?: number }) {
@@ -329,22 +322,19 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
     <aside className="relative flex min-w-0 flex-col overflow-hidden bg-ink p-6 text-white md:p-7">
       <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-lime-300/20 blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-emerald-500/20 blur-3xl" />
-      <div className="relative text-[11px] font-bold uppercase tracking-[0.1em] text-lime-300">What fixing it gets you</div>
+      <div className="relative text-[12px] font-bold text-lime-300">What fixing it gets you</div>
 
       {f.metric_now && f.metric_goal && (
-        <div className="relative mt-4">
-          {f.metric_name && <div className="text-[12.5px] text-white/55">{f.metric_name}</div>}
-          <div className="mt-2 flex items-center gap-3">
-            <div className="min-w-0">
-              <div className="text-[10.5px] font-semibold uppercase tracking-wide text-white/40">Now</div>
-              <div className="truncate text-[26px] font-bold leading-tight text-red-300">{f.metric_now}</div>
+        <div className="relative mt-4 space-y-2">
+          {([["Today", f.metric_now, "text-red-300"], ["After the fix", f.metric_goal, "text-lime-300"]] as const).map(([when, v, tone]) => (
+            <div key={when} className="rounded-xl bg-white/[0.06] px-3.5 py-2.5 ring-1 ring-inset ring-white/10">
+              <div className="text-[12px] font-semibold text-white/45">{when}</div>
+              <div className="mt-0.5 leading-snug">
+                <span className={cx("text-[20px] font-bold", tone)}>{v}</span>
+                {f.metric_name && <span className="text-[13px] text-white/65"> {lower(f.metric_name)}</span>}
+              </div>
             </div>
-            <ArrowRight size={20} className="shrink-0 text-white/35" />
-            <div className="min-w-0">
-              <div className="text-[10.5px] font-semibold uppercase tracking-wide text-white/40">Goal</div>
-              <div className="truncate text-[26px] font-bold leading-tight text-lime-300">{f.metric_goal}</div>
-            </div>
-          </div>
+          ))}
         </div>
       )}
 
@@ -387,7 +377,7 @@ function Steps({ steps, total, goalFor, canStart, busy, onStart, onOpen, onFurth
   return (
     <div className="border-t border-line bg-canvas/70 px-6 py-5 md:px-7">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">The path to fixing it</span>
+        <span className="text-[12px] font-bold text-muted">The path to fixing it</span>
         <span className="tabular text-[12.5px] text-muted">{usd(total)} over {weeks(allWeeks)} in all</span>
       </div>
       <ol className="grid gap-3 lg:auto-cols-fr lg:grid-flow-col">
@@ -403,7 +393,7 @@ function Steps({ steps, total, goalFor, canStart, busy, onStart, onOpen, onFurth
                   <ChevronRight size={14} />
                 </span>
               )}
-              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.06em]">
+              <div className="flex items-center gap-2 text-[12px] font-bold">
                 <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[10.5px]", live ? "bg-emerald-500 text-white" : i === 0 ? "bg-brand-600 text-white" : "bg-stone-100 text-stone-500")}>
                   {live ? <Check size={11} strokeWidth={3} /> : last ? <Flag size={10} /> : i + 1}
                 </span>
@@ -477,7 +467,7 @@ function Findable({ v, name }: { v: Visibility; name: string }) {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-left">
           <thead>
-            <tr className="border-b border-line bg-canvas text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">
+            <tr className="border-b border-line bg-canvas text-[12px] font-semibold text-muted">
               <th className="px-5 py-2 font-semibold">Search</th>
               {markets.map((m) => <th key={m} className="px-3 py-2 font-semibold"><span className="inline-flex items-center gap-1"><Search size={11} />{v.source === "google" ? `Google ${m}` : "Web search"}</span></th>)}
               {assistants.length > 0 && <th className="px-3 py-2 font-semibold"><span className="inline-flex items-center gap-1"><Bot size={11} /> AI assistants</span></th>}
@@ -543,7 +533,7 @@ function Findable({ v, name }: { v: Visibility; name: string }) {
       </div>
       {(v.local || []).length > 0 && (
         <div className="border-t border-line px-5 py-3">
-          <div className="mb-2 text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">Google Maps results</div>
+          <div className="mb-2 text-[12px] font-semibold text-muted">Google Maps results</div>
           <ul className="grid gap-2 sm:grid-cols-3">
             {v.local!.map((l) => (
               <li key={l.city} className="rounded-xl bg-canvas p-3 text-[12.5px]">
@@ -579,7 +569,7 @@ function Scorecard({ rows, name }: { rows: ScoreRow[]; name: string }) {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-[12.5px]">
           <thead>
-            <tr className="border-b border-line bg-canvas text-[11px] font-semibold uppercase tracking-[0.05em] text-muted">
+            <tr className="border-b border-line bg-canvas text-[12px] font-semibold text-muted">
               <th className="px-5 py-2 font-semibold">Check</th>
               <th className="px-3 py-2 font-semibold">{name}</th>
               {names.map((n) => <th key={n} className="px-3 py-2 font-semibold">{n}</th>)}

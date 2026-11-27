@@ -125,12 +125,12 @@ async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_
         goals = {g["id"]: g for g in (await c.get("/api/campaigns")).json()}
         # A big fix comes in priced steps: AI work sessions plus itemised spend.
         one, two = seo["milestones"]
-        assert one["total_usd"] == 55 and one["paid_usd"] == 0  # 6 weeks of 6-hourly sessions at $0.30
+        assert one["total_usd"] == 50.4 and one["paid_usd"] == 0  # 6 weeks of 6-hourly sessions at $0.30
         assert two["paid_items"] == [{"item": "Backlink outreach and PR placements", "usd": 600.0}]
-        assert two["total_usd"] == 805 and seo["total_usd"] == 860
+        assert two["total_usd"] == 801.6 and seo["total_usd"] == 852.0
         assert "spec" in two and two["goal_id"] is None  # later steps aren't goals until someone asks
         first = goals[one["goal_id"]]
-        assert first["status"] == "draft" and first["budget"]["total"] == 55
+        assert first["status"] == "draft" and first["budget"]["total"] == 50.4
         assert seo["goal_id"] == one["goal_id"] and one["goal_id"] in st["setup"]["created"]["goals"]
         # Linked to a goal setup already planned.
         assert goals[compare["goal_id"]]["name"] == "Book 15 demos with Heads of Ops"
@@ -161,7 +161,7 @@ async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_
         assert (await c.post("/api/org/opportunities/0/milestones/1/goal")).json()["goal_id"] == later
         g2 = next(g for g in (await c.get("/api/campaigns")).json() if g["id"] == later)
         assert g2["name"] == "SEO step 2: win the main search" and g2["status"] == "draft"
-        assert g2["budget"]["total"] == 805
+        assert g2["budget"]["total"] == 801.6
         st = (await c.get("/api/org/setup")).json()
         assert st["org"]["profile"]["opportunities"]["findings"][0]["milestones"][1]["goal_id"] == later
         assert (await c.post("/api/org/opportunities/3/milestones/0/goal")).status_code == 404

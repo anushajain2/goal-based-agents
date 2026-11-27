@@ -99,7 +99,7 @@ function Details({ a }: { a: ActivityItem }) {
   const quote = (label: string, v: unknown) =>
     typeof v === "string" && v ? (
       <div key={label}>
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</div>
+        <div className="mb-1 text-[12px] font-semibold text-muted">{label}</div>
         <blockquote className="whitespace-pre-wrap rounded-md border-l-2 border-brand-500 bg-stone-50 px-3 py-2 text-[13px]">{v}</blockquote>
       </div>
     ) : null;
@@ -109,7 +109,7 @@ function Details({ a }: { a: ActivityItem }) {
   if (d.arguments && typeof d.arguments === "object")
     blocks.push(
       <div key="args">
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">What it sent{d.action ? ` (${d.action})` : ""}</div>
+        <div className="mb-1 text-[12px] font-semibold text-muted">What it sent{d.action ? ` (${d.action})` : ""}</div>
         <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 rounded-md bg-stone-50 px-3 py-2 text-[12.5px]">
           {Object.entries(d.arguments as Record<string, unknown>).map(([k, v]) => (
             <Fragment key={k}><dt className="font-medium text-muted">{k}</dt><dd className="whitespace-pre-wrap break-words">{typeof v === "string" ? v : JSON.stringify(v)}</dd></Fragment>
@@ -167,7 +167,7 @@ export function LogEntry({ a, showGoal }: { a: ActivityItem; showGoal?: boolean 
     return (
       <li className="py-1.5">
         {showGoal && a.campaign_name && (
-          <Link href={`/goals/${a.campaign_id}`} className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-brand-600 hover:underline">{a.campaign_name}</Link>
+          <Link href={`/goals/${a.campaign_id}`} className="mb-1 block text-[12px] font-semibold text-brand-600 hover:underline">{a.campaign_name}</Link>
         )}
         <UpdateCard u={{ measured: d.measured || "", learned: d.learned || "", changing: d.changing || "" }} at={a.created_at} />
       </li>
@@ -204,7 +204,7 @@ export function LogEntry({ a, showGoal }: { a: ActivityItem; showGoal?: boolean 
       <button onClick={() => expandable && setOpen(!open)} className={cx("flex w-full items-start gap-3 rounded-lg px-1 py-2 text-left", expandable && "hover:bg-stone-50")}>
         <span className={cx("grid h-8 w-8 shrink-0 place-items-center rounded-full", m.tone)}>{m.icon}</span>
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-x-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          <span className="flex flex-wrap items-center gap-x-2 text-[12px] font-semibold text-muted">
             {m.label}
             {showGoal && a.campaign_name && (
               <Link href={`/goals/${a.campaign_id}`} onClick={(e) => e.stopPropagation()} className="normal-case tracking-normal text-brand-600 hover:underline">
@@ -339,7 +339,7 @@ function SessionBlock({ session, items, view, showGoal }: { session: Session; it
       <div className="px-3 py-2">
         {plan && view === "highlights" && !showSteps && (
           <div className="mx-1 my-2 rounded-lg bg-stone-50/60 px-3 py-2.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-stone-700">Plan for this session</div>
+            <div className="text-[12px] font-semibold text-stone-700">Plan for this session</div>
             <p className="mt-1 text-[13px]">{plan.title}</p>
             {Array.isArray(plan.details?.plan) && (
               <ol className="mt-1.5 list-decimal space-y-0.5 pl-5 text-[13px] text-stone-700">
