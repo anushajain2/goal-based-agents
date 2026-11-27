@@ -76,7 +76,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <Icon size={17} className={on ? "text-brand-600" : "text-stone-400 group-hover:text-stone-600"} />
         <span className="flex-1">{label}</span>
         {href === "/approvals" && pending > 0 && (
-          <span className="tabular grid h-5 min-w-5 place-items-center rounded-full bg-brand-600 px-1.5 text-[11px] font-bold text-white">{pending}</span>
+          <span className="tabular grid h-5 min-w-5 place-items-center rounded-full bg-brand-600 px-1.5 text-[12px] font-bold text-white">{pending}</span>
         )}
       </Link>
     );
@@ -97,7 +97,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <span className="block truncate text-[14.5px] font-semibold">{orgName}</span>
             <span className="block truncate text-[12px] text-muted">
               {goalCount ? `${goalCount} goal${goalCount === 1 ? "" : "s"}` : "Workspace"}
-              {state === "working" ? " · working" : state === "waiting" ? " · waiting on you" : ""}
+              {state === "working" ? ", working" : state === "waiting" ? ", waiting on you" : ""}
             </span>
           </span>
         </Link>
@@ -120,7 +120,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-stone-100">
               <div className="h-full rounded-full bg-brand-600" style={{ width: `${budget ? Math.min(100, (spent / budget) * 100) : 0}%` }} />
             </div>
-            <div className="tabular mt-1.5 text-[11.5px] text-muted">{budget ? `of ${usd(budget)} in goal budgets` : "No budgets yet"}</div>
+            <div className="tabular mt-1.5 text-[12px] text-muted">{budget ? `of ${usd(budget)} in goal budgets` : "No budgets yet"}</div>
           </div>
           {me && (
             <div className="flex items-center gap-2.5 px-1">
@@ -129,7 +129,7 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
               <span className="min-w-0 flex-1 leading-tight">
                 <span className="block truncate text-[13px] font-semibold">{me.name || me.email}</span>
-                <span className="block truncate text-[11.5px] capitalize text-muted">{me.role}</span>
+                <span className="block truncate text-[12px] capitalize text-muted">{me.role}</span>
               </span>
               <button onClick={logout} title="Log out" aria-label="Log out" className="rounded-md p-1.5 text-stone-400 hover:bg-stone-100 hover:text-ink">
                 <LogOut size={16} />
@@ -151,7 +151,7 @@ export function Shell({ children }: { children: ReactNode }) {
             {NAV.map((n) => (
               <Link key={n.href} href={n.href} className={cx("shrink-0 rounded-full px-3 py-1 text-[13px] font-semibold", n.match(path) ? "bg-brand-600 text-white" : "text-stone-600")}>
                 {n.label}
-                {n.href === "/approvals" && pending > 0 ? ` · ${pending}` : ""}
+                {n.href === "/approvals" && pending > 0 ? ` (${pending})` : ""}
               </Link>
             ))}
           </nav>

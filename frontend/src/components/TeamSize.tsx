@@ -31,7 +31,7 @@ export function TeamSize({ profile, canAdd, onAdding }: { profile: CompanyProfil
       {(profile.size || profile.pack_label) && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
           <Ruler size={15} className="text-brand-600" />
-          <b>{[profile.pack_label, profile.size ? `sized for ${SIZE_LABEL[profile.size]}` : ""].filter(Boolean).join(" · ")}</b>
+          <b>{[profile.pack_label, profile.size ? `sized for ${SIZE_LABEL[profile.size]}` : ""].filter(Boolean).join(", ")}</b>
           {profile.size_reason && <span className="text-muted">· {profile.size_reason}</span>}
         </div>
       )}
@@ -43,7 +43,7 @@ export function TeamSize({ profile, canAdd, onAdding }: { profile: CompanyProfil
               const key = x.kind || x.name;
               return (
                 <li key={key} className="flex items-center gap-2 rounded-lg border border-line bg-stone-50 py-1 pl-3 pr-1 text-[13px]">
-                  <span><b>{x.name}</b>{x.when && <span className="text-muted"> · {x.when}</span>}</span>
+                  <span><b>{x.name}</b>{x.when && <span className="text-muted">: {x.when}</span>}</span>
                   {canAdd && (
                     <button disabled={!!busy} onClick={() => add(key)}
                       className="inline-flex h-7 items-center gap-1 rounded-md bg-white px-2 text-xs font-semibold text-brand-700 ring-1 ring-line hover:bg-brand-50 disabled:opacity-50">

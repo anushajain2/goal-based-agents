@@ -75,7 +75,7 @@ function NeedsYouPage() {
             {tabs.map(([t, label]) => (
               <button key={t} onClick={() => { setTab(t); setMobileDetail(false); }}
                 className={cx("rounded-lg px-3 py-1.5 transition", tab === t ? "bg-white text-ink shadow-sm" : "text-stone-500 hover:text-ink")}>
-                {t === "all" ? "Everyone" : label}{t !== "done" && counts[t] ? <span className={cx("tabular ml-1.5 rounded-full px-1.5 text-[11px]", tab === t ? "bg-brand-50 text-brand-700" : "bg-stone-200 text-stone-600")}>{counts[t]}</span> : null}
+                {t === "all" ? "Everyone" : label}{t !== "done" && counts[t] ? <span className={cx("tabular ml-1.5 rounded-full px-1.5 text-[12px]", tab === t ? "bg-brand-50 text-brand-700" : "bg-stone-200 text-stone-600")}>{counts[t]}</span> : null}
               </button>
             ))}
           </div>
@@ -109,10 +109,10 @@ function NeedsYouPage() {
                                 : r.status === "approved" ? (r.kind === "question" ? "Answered" : "Approved") : r.kind === "question" ? "Skipped" : "Declined")
                               : r.auto_approve_at ? "Heads-up" : k.label}
                           </Badge>
-                          <span className="truncate text-[11.5px] text-muted">{r.department_name}</span>
+                          <span className="truncate text-[12px] text-muted">{r.department_name}</span>
                         </span>
                         <span className="mt-1 line-clamp-2 block text-[13.5px] font-semibold leading-snug">{r.kind === "question" ? r.preview.question || r.title : r.title}</span>
-                        <span className="mt-0.5 block truncate text-[11.5px] text-muted">
+                        <span className="mt-0.5 block truncate text-[12px] text-muted">
                           {r.campaign_name} · {timeAgo(r.created_at)}{tab === "all" && !r.routed_to_me ? ` · for ${r.approvers.join(", ")}` : ""}
                         </span>
                       </span>

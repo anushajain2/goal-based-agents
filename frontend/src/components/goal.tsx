@@ -64,7 +64,7 @@ export function GoalProgress({ c, compact }: { c: Campaign; compact?: boolean })
         {p.pct !== null && <span className="tabular text-xs text-muted">{Math.round(p.pct)}%</span>}
       </div>
       <ProgressBar pct={p.pct} className="mt-1" />
-      {!compact && <div className="mt-0.5 truncate text-[11px] text-muted">{c.primary_metric}</div>}
+      {!compact && <div className="mt-0.5 truncate text-[12px] text-muted">{c.primary_metric}</div>}
     </div>
   );
 }

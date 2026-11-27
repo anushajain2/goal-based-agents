@@ -61,7 +61,7 @@ export function OrgChart({ org, goals, onGoalClick, onChanged }: {
       <div className="hidden overflow-x-auto pb-2 md:block">
         <div className="mx-auto w-max min-w-full px-2">
           <div className="flex justify-center">
-            <PersonCard person={top} label={isMe ? `You · ${roleWord(top.role)}` : roleWord(top.role)} />
+            <PersonCard person={top} label={isMe ? `${roleWord(top.role)} (you)` : roleWord(top.role)} />
           </div>
           {/* Four departments per row, so bigger teams wrap instead of running off the screen. */}
           {rows.map((row, r) => (
@@ -73,7 +73,7 @@ export function OrgChart({ org, goals, onGoalClick, onChanged }: {
       </div>
       {/* Phones: the same thing as an indented list. */}
       <div className="space-y-3 md:hidden">
-        <PersonCard person={top} label={isMe ? `You · ${roleWord(top.role)}` : roleWord(top.role)} />
+        <PersonCard person={top} label={isMe ? `${roleWord(top.role)} (you)` : roleWord(top.role)} />
         <div className="ml-4 space-y-3 border-l-2 border-[#c9ced6] pl-4">
           {columns}
           {addColumn}
@@ -177,7 +177,7 @@ function TeamCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInfo; onCh
             {people.length === 1 && people[0].id === org.me.id ? "Just you so far" : people.map(nameOf).join(", ")}
           </span>
         </div>
-        {invited.length > 0 && <div className="mt-1 truncate text-[11px] text-muted">Invited: {invited.map((i) => i.email).join(", ")}</div>}
+        {invited.length > 0 && <div className="mt-1 truncate text-[12px] text-muted">Invited: {invited.map((i) => i.email).join(", ")}</div>}
         {adding && (
           <div className="mt-2 space-y-1.5">
             {others.length > 0 && (
@@ -200,11 +200,11 @@ function TeamCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInfo; onCh
         )}
         {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
       </div>
-      {(people.length > 1 || (asks && asks.id !== org.me.id)) && <div className="flex items-center gap-1.5 px-3.5 pb-2.5 text-[11.5px] text-muted">
+      {(people.length > 1 || (asks && asks.id !== org.me.id)) && <div className="flex items-center gap-1.5 px-3.5 pb-2.5 text-[12px] text-muted">
         <Hand size={11} className="shrink-0" />
         <span className="shrink-0">Approvals go to</span>
         {admin && people.length > 1 ? (
-          <select className="min-w-0 flex-1 truncate rounded border-0 bg-transparent p-0 text-[11.5px] font-semibold text-ink focus:ring-0" value={asks?.id || ""}
+          <select className="min-w-0 flex-1 truncate rounded border-0 bg-transparent p-0 text-[12px] font-semibold text-ink focus:ring-0" value={asks?.id || ""}
             onChange={(e) => run(() => api(`/api/departments/${d.id}`, { method: "PATCH", json: { head_user_id: e.target.value || null } }))}>
             {people.map((p) => <option key={p.id} value={p.id}>{nameOf(p)}</option>)}
           </select>
@@ -226,7 +226,7 @@ function GoalChips({ goals, onGoalClick, muted }: { goals: Campaign[]; onGoalCli
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate font-medium">{g.name}</span>
-                <span className="shrink-0 text-[11px] text-muted">{g.status === "draft" ? usd(g.budget.total) : g.status === "active" ? (g.pending_requests ? "Needs you" : "Live") : "Paused"}</span>
+                <span className="shrink-0 text-[12px] text-muted">{g.status === "draft" ? usd(g.budget.total) : g.status === "active" ? (g.pending_requests ? "Needs you" : "Live") : "Paused"}</span>
               </span>
               {g.target?.target && <span className="mt-0.5 block"><TargetLine goal={g} compact /></span>}
             </span>

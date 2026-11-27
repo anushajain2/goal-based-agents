@@ -67,7 +67,7 @@ export function teamName(p: { department: string | null; approvers: string[] }) 
 
 export function ModeBadge({ mode, team }: { mode: Mode; team?: string }) {
   return (
-    <span className={cx("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold ring-1", MODE_STYLE[mode])}>
+    <span className={cx("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ring-1", MODE_STYLE[mode])}>
       {MODE_ICON[mode]} {mode === "ask" && team ? `Asks ${team.replace(/^the /, "")}` : MODE_WORDS[mode].short}
     </span>
   );
@@ -78,7 +78,7 @@ export function ModePicker({ p, onChange, disabled }: { p: Permission; onChange:
   const options = modesFor(p);
   const locked = p.set_at === "org" || p.set_at === "department";
   return (
-    <div className="inline-flex shrink-0 overflow-hidden rounded-md border border-line text-[11.5px] font-semibold" title={locked ? `Set for ${p.set_at === "org" ? "the whole organization" : "the department"} in Settings → Permissions` : undefined}>
+    <div className="inline-flex shrink-0 overflow-hidden rounded-md border border-line text-[12px] font-semibold" title={locked ? `Set for ${p.set_at === "org" ? "the whole organization" : "the department"} in Settings → Permissions` : undefined}>
       {options.map((m) => (
         <button
           key={m}
@@ -245,7 +245,7 @@ export function PlanSteps({ steps, perms, onChange, editable, busy }: {
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-stone-100 text-xs font-bold text-stone-600">{i + 1}</span>
             <span className="min-w-0 flex-1 text-[13.5px]">
               {st.text}
-              {TOOL_LABELS[st.tool] ? <span className="ml-1.5 rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600">{TOOL_LABELS[st.tool]}</span> : null}
+              {TOOL_LABELS[st.tool] ? <span className="ml-1.5 rounded bg-stone-100 px-1.5 py-0.5 text-[12px] text-stone-600">{TOOL_LABELS[st.tool]}</span> : null}
             </span>
             {editable && onChange ? <ModePicker p={p} disabled={busy} onChange={(m) => onChange(p.key, m)} /> : <ModeBadge mode={p.mode} team={team} />}
           </li>
@@ -264,11 +264,11 @@ function CapInput({ p, onChange, disabled }: { p: Permission; onChange: (cap: nu
     onChange(n);
   };
   return (
-    <label className="flex items-center gap-1.5 text-[11.5px] text-muted">
+    <label className="flex items-center gap-1.5 text-[12px] text-muted">
       At most
       <input inputMode="numeric" aria-label={`Daily limit for ${p.label}`} disabled={disabled} value={v} placeholder="no limit"
         onChange={(e) => setV(e.target.value.replace(/[^0-9]/g, ""))} onBlur={save} onKeyDown={(e) => e.key === "Enter" && save()}
-        className="h-6 w-16 rounded border border-line px-1.5 text-[11.5px] text-ink" />
+        className="h-6 w-16 rounded border border-line px-1.5 text-[12px] text-ink" />
       a day, then it asks
     </label>
   );
@@ -290,22 +290,22 @@ export function PermissionsEditor({ perms, onChange, busy }: { perms: Permission
           <div key={g.mode} className="rounded-xl border border-line bg-white">
             <div className="border-b border-line px-3 py-2">
               <div className="flex items-center gap-1.5 text-[13px] font-bold">{MODE_ICON[g.mode]} {g.title}</div>
-              <div className="text-[11.5px] text-muted">{g.hint}</div>
+              <div className="text-[12px] text-muted">{g.hint}</div>
             </div>
             <ul className="divide-y divide-line">
               {items.length === 0 && <li className="px-3 py-2.5 text-xs text-muted">Nothing.</li>}
               {items.map((p) => (
                 <li key={p.key} className="space-y-1.5 px-3 py-2.5">
                   <div className="text-[13px] font-semibold">{p.label}{capWords(p) ? ` (${capWords(p)})` : ""}</div>
-                  <div className="text-[11.5px] text-muted">{p.description}</div>
-                  {p.only_on.length > 0 && p.mode === "ask" && <div className="text-[11.5px] text-emerald-700">Except on {p.only_on.join(", ")}: without asking</div>}
-                  {p.asks_on.length > 0 && p.mode !== "ask" && p.mode !== "never" && <div className="text-[11.5px] text-signal-800">Always asks on {p.asks_on.join(", ")}</div>}
-                  {p.source === "downgrade" && p.mode === "ask" && <div className="text-[11px] text-signal-800">Asks again because some were stopped or flagged</div>}
+                  <div className="text-[12px] text-muted">{p.description}</div>
+                  {p.only_on.length > 0 && p.mode === "ask" && <div className="text-[12px] text-emerald-700">Except on {p.only_on.join(", ")}: without asking</div>}
+                  {p.asks_on.length > 0 && p.mode !== "ask" && p.mode !== "never" && <div className="text-[12px] text-signal-800">Always asks on {p.asks_on.join(", ")}</div>}
+                  {p.source === "downgrade" && p.mode === "ask" && <div className="text-[12px] text-signal-800">Asks again because some were stopped or flagged</div>}
                   {(p.mode === "auto" || p.mode === "heads_up") && p.default === "ask" && perms.can_edit && (
                     <CapInput p={p} disabled={busy} onChange={(cap) => onChange(p.key, p.mode, cap)} />
                   )}
                   {(p.set_at === "org" || p.set_at === "department") && (
-                    <div className="text-[11px] text-muted">Set for {p.set_at === "org" ? "the whole organization" : "the department"}</div>
+                    <div className="text-[12px] text-muted">Set for {p.set_at === "org" ? "the whole organization" : "the department"}</div>
                   )}
                   {perms.can_edit && <ModePicker p={p} disabled={busy} onChange={(m) => onChange(p.key, m)} />}
                 </li>
@@ -349,7 +349,7 @@ export function GoalPlan({ goal, defaultOpen = true }: { goal: Campaign; default
           <span className="block text-[15px] font-bold">How {agent} works on this goal</span>
           <span className="block text-xs text-muted">
             {book ? `${book.steps.length} steps` : "Working out the steps…"}
-            {book && perms ? ` · ${stepCounts(book.steps, modeOf, teamName(perms))} · you can change any of it` : ""}
+            {book && perms ? `: ${stepCounts(book.steps, modeOf, teamName(perms))}. You can change any of it.` : ""}
           </span>
         </span>
         <ChevronDown size={18} className={cx("text-muted transition", open && "rotate-180")} />
@@ -418,9 +418,9 @@ export function StepList({ steps, modeOf, team }: { steps: PlanStep[]; modeOf: (
             </span>
             <div className="min-w-0 flex-1 pt-0.5">
               <div className={cx("text-[13.5px] leading-snug", mode === "never" && "text-stone-400 line-through")}>{st.text}</div>
-              <div className={cx("text-[11.5px] font-semibold", mode === "auto" ? "text-emerald-700" : mode === "heads_up" ? "text-sky-700" : mode === "ask" ? "text-signal-700" : "text-stone-400")}>
+              <div className={cx("text-[12px] font-semibold", mode === "auto" ? "text-emerald-700" : mode === "heads_up" ? "text-sky-700" : mode === "ask" ? "text-signal-700" : "text-stone-400")}>
                 {mode === "auto" ? "Automatic" : mode === "heads_up" ? `Heads-up to ${team ? team.replace(/^the /, "") : "you"}, then goes ahead` : mode === "ask" ? `Waits for ${team ? team.replace(/^the /, "") : "your"} OK` : "Turned off"}
-                {TOOL_LABELS[st.tool] ? <span className="font-normal text-muted"> · {TOOL_LABELS[st.tool]}</span> : null}
+                {TOOL_LABELS[st.tool] ? <span className="font-normal text-muted"> ({TOOL_LABELS[st.tool]})</span> : null}
               </div>
             </div>
           </li>

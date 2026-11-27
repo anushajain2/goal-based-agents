@@ -209,7 +209,7 @@ function DepartmentCard({ d, org, goals, onOpen, onChange }: {
 
       <div className="border-t border-line px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-muted"><Users size={12} /> People · approve this team&apos;s work</span>
+          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-muted"><Users size={12} /> People who approve this team&apos;s work</span>
           {admin && !editingPeople && <button onClick={() => setEditingPeople(true)} className="text-xs font-semibold text-brand-600 hover:underline">Edit</button>}
         </div>
         {editingPeople ? (

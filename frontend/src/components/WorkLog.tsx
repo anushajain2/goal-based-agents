@@ -134,7 +134,7 @@ const FLAGGABLE = new Set(["engage", "reply", "publish_post", "publish_article",
 /** "This shouldn't have gone out": that kind of action asks first again on this goal. */
 function FlagButton({ a }: { a: ActivityItem }) {
   const [state, setState] = useState<"idle" | "busy" | "done" | string>("idle");
-  if (state === "done") return <span className="text-[11px] font-semibold text-signal-800">Flagged · asks first from now on</span>;
+  if (state === "done") return <span className="text-[12px] font-semibold text-signal-800">Flagged. It asks first from now on</span>;
   return (
     <span onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1">
       <button
@@ -151,11 +151,11 @@ function FlagButton({ a }: { a: ActivityItem }) {
             setState((err as Error).message);
           }
         }}
-        className="inline-flex items-center gap-1 rounded px-1 text-[11px] font-semibold text-stone-500 hover:bg-stone-100 hover:text-signal-800"
+        className="inline-flex items-center gap-1 rounded px-1 text-[12px] font-semibold text-stone-500 hover:bg-stone-100 hover:text-signal-800"
       >
         <Flag size={11} /> Shouldn&apos;t have gone out
       </button>
-      {state !== "idle" && state !== "busy" && <span className="text-[11px] text-red-600">{state}</span>}
+      {state !== "idle" && state !== "busy" && <span className="text-[12px] text-red-600">{state}</span>}
     </span>
   );
 }
@@ -189,8 +189,8 @@ export function LogEntry({ a, showGoal }: { a: ActivityItem; showGoal?: boolean 
             {a.title}
             {showGoal && a.campaign_name && <span className="ml-1.5 not-italic text-stone-400">· {a.campaign_name}</span>}
           </span>
-          {a.cost_usd !== null && a.cost_usd > 0 && <span className="tabular shrink-0 text-[11px] text-stone-400">{usd(a.cost_usd)}</span>}
-          <span className="w-14 shrink-0 text-right text-[11px] text-stone-400" title={new Date(a.created_at).toLocaleString()}>
+          {a.cost_usd !== null && a.cost_usd > 0 && <span className="tabular shrink-0 text-[12px] text-stone-400">{usd(a.cost_usd)}</span>}
+          <span className="w-14 shrink-0 text-right text-[12px] text-stone-400" title={new Date(a.created_at).toLocaleString()}>
             {new Date(a.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
           </span>
         </button>
@@ -325,7 +325,7 @@ function SessionBlock({ session, items, view, showGoal }: { session: Session; it
           {new Date(session.started_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {duration(session.started_at, end)}
         </span>
         <span className="ml-auto text-xs text-muted">
-          {plural(session.counts.action || 0, "action")} · {plural(session.counts.step || 0, "step")} · <span className="tabular font-semibold text-ink">{usd(session.cost_usd)}</span>
+          {plural(session.counts.action || 0, "action")}, {plural(session.counts.step || 0, "step")}, <span className="tabular font-semibold text-ink">{usd(session.cost_usd)}</span>
         </span>
       </header>
 

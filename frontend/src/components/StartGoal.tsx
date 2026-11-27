@@ -176,7 +176,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
               {agentIds.map((id) => <Routing key={id} agentId={id} org={org} onChanged={reloadOrg} />)}
               <details className="rounded-xl border border-line bg-white">
                 <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
-                  {goals.length} {goals.length === 1 ? "goal" : "goals"} · {usd(total)} for the first week, a hard limit
+                  {goals.length} {goals.length === 1 ? "goal" : "goals"}, {usd(total)} for the first week (a hard limit)
                 </summary>
                 <div className="space-y-2 border-t border-line p-3">
                   {goals.map((g) => <GoalReview key={g.id} goal={g} modeOf={ready[g.id] ? modeFor(ready[g.id]) : () => "ask"} team={ready[g.id] ? teamName(ready[g.id]) : undefined} />)}
@@ -206,7 +206,7 @@ export function StartGoal({ goals, onClose, onStarted }: { goals: Campaign[]; on
 function StepDot({ n, active, done, label }: { n: number; active: boolean; done: boolean; label: string }) {
   return (
     <span className={cx("inline-flex items-center gap-1.5", active ? "text-ink" : "text-muted")}>
-      <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[11px]", done ? "bg-emerald-600 text-white" : active ? "bg-brand-500 text-white" : "bg-stone-200")}>
+      <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[12px]", done ? "bg-emerald-600 text-white" : active ? "bg-brand-500 text-white" : "bg-stone-200")}>
         {done ? <Check size={11} /> : n}
       </span>
       {label}
@@ -294,7 +294,7 @@ function UseLine({ icon, tone, label, items }: { icon: React.ReactNode; tone: st
     <div className="flex gap-1.5">
       <span className={cx("inline-flex shrink-0 items-center gap-1 font-semibold", tone)}>{icon} {label}:</span>
       <span className="min-w-0 text-stone-700">
-        {shown.map((u) => u.text).join(" · ")}{items.length > 2 ? ` · +${items.length - 2} more` : ""}
+        {shown.map((u) => u.text).join(", ")}{items.length > 2 ? `, and ${items.length - 2} more` : ""}
       </span>
     </div>
   );
@@ -374,7 +374,7 @@ function GoalReview({ goal, modeOf, team }: { goal: Campaign; modeOf: (k: string
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold">{goal.name}</span>
           <span className="block text-xs text-muted">
-            {[goal.department?.name, book && stepCounts(book.steps, modeOf, team || "an OK")].filter(Boolean).join(" · ")}
+            {[goal.department?.name, book && stepCounts(book.steps, modeOf, team || "an OK")].filter(Boolean).join(", ")}
           </span>
         </span>
         <span className="shrink-0 text-sm font-semibold">{usd(goal.budget.total)}</span>

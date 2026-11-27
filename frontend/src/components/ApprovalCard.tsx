@@ -92,7 +92,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
         {detail && (
           <span className="mr-1">
             <span className="block text-[13px] font-semibold text-ink">Oton</span>
-            <span className="block">{[req.campaign_name && `For ${req.campaign_name}`, req.department_name].filter(Boolean).join(" · ")}</span>
+            <span className="block">{[req.campaign_name && `For ${req.campaign_name}`, req.department_name && `in ${req.department_name}`].filter(Boolean).join(", ")}</span>
           </span>
         )}
         {headsUp && <Badge tone="blue"><Clock size={12} /> Heads-up</Badge>}
@@ -105,7 +105,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
         <span>{timeAgo(req.created_at)}</span>
         {req.preview.quality && (
           <span title={req.preview.quality.fixes.length ? `Reviewer's notes: ${req.preview.quality.fixes.join("; ")}` : "Passed the quality check"}
-            className={cx("rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold",
+            className={cx("rounded-full px-1.5 py-0.5 text-[12px] font-semibold",
               req.preview.quality.score >= 4 ? "bg-emerald-50 text-emerald-700" : "bg-signal-50 text-signal-800")}>
             Quality {req.preview.quality.score}/5
           </span>
@@ -127,7 +127,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
             <div className="flex flex-wrap items-baseline gap-x-2">
               <span className="w-12 shrink-0 text-xs font-semibold text-muted">{req.preview.change.type === "new_goal" || req.preview.change.type === "new_agent" ? "Target" : "Now"}</span>
               <span>{num(req.preview.current.target)} {req.campaign_metric || "results"} {PER_PERIOD[req.preview.current.period]}
-                {req.preview.current.progress != null && <span className="text-muted"> · {num(req.preview.current.progress)} so far</span>}</span>
+                {req.preview.current.progress != null && <span className="text-muted">, {num(req.preview.current.progress)} so far</span>}</span>
             </div>
           )}
           {req.preview.change.type === "target" && req.preview.change.period && (
@@ -195,7 +195,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
           ))}
           {Object.keys(fields).filter((key) => !editable.includes(key)).length > 0 && (
             <details className="rounded-md bg-stone-50 px-3 py-2 text-xs" open={detail}>
-              <summary className="cursor-pointer font-semibold text-muted">Details{req.preview.action_name ? ` · ${req.preview.action_name}` : ""}</summary>
+              <summary className="cursor-pointer font-semibold text-muted">Details{req.preview.action_name ? `: ${req.preview.action_name}` : ""}</summary>
               <pre className="mt-2 whitespace-pre-wrap break-all font-mono">
                 {JSON.stringify(Object.fromEntries(Object.entries(fields).filter(([key]) => !editable.includes(key))), null, 2)}
               </pre>
@@ -266,7 +266,7 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
                 {" "}unless {req.routed_to_me ? "you stop" : `${to} stops`} it. You can edit it first.
               </span>
             ) : (
-              <span>{req.routed_to_me ? "Waiting on you" : <>Waiting on <b className="text-ink">{to}</b></>}{req.department_name ? ` · ${req.department_name}` : ""}</span>
+              <span>{req.routed_to_me ? "Waiting on you" : <>Waiting on <b className="text-ink">{to}</b></>}{req.department_name ? `, ${req.department_name}` : ""}</span>
             )}
           </p>
 

@@ -32,17 +32,17 @@ export function LeadCard({ d, org, onChanged }: { d: DepartmentInfo; org: OrgInf
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13.5px] font-semibold">{d.name} Reviewer</span>
-            <span className="block truncate text-[11.5px] text-muted">{lead.enabled ? "Reviews the goals, suggests changes" : "Reviewer · off"}</span>
+            <span className="block truncate text-[12px] text-muted">{lead.enabled ? "Reviews the goals, suggests changes" : "Reviewer is off"}</span>
           </span>
         </span>
         {lead.enabled && (
-          <span className="mt-1.5 flex items-center gap-1.5 text-[11.5px]">
+          <span className="mt-1.5 flex items-center gap-1.5 text-[12px]">
             {busy ? (
               <><Loader2 size={11} className="animate-spin text-stone-700" /> <span className="text-stone-800">Reviewing the team…</span></>
             ) : last && last.status === "done" ? (
               <>
-                {last.health && <Badge tone={HEALTH[last.health].tone} className="!px-1.5 !py-0 !text-[10.5px]">{HEALTH[last.health].label}</Badge>}
-                <span className="text-muted">{timeAgo(last.created_at)}{last.proposals.length ? ` · ${last.proposals.length} suggestion${last.proposals.length === 1 ? "" : "s"}` : " · no changes"}</span>
+                {last.health && <Badge tone={HEALTH[last.health].tone} className="!px-1.5 !py-0 !text-[12px]">{HEALTH[last.health].label}</Badge>}
+                <span className="text-muted">{timeAgo(last.created_at)}{last.proposals.length ? `, ${last.proposals.length} suggestion${last.proposals.length === 1 ? "" : "s"}` : " · no changes"}</span>
               </>
             ) : (
               <span className="text-muted">Starts reviewing once goals are live</span>
@@ -119,7 +119,7 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
           {latest && latest.status === "done" && (
             <section>
               <div className="mb-1.5 flex items-center gap-2 text-[12px] font-bold text-muted">
-                Latest review · {timeAgo(latest.created_at)}
+                Latest review, {timeAgo(latest.created_at)}
                 {latest.health && <Badge tone={HEALTH[latest.health].tone}>{HEALTH[latest.health].label}</Badge>}
               </div>
               <p className="text-[13.5px] leading-relaxed">{latest.summary}</p>
@@ -170,7 +170,7 @@ function LeadPanel({ d, org, onClose, onChanged }: { d: DepartmentInfo; org: Org
                   </Select>
                 </label>
                 <label className="flex items-center justify-between gap-3 text-[13px]">
-                  <span><span className="font-semibold">Monthly limit</span><span className="block text-[11.5px] text-muted">{usd(lead.spent_this_month_usd)} used this month · a review costs a few cents</span></span>
+                  <span><span className="font-semibold">Monthly limit</span><span className="block text-[12px] text-muted">{usd(lead.spent_this_month_usd)} used this month. A review costs a few cents.</span></span>
                   <span className="flex items-center gap-1">$
                     <input className="h-8 w-16 rounded-md border border-line px-2 text-xs" disabled={!canManage} value={cap}
                       onChange={(e) => setCap(e.target.value)} onBlur={() => Number(cap) >= 0 && Number(cap) !== lead.monthly_cap_usd && patch({ monthly_cap_usd: Number(cap) })} />
@@ -216,7 +216,7 @@ function LooksAt() {
       <div className="mb-1.5 flex items-center gap-1 text-[12px] font-bold text-muted"><Eye size={12} /> Looks at</div>
       <ul className="flex flex-wrap gap-1.5">
         {items.map(([icon, label, on]) => (
-          <li key={label} className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold",
+          <li key={label} className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold",
             on ? "bg-stone-50 text-stone-800" : "bg-stone-50 text-stone-400")} title={on ? undefined : "Connect it in Settings → Code & data"}>
             {icon} {label}{on ? "" : " (not connected)"}
           </li>

@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Loader2, Plug, RefreshCw, Search, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronRight, ChevronUp, Flag, Loader2, Plug, RefreshCw, Search, Target, TrendingUp } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, ScoreRow, usd, Visibility } from "@/lib/api";
+import { andMore, api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, ScoreRow, usd, useApi, Visibility } from "@/lib/api";
 import { TeamTag } from "./team";
 import { cx, ErrorNote } from "./ui";
 
@@ -31,13 +31,14 @@ function factsOf(f: { points?: string[]; evidence: string }): string[] {
 const weeks = (w: number) => (w >= 8 && w % 4 === 0 ? `${w / 4} months` : `${w} week${w === 1 ? "" : "s"}`);
 
 /** "What you're missing out on": how customers find you, and gaps with the goals that fix them. */
-export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, canStart, titled = true, preview, only, recheck = true }: {
+export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, canStart, titled = true, preview, only, recheck = true, details = true }: {
   profile: CompanyProfile | null | undefined; org: OrgInfo | null | undefined; goals: Campaign[] | null | undefined; orgName: string;
   onStart: (goals: Campaign[]) => void; onOpen: (goal: Campaign) => void; canStart: boolean;
   titled?: boolean;  // false where the page title already says it (onboarding)
   preview?: number;  // show only this many findings until "Show all"
   only?: (f: Opportunity) => boolean;  // which findings to show (e.g. only the ones not being fixed yet)
   recheck?: boolean;  // offer "Check again" (runs the whole check again)
+  details?: boolean;  // also show what was checked and the measurements (off: the findings directly)
 }) {
   const found = profile?.opportunities;
   const has = !!found && (found.findings.length > 0 || (found.unlock || []).length > 0 || (found.scorecard || []).length > 0);
@@ -57,8 +58,8 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
   const shownFindings = collapsed ? listed.slice(0, preview) : listed;
   const hiddenCount = listed.length - shownFindings.length;
   const extras = [
-    found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) ? "how customers find you" : "",
-    (found.scorecard || []).length > 0 ? "you vs competitors" : "",
+    details && found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) ? "how customers find you" : "",
+    details && (found.scorecard || []).length > 0 ? "you vs competitors" : "",
     (found.unlock || []).length > 0 ? "what connecting your tools unlocks" : "",
   ].filter(Boolean);
   const byId = new Map((goals || []).map((g) => [g.id, g]));
@@ -118,7 +119,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
         </div>
       </div>
       {err && <ErrorNote>{err}</ErrorNote>}
-      {!collapsed && (found.checks || []).some((c) => c.why) && (
+      {details && !collapsed && (found.checks || []).some((c) => c.why) && (
         <div className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
           <span className="text-muted">What we checked, and why:</span>
           {found.checks!.map((c) => (
@@ -128,8 +129,8 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
         </div>
       )}
 
-      {!collapsed && found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) && <Findable v={found.visibility} name={orgName} />}
-      {!collapsed && (found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} />}
+      {details && !collapsed && found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) && <Findable v={found.visibility} name={orgName} />}
+      {details && !collapsed && (found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} />}
 
       <div className="space-y-4">
         {shownFindings.map(({ f, i }) => {
@@ -142,14 +143,15 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
                 {/* The problem, and the proof */}
                 <div className="min-w-0 p-6 md:p-7">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[11.5px] font-semibold text-red-700 ring-1 ring-inset ring-red-100">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold text-red-700 ring-1 ring-inset ring-red-100">
                       <AlertTriangle size={12} /> Gap
                     </span>
                     <Pull n={f.pull} />
-                    <span className="text-[11.5px] font-medium text-stone-400">{CONFIDENCE[f.confidence]}</span>
+                    <span className="text-[12px] font-medium text-stone-400">{CONFIDENCE[f.confidence]}</span>
                     {isNew(f) && <span className="rounded-full bg-lime-200 px-2 py-0.5 text-[12px] font-bold text-lime-900">New</span>}
                   </div>
                   <h3 className="display mt-3 max-w-[40ch] text-[24px] leading-[1.15] text-red-700">{f.title}</h3>
+                  {f.impact && <p className="mt-3 max-w-[62ch] text-[15px] leading-relaxed text-stone-700">{f.impact}</p>}
 
                   <div className="mt-6 text-[12px] font-bold text-muted">What we found</div>
                   <ul className="mt-2.5 divide-y divide-dashed divide-line">
@@ -202,82 +204,69 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
   );
 }
 
-/** "Connect to unlock", per team: what connecting a tool lets Oton check, on your own data. */
-function Unlock({ groups, org, goals, canStart, onStart, onOpen }: {
-  groups: NonNullable<NonNullable<CompanyProfile["opportunities"]>["unlock"]>; org: OrgInfo | null | undefined; goals: Campaign[];
-  canStart: boolean; onStart: (g: Campaign[]) => void; onOpen: (g: Campaign) => void;
+/** Connect your tools: per team, the tools that let Oton look at your own data and suggest more goals. */
+function Unlock({ groups, org }: {
+  groups: NonNullable<NonNullable<CompanyProfile["opportunities"]>["unlock"]>; org: OrgInfo | null | undefined;
+  goals?: Campaign[]; canStart?: boolean; onStart?: (g: Campaign[]) => void; onOpen?: (g: Campaign) => void;
 }) {
+  const { data: conn, reload } = useApi<{ composio_enabled: boolean; apps: { app: string; status?: string }[] }>("/api/connections", { live: false });
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const has = (kind: string) => !!org?.departments.some((d) => d.kind === kind);
-  const sorted = [...groups].sort((a, b) => Number(has(b.team_kind)) - Number(has(a.team_kind)));
-  async function go(key: string) {
-    setBusy(key);
+  const connected = new Set((conn?.apps || []).filter((a) => (a.status || "").toUpperCase() === "ACTIVE").map((a) => a.app.toLowerCase()));
+  useEffect(() => {  // back from the tool's sign-in tab
+    const f = () => reload();
+    window.addEventListener("focus", f);
+    return () => window.removeEventListener("focus", f);
+  }, [reload]);
+
+  async function connect(tool: string, checkKey: string) {
+    setBusy(tool);
     setErr(null);
     try {
-      const { goal_id } = await api<{ goal_id: string }>(`/api/org/unlock/${key}`, { method: "POST" });
-      onStart([await api<Campaign>(`/api/campaigns/${goal_id}`)]);
+      // The check becomes a suggested goal for that team (nothing runs until someone turns it on),
+      // then the tool's own sign-in opens in a new tab.
+      await api(`/api/org/unlock/${checkKey}`, { method: "POST" }).catch(() => null);
+      const r = await api<{ redirect_url: string }>(`/api/connections/${tool}/connect?back=${encodeURIComponent(window.location.pathname)}`, { method: "POST" });
+      window.open(r.redirect_url, "_blank", "noopener");
     } catch (e) {
       setErr((e as Error).message);
     } finally {
       setBusy(null);
     }
   }
-  const row = useRef<HTMLDivElement>(null);
-  const scroll = (dir: number) => row.current?.scrollBy({ left: dir * 300, behavior: "smooth" });
+
+  const teams = groups.map((g) => ({
+    kind: g.team_kind,
+    tools: [...new Map(g.checks.map((c) => [c.tool, { tool: c.tool, label: c.label, key: c.key }])).values()],
+  })).filter((t) => t.tools.length > 0);
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[var(--shadow-card)]">
-      <div className="flex items-start gap-3 px-5 pb-2 pt-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 text-[15px] font-semibold"><Plug size={16} className="text-brand-600" /> Connect to unlock</div>
-          <div className="text-[12.5px] text-muted">More of what you&apos;re missing is in your own tools. Connect one and Oton checks it, then fixes what it finds, with your OK.</div>
+    <div className="overflow-hidden rounded-2xl border border-brand-200 bg-brand-50/60 p-5 md:p-6">
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Plug size={18} /></span>
+        <div className="min-w-0">
+          <div className="text-[17px] font-bold leading-snug">Want more areas of improvement?</div>
+          <p className="mt-0.5 text-[14px] text-stone-700">Connect your tools so we can analyze more information and suggest goals.</p>
         </div>
-        {sorted.length > 1 && (
-          <div className="hidden shrink-0 gap-1 sm:flex">
-            <button onClick={() => scroll(-1)} aria-label="Previous teams" className="grid h-8 w-8 place-items-center rounded-full border border-line text-stone-500 hover:bg-stone-50 hover:text-ink"><ChevronLeft size={16} /></button>
-            <button onClick={() => scroll(1)} aria-label="More teams" className="grid h-8 w-8 place-items-center rounded-full border border-line text-stone-500 hover:bg-stone-50 hover:text-ink"><ChevronRight size={16} /></button>
-          </div>
-        )}
       </div>
-      {err && <div className="px-5 pt-1"><ErrorNote>{err}</ErrorNote></div>}
-      <div ref={row} className="flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-5 pt-2 [scrollbar-width:thin]">
-        {sorted.map((g) => {
-          const titles = [...new Set(g.checks.map((c) => c.title))];
-          return (
-            <div key={g.team_kind} className="w-[270px] shrink-0 snap-start rounded-xl bg-canvas p-3.5 ring-1 ring-inset ring-line">
-              <div className="flex items-center justify-between gap-2">
-                <TeamTag name={teamName(g.team_kind, org)} />
-                {!has(g.team_kind) && <Link href="/team" className="text-[12px] font-semibold text-brand-700 hover:underline">Add team</Link>}
-              </div>
-              <ul className="mt-3 space-y-3">
-                {titles.map((title) => {
-                  const options = g.checks.filter((c) => c.title === title);
-                  const live = goals.find((x) => options.some((o) => o.goal === x.name));
-                  return (
-                    <li key={title}>
-                      <div className="text-[13.5px] font-semibold leading-snug">{title}</div>
-                      <div className="line-clamp-2 text-[12px] leading-snug text-muted" title={options[0].how}>{options[0].how}</div>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        {live ? (
-                          <button onClick={() => (live.status === "draft" && canStart ? onStart([live]) : onOpen(live))}
-                            className={cx("inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-[12px] font-semibold",
-                              live.status === "draft" ? "bg-brand-600 text-white hover:bg-brand-700" : "text-emerald-700")}>
-                            {live.status === "draft" ? <>Turn on <ArrowRight size={12} /></> : <><Check size={13} /> On</>}
-                          </button>
-                        ) : has(g.team_kind) && canStart ? options.map((o) => (
-                          <button key={o.key} onClick={() => go(o.key)} disabled={busy === o.key}
-                            className="inline-flex h-7 items-center gap-1 rounded-md border border-line bg-white px-2.5 text-[12px] font-semibold hover:border-stone-300 disabled:opacity-60">
-                            {busy === o.key ? <Loader2 size={12} className="animate-spin" /> : <Plug size={12} />} Connect {o.label}
-                          </button>
-                        )) : <span className="text-[12px] text-muted">{options.map((o) => o.label).join(" or ")}</span>}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+      {err && <div className="mt-3"><ErrorNote>{err}</ErrorNote></div>}
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {teams.map((t) => (
+          <div key={t.kind} className="rounded-xl bg-white p-4 ring-1 ring-inset ring-line">
+            <TeamTag name={teamName(t.kind, org)} />
+            <div className="mt-3 flex flex-wrap gap-2">
+              {t.tools.map((x) => connected.has(x.tool.toLowerCase()) ? (
+                <span key={x.tool} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-50 px-3 text-[13px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                  <Check size={14} /> {x.label} connected
+                </span>
+              ) : (
+                <button key={x.tool} onClick={() => connect(x.tool, x.key)} disabled={busy === x.tool}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-[13px] font-semibold text-ink transition hover:border-brand-300 hover:bg-brand-50 disabled:opacity-60">
+                  {busy === x.tool ? <Loader2 size={14} className="animate-spin" /> : <Plug size={14} className="text-brand-600" />} Connect {x.label}
+                </button>
+              ))}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -301,7 +290,7 @@ function Pull({ n }: { n?: number }) {
   if (!n) return null;
   const label = n >= 4 ? "High impact" : n === 3 ? "Medium impact" : "Worth fixing";
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas px-2.5 py-1 text-[11.5px] font-semibold text-stone-700 ring-1 ring-inset ring-line">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas px-2.5 py-1 text-[12px] font-semibold text-stone-700 ring-1 ring-inset ring-line">
       <span className="flex items-end gap-[2px]" aria-hidden>
         {[1, 2, 3, 4, 5].map((k) => <span key={k} className={cx("w-[3px] rounded-sm", k <= n ? "bg-brand-600" : "bg-stone-200")} style={{ height: 4 + k * 1.5 }} />)}
       </span>
@@ -310,7 +299,7 @@ function Pull({ n }: { n?: number }) {
   );
 }
 
-/** The right side of a finding: what fixing it gets you (now → goal, the payoff) and the one move to start. */
+/** The right side of a finding: the goal that fixes it, what it gets you, and the one move to start. */
 function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
   f: Opportunity; goal: Campaign | undefined; steps: Milestone[]; canStart: boolean; onStart: (g: Campaign) => void; onOpen: (g: Campaign) => void;
 }) {
@@ -322,47 +311,51 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
     <aside className="relative flex min-w-0 flex-col overflow-hidden bg-ink p-6 text-white md:p-7">
       <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-lime-300/20 blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-emerald-500/20 blur-3xl" />
-      <div className="relative text-[12px] font-bold text-lime-300">What fixing it gets you</div>
+      <div className="relative text-[12px] font-bold text-lime-300">{multi ? "The goal for step 1" : "The goal that fixes it"}</div>
 
-      {f.metric_now && f.metric_goal && (
-        <div className="relative mt-4 space-y-2">
-          {([["Today", f.metric_now, "text-red-300"], ["After the fix", f.metric_goal, "text-lime-300"]] as const).map(([when, v, tone]) => (
-            <div key={when} className="rounded-xl bg-white/[0.06] px-3.5 py-2.5 ring-1 ring-inset ring-white/10">
-              <div className="text-[12px] font-semibold text-white/45">{when}</div>
-              <div className="mt-0.5 leading-snug">
-                <span className={cx("text-[20px] font-bold", tone)}>{v}</span>
-                {f.metric_name && <span className="text-[13px] text-white/65"> {lower(f.metric_name)}</span>}
-              </div>
-            </div>
-          ))}
+      {goal ? (
+        <button onClick={() => onOpen(goal)}
+          className="group relative mt-3 flex w-full items-start gap-3 rounded-2xl bg-white/[0.07] p-4 text-left ring-1 ring-inset ring-white/15 transition hover:bg-white/[0.1]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-lime-300 text-ink"><Target size={17} /></span>
+          <span className="min-w-0">
+            <span className="block text-[16px] font-semibold leading-snug text-white">{goal.name}</span>
+            <span className="mt-1 inline-flex items-center gap-0.5 text-[12px] text-white/50 transition group-hover:text-white/80">See the plan <ChevronRight size={12} /></span>
+          </span>
+        </button>
+      ) : <p className="relative mt-3 text-[14px] text-white/60">No goal for this yet.</p>}
+
+      {f.metric_goal && (
+        <div className="relative mt-5">
+          <div className="text-[12px] font-semibold text-white/50">After the fix</div>
+          <div className="mt-0.5 leading-snug">
+            <span className="text-[22px] font-bold text-lime-300">{f.metric_goal}</span>
+            {f.metric_name && <span className="text-[13.5px] text-white/70"> {lower(f.metric_name)}</span>}
+          </div>
         </div>
       )}
 
       {f.estimate && (
         <div className="relative mt-4 rounded-xl bg-lime-300/10 px-3.5 py-2.5 ring-1 ring-inset ring-lime-300/25">
           <div className="text-[14px] font-semibold leading-snug text-lime-100">{f.estimate}</div>
-          {f.assumption && <div className="mt-0.5 text-[11.5px] leading-snug text-white/45">{f.assumption}</div>}
+          {f.assumption && <div className="mt-0.5 text-[12px] leading-snug text-white/45">{f.assumption}</div>}
         </div>
       )}
-      {f.impact && <p className="relative mt-4 text-[13.5px] leading-relaxed text-white/70">{f.impact}</p>}
 
       <div className="relative mt-auto pt-6">
         {goal && goal.status !== "draft" ? (
           <button onClick={() => onOpen(goal)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300/15 py-3 text-[14px] font-semibold text-lime-200 ring-1 ring-inset ring-lime-300/30 transition hover:bg-lime-300/20">
-            <span className="signal-dot" /> Being fixed now
+            <span className="signal-dot" /> AI is working on this goal
           </button>
         ) : goal && canStart && goal.can_manage !== false ? (
-          <button onClick={() => onStart(goal)} className="group flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 py-3 text-[14.5px] font-bold text-ink shadow-[0_8px_24px_-8px_rgba(190,242,100,0.6)] transition hover:bg-lime-200">
-            {multi ? "Start step 1" : "Turn on the fix"}{price ? <span className="tabular font-semibold text-ink/60">· {usd(price)}</span> : null}
-            <ArrowRight size={16} className="transition group-hover:translate-x-0.5" />
-          </button>
+          <>
+            <button onClick={() => onStart(goal)} className="group flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 px-3 py-3 text-[14.5px] font-bold text-ink shadow-[0_8px_24px_-8px_rgba(190,242,100,0.6)] transition hover:bg-lime-200">
+              {multi ? "Set up AI to work on step 1" : "Set up AI to work on this goal"}
+              <ArrowRight size={16} className="shrink-0 transition group-hover:translate-x-0.5" />
+            </button>
+            {price ? <p className="tabular mt-2 text-center text-[12.5px] text-white/55">{usd(price)} budget, a hard limit. Nothing runs until you say so.</p> : null}
+          </>
         ) : null}
-        {goal && (
-          <button onClick={() => onOpen(goal)} className="mt-2.5 block w-full truncate text-center text-[12px] text-white/50 transition hover:text-white">
-            {multi ? "Step 1: " : "Goal: "}<span className="font-medium text-white/75">{goal.name}</span>
-          </button>
-        )}
-        {multi && <p className="mt-1 text-center text-[11.5px] text-white/40">The full fix: {usd(total)} over {weeks(span)}. Go further only if it works.</p>}
+        {multi && <p className="mt-1 text-center text-[12px] text-white/40">The full fix: {usd(total)} over {weeks(span)}. Go further only if it works.</p>}
       </div>
     </aside>
   );
@@ -394,7 +387,7 @@ function Steps({ steps, total, goalFor, canStart, busy, onStart, onOpen, onFurth
                 </span>
               )}
               <div className="flex items-center gap-2 text-[12px] font-bold">
-                <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[10.5px]", live ? "bg-emerald-500 text-white" : i === 0 ? "bg-brand-600 text-white" : "bg-stone-100 text-stone-500")}>
+                <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[12px]", live ? "bg-emerald-500 text-white" : i === 0 ? "bg-brand-600 text-white" : "bg-stone-100 text-stone-500")}>
                   {live ? <Check size={11} strokeWidth={3} /> : last ? <Flag size={10} /> : i + 1}
                 </span>
                 <span className={i === 0 ? "text-brand-700" : "text-muted"}>{i === 0 ? "Start here" : last ? "Full result" : `Step ${i + 1}`}</span>
@@ -410,7 +403,7 @@ function Steps({ steps, total, goalFor, canStart, busy, onStart, onOpen, onFurth
               <div className="mt-auto flex items-end justify-between gap-2 pt-4">
                 <div className="min-w-0">
                   <div className="tabular text-[17px] font-bold leading-none text-ink">{usd(m.total_usd)}</div>
-                  <div className="mt-1 truncate text-[11px] text-muted" title={m.paid_items.map((p) => `${p.item}: ${usd(p.usd)}`).join(", ")}>
+                  <div className="mt-1 truncate text-[12px] text-muted" title={m.paid_items.map((p) => `${p.item}: ${usd(p.usd)}`).join(", ")}>
                     AI work {usd(m.ai_usd)}{m.paid_usd ? ` + ${usd(m.paid_usd)} spend` : ""}
                   </div>
                 </div>
@@ -498,7 +491,7 @@ function Findable({ v, name }: { v: Visibility; name: string }) {
                             )}
                             {s.competitors_ahead.length > 0 && <div className="text-muted">Ahead: {s.competitors_ahead.join(", ")}</div>}
                             {s.ai_overview && (
-                              <div className={cx("text-[11.5px] font-medium", s.ai_overview.mentioned ? "text-emerald-700" : "text-red-700")}>
+                              <div className={cx("text-[12px] font-medium", s.ai_overview.mentioned ? "text-emerald-700" : "text-red-700")}>
                                 AI Overview {s.ai_overview.mentioned ? "cites you" : s.ai_overview.competitors.length ? `cites ${s.ai_overview.competitors.join(", ")}` : "doesn't cite you"}
                               </div>
                             )}
@@ -580,7 +573,7 @@ function Scorecard({ rows, name }: { rows: ScoreRow[]; name: string }) {
               <tr key={r.key} className="align-top">
                 <td className="px-5 py-2.5">
                   <div className="font-semibold text-ink">{r.label}</div>
-                  {r.note && <div className="text-[11.5px] text-muted">{r.note}</div>}
+                  {r.note && <div className="text-[12px] text-muted">{r.note}</div>}
                 </td>
                 <td className="px-3 py-2.5">
                   <span className={cx("inline-flex items-start gap-1.5 font-medium", r.you.status === "bad" ? "text-red-700" : r.you.status === "good" ? "text-emerald-700" : "text-ink")}>
@@ -618,7 +611,7 @@ export function MissingSummary({ profile, goals }: { profile: CompanyProfile | n
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100"><Search size={17} /></span>
       <span className="min-w-0 flex-1">
         <span className="block text-[14.5px] font-semibold">{open.length} thing{open.length === 1 ? "" : "s"} you&apos;re missing out on</span>
-        <span className="mt-0.5 block truncate text-[13px] text-muted">{open.slice(0, 3).map((f) => f.title).join(" · ")}</span>
+        <span className="mt-0.5 block truncate text-[13px] text-muted">{andMore(open.map((f) => f.title))}</span>
       </span>
       <span className="inline-flex shrink-0 items-center gap-1 self-center text-[13px] font-semibold text-brand-700">Turn on fixes <ArrowRight size={14} className="transition group-hover:translate-x-0.5" /></span>
     </Link>

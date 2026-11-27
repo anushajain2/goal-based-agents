@@ -462,8 +462,10 @@ media, a launch video, comparisons, a clear home page) matters more than search 
 - No analytics on the website (in the measurements) is a quick finding: they can't see which \
 channel brings visitors and customers, so they can't double down on what works. The fix is setting \
 up analytics with sign-up/booking events and a weekly channel report.
-- Write plainly and briefly; direct and helpful, not alarming. People skim these: the title says the \
-gap in a few words; the points are 2-4 short facts (who, what, how many, when), not a paragraph; \
+- Write plainly and briefly. People skim these. The title makes the stakes obvious in one line, \
+usually by contrast with competitors or with what buyers expect: what they have or do, and what this \
+company is missing (e.g. "Profound shows buyers a demo video; Oton has none", "Competitors answer every \
+bad review; 7 of yours sit unanswered"). Sharp, but only the facts: never exaggerate or invent. The points are 2-4 short facts (who, what, how many, when), not a paragraph; \
 "impact" says in one or two plain sentences why it matters to their business (lost deals, revenue, \
 risk), connecting the facts to what they sell.
 - Money: only give an estimate of what the gap costs them when you can state a reasonable \
@@ -479,7 +481,10 @@ work like DNS records, a profile or a page takes a few sessions, not weeks of th
 money it needs beyond the AI's own work \
 (ads, tools, freelancers, directory fees, PR distribution), itemised with realistic prices. Don't \
 pad: if no extra spend is needed, list none.
-  Smaller fixes get a single new goal and no milestones.
+  Smaller fixes get a single new goal and no milestones, and "sessions": the work sessions the fix \
+really needs. Count the actual work, not one per cycle: DNS records 1-2; a short video made from the \
+website 2-4 (script, record, edit); a comparison page 2-3; setting up analytics 2-3; a profile or \
+listing 1-2. Ongoing work (posting, outreach, answering reviews) needs one per cycle over its weeks.
 - A goal's steps are what a skilled person would actually do to hit that goal.
 - In anything written for people, don't call it an AI employee, agent or lead: talk about the goal \
 and say Oton does the work."""
@@ -535,7 +540,7 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
         "properties": {
             "check": {"type": "string", "enum": check_keys + [""]},
             "team_kind": {"type": "string", "enum": kinds},
-            "title": {"type": "string", "description": "The gap in a few words"},
+            "title": {"type": "string", "description": "The gap and its stakes in one line, e.g. by contrast with competitors"},
             "evidence": {"type": "string", "description": "What was seen, in one short sentence"},
             "points": {"type": "array", "items": {"type": "string"},
                        "description": "2-4 short bullets of exactly what was seen (names, numbers, dates), "
@@ -553,10 +558,12 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
             "goal_id": {"type": "string", "description": "Id of an existing goal that fixes this, or ''"},
             "new_goal": {"anyOf": [goal, {"type": "null"}]},
             "milestones": {"type": "array", "items": milestone},
+            "sessions": {"type": "integer", "description": (
+                "For a new_goal: work sessions the fix really needs (one-off jobs 1-6), or 0")},
         },
         "required": ["check", "team_kind", "title", "evidence", "points", "impact", "estimate", "assumption", "confidence",
                      "metric_name", "metric_now", "metric_goal", "pull",
-                     "source_urls", "goal_id", "new_goal", "milestones"],
+                     "source_urls", "goal_id", "new_goal", "milestones", "sessions"],
         "additionalProperties": False,
     }
     return {"type": "json_schema", "schema": {
@@ -836,6 +843,7 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     for f in balanced([f for f in raw.get("findings") or [] if f.get("title") and f.get("evidence")
                        and _norm_title(f["title"]) not in seen_titles]):
         goal_id = f.get("goal_id") if f.get("goal_id") in known else ""
+        fix_usd = None
         steps = _milestones(f.get("milestones") or [], per, basis, n, org_setup)
         if steps:
             # Step 1 is ready to turn on now; later steps become goals when someone asks for them.
@@ -847,9 +855,14 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
         elif not goal_id and f.get("new_goal"):
             goal = org_setup._tidy_goal(f["new_goal"])
             if goal:
-                goal["budget_basis"] = estimate.starter(per, goal["cycle_hours"], goal["duration_days"],
-                                                        goal["paid_spend_usd"], basis, n)
+                need = int(f.get("sessions") or 0)
+                goal["budget_basis"] = (
+                    {**estimate.compute(per, goal["cycle_hours"], goal["duration_days"], goal["paid_spend_usd"],
+                                        basis, n, max_sessions=need), "fix": True}
+                    if need > 0 else
+                    estimate.starter(per, goal["cycle_hours"], goal["duration_days"], goal["paid_spend_usd"], basis, n))
                 goal["budget_usd"] = goal["budget_basis"]["suggested_usd"]
+                fix_usd = goal["budget_usd"]
                 goal_id = await create_goal(org_id, requested_by, f["team_kind"], goal) or ""
                 if goal_id:
                     created.append(goal_id)
@@ -865,7 +878,7 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
             "sources": [u for u in urls if u in allowed][:4] or urls[:2],  # prefer sources really seen
             "goal_id": goal_id or None,
             "milestones": steps,
-            "total_usd": round(sum(m["total_usd"] for m in steps), 2) if steps else None,
+            "total_usd": round(sum(m["total_usd"] for m in steps), 2) if steps else fix_usd,
         })
     fresh = {
         "findings": findings, "unlock": catalog.unlockable(pack_key), "scanned_at": scanned_at,

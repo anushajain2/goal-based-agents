@@ -48,7 +48,7 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
             <section>
               <h3 className="mb-1.5 text-[12px] font-bold text-muted">Target</h3>
               <TargetLine goal={goal} />
-              <p className="mt-1 text-[11.5px] text-muted">An ongoing goal: Oton suggests a new target as results come in, and you approve it.</p>
+              <p className="mt-1 text-[12px] text-muted">An ongoing goal: Oton suggests a new target as results come in, and you approve it.</p>
               <div className="mt-2"><TargetHistory target={goal.target} /></div>
             </section>
           )}

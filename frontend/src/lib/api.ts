@@ -484,6 +484,9 @@ export const usd = (n: number | null | undefined, digits?: number) => {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d })}`;
 };
 
+/** "First, and 2 more": a list in words instead of items mashed together with dots. */
+export const andMore = (xs: string[]) => (xs.length ? xs[0] + (xs.length > 1 ? `, and ${xs.length - 1} more` : "") : "");
+
 export const num = (n: number | null | undefined) =>
   n === null || n === undefined ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 

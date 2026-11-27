@@ -291,7 +291,7 @@ function ScanPreview() {
               <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-semibold text-emerald-700">9 doing well</span>
             </div>
           </div>
-          <div className="mt-6 grid grid-cols-[1.6fr_1fr_100px] gap-4 border-b border-[#f2f4f7] px-1 pb-2.5 text-[11.5px] font-semibold text-stone-400 lg:grid-cols-[2fr_1.1fr_1.2fr_110px]">
+          <div className="mt-6 grid grid-cols-[1.6fr_1fr_100px] gap-4 border-b border-[#f2f4f7] px-1 pb-2.5 text-[12px] font-semibold text-stone-400 lg:grid-cols-[2fr_1.1fr_1.2fr_110px]">
             <div>Check</div><div>You</div><div className="hidden lg:block">Best competitor</div><div>Status</div>
           </div>
           {SCAN.map(([check, you, them, how, level]) => {
@@ -314,16 +314,16 @@ function ScanPreview() {
       </div>
 
       <div className="absolute right-[-64px] top-[-44px] hidden w-[312px] rounded-2xl border border-[#e4e7ec] bg-white px-[18px] py-4 text-left shadow-[0_30px_60px_-20px_rgba(16,24,40,0.28),0_2px_6px_rgba(16,24,40,0.05)] xl:block">
-        <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-brand-700"><Sparkles size={13} />Biggest opportunity</div>
+        <div className="flex items-center gap-1.5 text-[12px] font-semibold text-brand-700"><Sparkles size={13} />Biggest opportunity</div>
         <div className="mb-1.5 mt-2 text-[15px] font-semibold tracking-[-0.01em]">Show up when buyers search for route planning</div>
         <div className="text-[12.5px] leading-snug text-muted">About 590 searches a month go to competitors. First step: page 1 for 3 searches.</div>
         <div className="mt-3.5 flex items-center gap-2">
-          <span className="inline-flex h-8 items-center rounded-[9px] bg-brand-600 px-3 text-[13px] font-semibold text-white">Fix this · $30</span>
+          <span className="inline-flex h-8 items-center rounded-[9px] bg-brand-600 px-3 text-[13px] font-semibold text-white">Fix this for $30</span>
           <span className="inline-flex h-8 items-center rounded-[9px] border border-line px-3 text-[13px] font-semibold">See sources</span>
         </div>
       </div>
       <div className="absolute bottom-[-88px] left-[-48px] hidden w-[262px] rounded-2xl border border-[#e4e7ec] bg-white px-[18px] py-4 text-left shadow-[0_30px_60px_-20px_rgba(16,24,40,0.28),0_2px_6px_rgba(16,24,40,0.05)] xl:block">
-        <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-rose-700"><MessageSquare size={13} />Asked ChatGPT</div>
+        <div className="flex items-center gap-1.5 text-[12px] font-semibold text-rose-700"><MessageSquare size={13} />Asked ChatGPT</div>
         <div className="mt-2 text-[13.5px] leading-snug text-stone-700">“Best route planning software for a small fleet?”</div>
         <div className="mt-1.5 text-[12.5px] leading-snug text-muted">Recommends Routeco, OptiDrive and Fleetbase. Not you.</div>
       </div>
@@ -624,7 +624,7 @@ function ApproveMock() {
   return (
     <div ref={ref} className="rounded-2xl bg-white p-4 ring-1 ring-line">
       <div className="text-[13.5px] font-semibold leading-snug">Win 3 searches competitors own</div>
-      <div className="mt-0.5 text-[12.5px] text-muted">First step · $30</div>
+      <div className="mt-0.5 text-[12.5px] text-muted">First step: $30</div>
       <div className={cx("mt-3 flex h-9 items-center justify-center gap-1.5 rounded-[10px] text-[13px] font-semibold transition-colors duration-300",
         ok ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200" : "bg-brand-600 text-white")}>
         {ok ? <><Check size={14} strokeWidth={3} />Approved</> : "Approve"}
@@ -647,7 +647,7 @@ function GrowMock() {
           pathLength={1} strokeDasharray="1" strokeDashoffset={seen ? 0 : 1} style={{ transition: "stroke-dashoffset 1.6s ease-out 0.2s" }} />
         <circle cx="196" cy="10" r="5" fill="currentColor" className="transition-opacity duration-300" style={{ opacity: seen ? 1 : 0, transitionDelay: "1.7s" }} />
       </svg>
-      <div className="mt-2 flex justify-between text-[11.5px] text-stone-400"><span>Week 1</span><span>Week 4</span></div>
+      <div className="mt-2 flex justify-between text-[12px] text-stone-400"><span>Week 1</span><span>Week 4</span></div>
     </div>
   );
 }
