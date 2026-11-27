@@ -289,7 +289,7 @@ export type CompanyProfile = {
   revenue?: string; size?: "tiny" | "small" | "mid" | "large"; size_reason?: string; later?: LaterFunction[];
   company_type?: string; pack_label?: string;
   opportunities?: {
-    findings: Opportunity[]; scanned_at: string;
+    findings: Opportunity[]; scanned_at: string; rounds?: number;
     deeper?: { check: string; tool: string; label: string; title: string; why: string }[];
     unlock?: { team_kind: string; checks: { key: string; title: string; how: string; tool: string; label: string; goal: string }[] }[];
     checks?: { key: string; title: string; method: string; team?: string; why?: string; expect?: string; score?: number }[];
@@ -320,7 +320,7 @@ export type Opportunity = {
   team_kind: string; title: string; evidence: string; points?: string[]; impact: string; estimate: string; assumption: string;
   confidence: "high" | "medium" | "low"; sources: string[]; goal_id: string | null;
   check?: string; milestones?: Milestone[]; total_usd?: number | null;
-  metric_name?: string; metric_now?: string; metric_goal?: string; pull?: number;
+  metric_name?: string; metric_now?: string; metric_goal?: string; pull?: number; found_at?: string;
 };
 export type LaterFunction = { kind: string; name: string; when: string };
 export const SIZE_LABEL: Record<string, string> = { tiny: "1-10 people", small: "11-50 people", mid: "51-250 people", large: "250+ people" };
@@ -329,13 +329,16 @@ export type PlannedGoal = {
   name: string; goal_description: string; done_when: string; primary_metric: string; target_value: number | null; budget_usd: number;
   why: string; category: string; steps?: PlanStep[]; budget_basis?: BudgetBasis; first_week?: string; start_here?: boolean;
 };
+export type SetupRun = {
+  id: string; mode: "start" | "goals" | "more" | "include"; status: "queued" | "running" | "done" | "failed"; steps: SetupStep[];
+  error: string | null; cost_usd: number;
+  plan: { profile?: CompanyProfile; departments?: { kind: string; name: string; agent_title: string; why: string; goals: PlannedGoal[] }[] } | null;
+  created: { departments: string[]; agents: string[]; goals: string[] } | null; created_at: string;
+};
 export type SetupInfo = {
   org: { id: string; name: string; website: string; description: string; profile: CompanyProfile | null };
-  setup: null | {
-    id: string; status: "queued" | "running" | "done" | "failed"; steps: SetupStep[]; error: string | null; cost_usd: number;
-    plan: { profile: CompanyProfile; departments: { kind: string; name: string; agent_title: string; why: string; goals: PlannedGoal[] }[] } | null;
-    created: { departments: string[]; agents: string[]; goals: string[] } | null; created_at: string;
-  };
+  setup: null | SetupRun;  // the company research (onboarding or "Check again")
+  task: null | SetupRun;  // the latest "Suggest more goals" / "Find more opportunities" / add-a-function run
   can_research: boolean; can_run: boolean; has_team: boolean;
 };
 export type OrgInfo = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Hand, Home, ListTree, LogOut, Plug, Settings, Target, Users } from "lucide-react";
+import { Hand, Home, ListTree, LogOut, Plug, Radar, Settings, Target, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
@@ -14,7 +14,8 @@ const NAV = [
   { href: "/home", label: "Home", icon: Home, match: (p: string) => p === "/home" },
   { href: "/approvals", label: "Needs you", icon: Hand, match: (p: string) => p.startsWith("/approvals") },
   { href: "/team", label: "Team", icon: Users, match: (p: string) => p.startsWith("/team") },
-  { href: "/goals", label: "Goals", icon: Target, match: (p: string) => p.startsWith("/goals") || p.startsWith("/setup") },
+  { href: "/goals", label: "Goals", icon: Target, match: (p: string) => p.startsWith("/goals") },
+  { href: "/opportunities", label: "Find opportunities", icon: Radar, match: (p: string) => p.startsWith("/opportunities") || p.startsWith("/setup") },
   { href: "/work", label: "Work log", icon: ListTree, match: (p: string) => p.startsWith("/work") },
   { href: "/connections", label: "Connections", icon: Plug, match: (p: string) => p.startsWith("/connections") },
   { href: "/settings", label: "Settings", icon: Settings, match: (p: string) => p.startsWith("/settings") },

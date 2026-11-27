@@ -40,7 +40,6 @@ export default function SetupPage() {
   if (!info) return <p className="text-muted">Loading…</p>;
 
   const name = info.org.name;
-  const adding: string[] = (info.setup?.plan as { include?: string[] } | null)?.include?.map((k) => PRESET_LABEL[k] || k) || [];
   if (!info.setup) {
     return (
       <div className="mx-auto max-w-2xl">
@@ -58,7 +57,7 @@ export default function SetupPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">
-            {working ? (adding.length ? `Adding ${adding.join(", ")} to your team…` : `Getting to know ${name}…`) : status === "done" ? `What ${name} is missing out on` : `Setting up ${name} didn't finish`}
+            {working ? `Getting to know ${name}…` : status === "done" ? `What ${name} is missing out on` : `Setting up ${name} didn't finish`}
           </h1>
           <p className="text-sm text-muted">
             {working
@@ -106,9 +105,9 @@ export default function SetupPage() {
         </Card>
       )}
 
-      {status === "done" && info.setup.plan && (
+      {status === "done" && (
         <>
-          <Learned profile={info.org.profile || info.setup.plan.profile} name={name} />
+          {(info.org.profile || info.setup.plan?.profile)?.summary && <Learned profile={(info.org.profile || info.setup.plan!.profile)!} name={name} />}
           <SuggestedTeam info={info} onAdding={load} />
         </>
       )}
@@ -173,11 +172,6 @@ function StepIcon({ status }: { status: SetupStep["status"] }) {
   return <span className={cx(base, "border-2 border-stone-200")} />;
 }
 
-const PRESET_LABEL: Record<string, string> = {
-  finance: "Finance", hiring: "People & Hiring", it: "IT & Security", legal: "Legal & Compliance", operations: "Operations",
-  success: "Customer Success", product: "Product", engineering: "Engineering", sales: "Sales", marketing: "Marketing",
-  research: "Customer Research", fundraising: "Fundraising", partnerships: "Partnerships", pr: "Brand & PR",
-};
 
 function SuggestedTeam({ info, onAdding }: { info: SetupInfo; onAdding: () => void }) {
   const { data: goals, reload } = useApi<Campaign[]>("/api/campaigns");

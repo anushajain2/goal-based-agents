@@ -7,7 +7,7 @@ from app.agent.llm import MeteredClaude
 from app.agent.opportunities import SEARCH_SYSTEM, host
 from app.agent.org_setup import run_org_setup
 from tests.fakes import FakeAnthropic
-from tests.test_org_setup import PLAN, client, fake_site, goal, research_script, start_setup, with_key  # noqa: F401
+from tests.test_org_setup import PLAN, client, fake_site, goal, onboard, research_script, start_setup, suggest_goals, with_key  # noqa: F401
 
 Q1, Q2, Q3 = "route planning software for logistics", "acme routing reviews", "best fleet routing tool europe"
 
@@ -90,7 +90,10 @@ async def test_checks_suit_the_type_of_company():
 
 async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_site):
     async with client() as c:
-        setup_id = await start_setup(c)
+        # Onboarded, goals suggested per function, then "Check again": findings link to those goals.
+        await onboard(c)
+        await suggest_goals(c, FakeAnthropic(research_script, org_planner=lambda kw: PLAN))
+        setup_id = (await c.post("/api/org/setup", json={})).json()["id"]
         fake = FakeAnthropic(script, org_planner=lambda kw: PLAN, routes={"checks": pick, "answers": ai},
                              scanner=findings, searches=2)
         await run_org_setup(setup_id, MeteredClaude(client=fake))
@@ -133,8 +136,9 @@ async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_
         assert goals[compare["goal_id"]]["name"] == "Book 15 demos with Heads of Ops"
         # Cheap work isn't split into steps.
         assert len(titles["milestones"]) == 1
-        # No Finance team and no close one (Operations, Founder's office): nothing invented.
-        assert pricing["goal_id"] is None and not any(g["name"] == "Publish pricing" for g in goals.values())
+        # No Finance function and no close one: the goal brings its function with it.
+        assert goals[pricing["goal_id"]]["name"] == "Publish pricing"
+        assert goals[pricing["goal_id"]]["department"]["name"] == "Finance"
         # Connect to unlock, per team; a check becomes a goal for its team, once.
         unlock = {u["team_kind"]: u for u in opp["unlock"]}
         assert {"finance", "sales", "it"} <= set(unlock)
@@ -147,7 +151,7 @@ async def test_scan_measures_search_and_ai_and_prices_milestones(with_key, fake_
         assert (g["name"], g["status"]) == ("Follow up every lead and stalled deal", "draft")
         full = (await c.get(f"/api/campaigns/{lead_goal}")).json()
         assert [st["tool"] for st in full["playbook"]["steps"]] == ["hubspot", "none", "hubspot"]
-        assert (await c.post("/api/org/unlock/overdue_invoices")).status_code == 404  # no Finance team yet
+        assert (await c.post("/api/org/unlock/overdue_invoices")).status_code == 200  # Finance came with the pricing goal
         assert (await c.post("/api/org/unlock/search_rank")).status_code == 404  # not a connect-to-unlock check
 
         # Going further: step 2 becomes a draft goal with its full price, once.
@@ -224,10 +228,10 @@ async def test_a_fix_goes_to_the_closest_team_when_its_own_is_missing(with_key, 
     from tests.helpers import org_of
 
     async with client() as c:
-        setup_id = await start_setup(c)
-        await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(script, org_planner=lambda kw: {
+        await onboard(c)
+        await suggest_goals(c, FakeAnthropic(script, org_planner=lambda kw: {
             **PLAN, "departments": [{"kind": "engineering", "name": "Engineering", "why": "", "agents": [
-                {"role": "", "name": "Eng Agent", "title": "", "objective": "", "goals": [goal("Ship fixes")]}]}]})))
+                {"role": "", "name": "Eng Agent", "title": "", "objective": "", "goals": [goal("Ship fixes")]}]}]}))
         org = await org_of(c)
         g = {k: v for k, v in goal("Add a DMARC record").items()}
         from app.agent.org_setup import _tidy_goal
@@ -324,3 +328,56 @@ def test_core_checks_are_for_early_companies():
     assert checks.core("startup", "tiny") == checks.EARLY_CORE
     assert checks.core("startup", "large") == []
     assert "comparison_searches" not in checks.core("general", "small")  # not a check for this type
+
+
+async def test_find_more_opportunities_skips_what_was_found_and_adds_new_ones(with_key, fake_site):
+    def finding(check, title, team="marketing"):
+        return {"check": check, "team_kind": team, "title": title, "evidence": "Measured.", "points": ["A fact"],
+                "impact": "Buyers go elsewhere.", "estimate": "", "assumption": "", "confidence": "high", "pull": 4,
+                "metric_name": "", "metric_now": "", "metric_goal": "", "source_urls": [], "goal_id": "",
+                "new_goal": goal(f"Fix: {title}", "Marketing & demand gen"), "milestones": []}
+
+    first = {"findings": [finding("social_performance", "Routeco posts 5x more on LinkedIn"),
+                          finding("launch_video", "No launch video")]}
+    again = {"findings": [finding("review_gap", "Routeco posts 5x more on LinkedIn!"),  # the same gap again: dropped
+                          finding("review_gap", "12 reviews against Routeco's 240", team="sales"),
+                          finding("listings_gap", "Missing from G2 and Capterra")]}
+    picks = []
+
+    def pick_any(kw):
+        offered = re.findall(r"^- (\w+):", kw["messages"][0]["content"], re.M)
+        picks.append(offered)
+        return {"checks": [{"key": k, "score": 4, "why": "", "expect": ""} for k in offered],
+                "queries": [], "competitors": [{"name": "Routeco", "domain": "routeco.test"}]}
+
+    async with client() as c:
+        await onboard(c, FakeAnthropic(research_script, routes={"checks": pick_any}, scanner=lambda kw: first))
+        opp = (await c.get("/api/org/setup")).json()["org"]["profile"]["opportunities"]
+        assert [f["title"] for f in opp["findings"]] == ["Routeco posts 5x more on LinkedIn", "No launch video"]
+        ran_first = {x["key"] for x in opp["checks"]}
+
+        r = await c.post("/api/org/setup", json={"mode": "more"})
+        assert r.status_code == 200 and r.json()["mode"] == "more"
+        fake = FakeAnthropic(research_script, routes={"checks": pick_any}, scanner=lambda kw: again)
+        await run_org_setup(r.json()["id"], MeteredClaude(client=fake))
+
+        st = (await c.get("/api/org/setup")).json()
+        assert st["task"]["status"] == "done", st["task"]["error"]
+        assert [x["key"] for x in st["task"]["steps"]] == ["website", "scan"]
+        assert "2 new opportunities" in st["task"]["steps"][1]["detail"]
+        assert st["setup"]["mode"] == "start"
+        # Only checks that hadn't run were offered; the findings step was told what's been found.
+        assert not ran_first & set(picks[-1]) and picks[-1]
+        structure = next(k for k in fake.calls if "findings" in k["output_config"].get("format", {}).get("schema", {}).get("properties", {}))
+        assert "Already found and shown to them" in structure["messages"][0]["content"]
+        assert "- No launch video" in structure["messages"][0]["content"]
+        from app.agent.org_setup import RESEARCH_SYSTEM
+        assert not any(k.get("system") == RESEARCH_SYSTEM for k in fake.calls)  # no new company research
+
+        opp = st["org"]["profile"]["opportunities"]
+        assert [f["title"] for f in opp["findings"]] == ["Routeco posts 5x more on LinkedIn", "No launch video",
+                                                         "12 reviews against Routeco's 240", "Missing from G2 and Capterra"]
+        assert opp["rounds"] == 2 and len(opp["goals_added"]) == 4
+        goals = {g["name"] for g in (await c.get("/api/campaigns")).json()}
+        assert "Fix: 12 reviews against Routeco's 240" in goals
+        assert "Fix: Routeco posts 5x more on LinkedIn!" not in goals  # no stray goal for the dropped repeat

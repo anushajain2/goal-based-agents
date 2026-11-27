@@ -32,8 +32,8 @@ from app.agent import checks as catalog
 from app.agent.llm import MeteredClaude
 from app.catalog import TOOLS
 from app.db import session_scope
-from app.models import Agent, Campaign, Department, Organization, utcnow
-from app.org import DEPARTMENT_PRESETS
+from app.models import Agent, Campaign, Department, Membership, Organization, Role, utcnow
+from app.org import DEPARTMENT_PRESETS, PRESET_NAMES, add_department, default_agent_name
 from app.services import estimate, presence
 
 log = logging.getLogger(__name__)
@@ -661,8 +661,12 @@ async def look(claude: MeteredClaude, name: str, website: str, description: str,
     return "\n\n".join(notes), sources, cost
 
 
-async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, research: str, site_text: str) -> dict:
-    """Run the checks, save the findings on the profile, and return {"findings", "ran", "cost"}."""
+async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, research: str, site_text: str,
+               more: bool = False) -> dict:
+    """Run the checks, save the findings on the profile, and return {"findings", "ran", "cost"}.
+
+    more=True ("Find more opportunities"): run checks that haven't run yet, skip what was already
+    found, and add the new findings to the earlier ones (returns "new" and the new "goals")."""
     from app.agent import org_setup  # the goal schema, tidying and goal creation live there
 
     async with session_scope() as s:
@@ -678,11 +682,16 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
                                  .where(Campaign.org_id == org_id))).all()
         teams = ", ".join(f"{d.name} ({d.kind or 'custom'})" for d in depts) or "(none yet)"
         per, basis, n = await estimate.session_cost(s, org_id)
+        before = dict((org.profile or {}).get("opportunities") or {}) if more else {}
+    ran_before = {c.get("key") for c in before.get("checks") or []}
+    found_before = [f.get("title", "") for f in before.get("findings") or [] if f.get("title")]
     mine = host(website)
     cost = Decimal("0")
 
     # 1. Pick the checks for this company, its customers' searches and its competitors.
     options = catalog.runnable(pack_key)
+    if more:  # checks that haven't run yet (all of them again once every one has)
+        options = [c for c in options if c.key not in ran_before] or options
     result = await claude.create(
         campaign_id=None, run_id=None, purpose="opportunity scan", role="worker", system=PICK_SYSTEM,
         messages=[{"role": "user", "content": PICK_TASK.format(
@@ -701,7 +710,7 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
             chosen.append(x)
     chosen = sorted(chosen, key=lambda x: -int(x.get("score") or 0))  # stable: ties keep Claude's order
     # The core checks always run for early companies; Claude's strongest picks fill the rest.
-    must = catalog.core(pack_key, size)
+    must = [k for k in catalog.core(pack_key, size) if k in allowed_keys]
     by_key = {x["key"]: x for x in chosen}
     core_picks = [by_key.get(k) or {"key": k, "score": 5, "why": "Checked for every early company", "expect": ""} for k in must]
     extra = [x for x in chosen if x["key"] not in must and int(x.get("score") or 0) >= MIN_SCORE]
@@ -792,6 +801,9 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
         sources="\n".join(f"- {x['title']}: {x['url']}" for x in unique[:30]) or "(none)", teams=teams, max=CANDIDATES,
         goals="\n".join(f"- {gid}: {gname} · {dname}" for gid, gname, dname in goals) or "(none)",
         checks=", ".join(f"{c.key}: {c.title}" for c in picked) or "(none)")
+    if found_before:
+        task += ("\n\nAlready found and shown to them (don't repeat these or variations of them; find different "
+                 "gaps):\n" + "\n".join(f"- {t}" for t in found_before[:40]))
     result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", role="worker",
                                  system=STRUCTURE_SYSTEM.format(threshold=MILESTONES_ABOVE_USD),
                                  messages=[{"role": "user", "content": task}], max_tokens=12000,
@@ -802,7 +814,10 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     known = {gid for gid, _, _ in goals}
     allowed = {x["url"] for x in unique}
     findings, created = [], []
-    for f in balanced([f for f in raw.get("findings") or [] if f.get("title") and f.get("evidence")]):
+    scanned_at = utcnow().isoformat()
+    seen_titles = {_norm_title(t) for t in found_before}  # "find more": nothing that repeats an earlier finding
+    for f in balanced([f for f in raw.get("findings") or [] if f.get("title") and f.get("evidence")
+                       and _norm_title(f["title"]) not in seen_titles]):
         goal_id = f.get("goal_id") if f.get("goal_id") in known else ""
         steps = _milestones(f.get("milestones") or [], per, basis, n, org_setup)
         if steps:
@@ -823,7 +838,7 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
                     created.append(goal_id)
         urls = [u for u in f.get("source_urls") or [] if isinstance(u, str) and u.startswith("http")]
         findings.append({
-            "check": f.get("check") or "", "team_kind": f["team_kind"], "title": f["title"][:120],
+            "check": f.get("check") or "", "team_kind": f["team_kind"], "title": f["title"][:120], "found_at": scanned_at,
             "evidence": f["evidence"][:600], "impact": f.get("impact", "")[:400],
             "points": [str(x)[:200] for x in f.get("points") or [] if str(x).strip()][:4],
             "estimate": f.get("estimate", "")[:120], "assumption": f.get("assumption", "")[:300],
@@ -835,19 +850,38 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
             "milestones": steps,
             "total_usd": round(sum(m["total_usd"] for m in steps), 2) if steps else None,
         })
+    fresh = {
+        "findings": findings, "unlock": catalog.unlockable(pack_key), "scanned_at": scanned_at,
+        "goals_added": created,
+        "checks": [{"key": c.key, "title": c.title, "method": c.method, "team": c.team, **reasons.get(c.key, {})}
+                   for c in picked],
+        "visibility": {"domain": mine, "competitors": competitors, "markets": [x["label"] for x in markets],
+                       "source": "google" if m.get("google") else "web", "search": search, "ai": ai,
+                       "local": m.get("local") or [], "highlights": highlights(search, ai)},
+        "scorecard": rows,
+    }
     async with session_scope() as s:
         org = await s.get(Organization, org_id)
-        org.profile = {**(org.profile or {}), "opportunities": {
-            "findings": findings, "unlock": catalog.unlockable(pack_key), "scanned_at": utcnow().isoformat(),
-            "goals_added": created,
-            "checks": [{"key": c.key, "title": c.title, "method": c.method, "team": c.team, **reasons.get(c.key, {})}
-                       for c in picked],
-            "visibility": {"domain": mine, "competitors": competitors, "markets": [x["label"] for x in markets],
-                           "source": "google" if m.get("google") else "web", "search": search, "ai": ai,
-                           "local": m.get("local") or [], "highlights": highlights(search, ai)},
-            "scorecard": rows,
-        }}
-    return {"findings": findings, "ran": len(picked), "cost": cost}
+        old = dict((org.profile or {}).get("opportunities") or {}) if more else {}
+        if old:
+            vis = fresh["visibility"]
+            rows_by_key = {r.get("key"): r for r in old.get("scorecard") or []}
+            rows_by_key.update({r.get("key"): r for r in rows})
+            fresh = {**fresh,
+                     "findings": (old.get("findings") or []) + findings,
+                     "goals_added": (old.get("goals_added") or []) + created,
+                     "checks": (old.get("checks") or []) + fresh["checks"],
+                     "visibility": vis if (vis["search"] or vis["ai"]) else old.get("visibility") or vis,
+                     "scorecard": list(rows_by_key.values()),
+                     "rounds": int(old.get("rounds") or 1) + 1}
+        org.profile = {**(org.profile or {}), "opportunities": fresh}
+    return {"findings": findings, "ran": len(picked), "cost": cost, "new": len(findings), "goals": created}
+
+
+def _norm_title(t: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (t or "").lower()).strip()
+
+
 
 
 SEARCH_KEYS = {"search_rank", "comparison_searches", "content_gaps"}
@@ -913,9 +947,8 @@ CLOSEST: dict[str, list[str]] = {
 
 
 async def create_goal(org_id: str, requested_by: str | None, team_kind: str, goal: dict, s=None) -> str | None:
-    """A draft goal on the first AI employee of the team that fixes a gap. None when the company
-    has no such team (the finding then points at adding the team). Uses `s` when given (a request's
-    session), else its own."""
+    """A draft goal in the function that fixes a gap (the closest one the company has, else that
+    function is added). Uses `s` when given (a request's session), else its own."""
     if s is None:
         async with session_scope() as own:
             return await create_goal(org_id, requested_by, team_kind, goal, own)
@@ -927,12 +960,18 @@ async def create_goal(org_id: str, requested_by: str | None, team_kind: str, goa
                                 .order_by(Department.created_at).limit(1))).scalar_one_or_none()
         if dept is not None:
             break
-    if dept is None:
-        return None
+    if dept is None:  # goals come first now: the function is just how goals are grouped, so add it
+        admins = [u for (u,) in (await s.execute(
+            select(Membership.user_id).where(Membership.org_id == org_id,
+                                             Membership.role.in_([Role.owner.value, Role.admin.value])))).all()]
+        kind = team_kind if team_kind in PRESET_NAMES else "exec"
+        dept = await add_department(s, org_id, PRESET_NAMES[kind], kind, members=admins)
     agent = (await s.execute(select(Agent).where(Agent.department_id == dept.id)
                              .order_by(Agent.created_at).limit(1))).scalar_one_or_none()
     if agent is None:
-        return None
+        agent = Agent(org_id=org_id, department_id=dept.id, name=default_agent_name(dept.name))
+        s.add(agent)
+        await s.flush()
     org = await s.get(Organization, org_id)
     names = {x.lower() for (x,) in (await s.execute(select(Campaign.name).where(Campaign.org_id == org_id))).all()}
     created: dict = {"goals": []}

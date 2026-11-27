@@ -30,6 +30,11 @@ def text(t: str) -> dict:
     return {"type": "text", "text": t}
 
 
+DEFAULT_PROFILE = {"summary": "A company.", "offering": "Unknown", "customers": "Unknown", "business_model": "Unknown",
+                   "stage": "Unknown", "funding": "Unknown", "revenue": "Unknown", "team": "Unknown", "traction": "Unknown",
+                   "size_reason": "", "size": "tiny", "company_type": "general", "current_focus": [], "challenges": []}
+
+
 class FakeAnthropic:
     """`script` is called with the request kwargs and returns a list of content-block dicts.
 
@@ -41,7 +46,8 @@ class FakeAnthropic:
                  planner: Callable[[dict], dict] | None = None,
                  org_planner: Callable[[dict], dict] | None = None, searches: int = 0,
                  classifier: Callable[[dict], dict] | None = None, scanner: Callable[[dict], dict] | None = None,
-                 routes: dict[str, Callable[[dict], dict]] | None = None):
+                 routes: dict[str, Callable[[dict], dict]] | None = None,
+                 profile: Callable[[dict], dict] | None = None):
         self.script = script
         self.reviewer = reviewer or (lambda kw: {"violates": False, "rule": "", "explanation": ""})
         self.planner = planner or (lambda kw: {"assessment": "Fresh start.", "plan": ["Research", "Post once"],
@@ -49,10 +55,19 @@ class FakeAnthropic:
         self.org_planner = org_planner  # organization setup: the team plan
         self.classifier = classifier or (lambda kw: {"company_type": "general", "size": "small", "reason": ""})
         self.routes = routes or {}  # structured output by a property of its schema, checked first
+        # setup's company profile: the planner's profile when there is one, else a plain one
+        self.profile = profile or self._profile_from_plan
         self.scanner = scanner or (lambda kw: {"findings": [], "deeper": []})  # setup: what they're missing
         self.searches = searches  # web searches reported per agent-loop call
         self.calls: list[dict] = []
         self.beta = Obj(messages=Obj(create=self._create))
+
+    def _profile_from_plan(self, kw: dict) -> dict:
+        try:
+            planned = (self.org_planner(kw) or {}).get("profile") if self.org_planner else None
+        except Exception:  # noqa: BLE001 - a planner set up to fail doesn't fail the profile
+            planned = None
+        return {**DEFAULT_PROFILE, **(planned or {})}
 
     async def _create(self, **kwargs):
         kwargs = copy.deepcopy(kwargs)  # snapshot: the runner keeps appending to its lists
@@ -62,6 +77,7 @@ class FakeAnthropic:
             props = fmt["schema"]["properties"]
             route = next((f for k, f in self.routes.items() if k in props), None)
             answer = (route if route else self.org_planner if "departments" in props
+                      else self.profile if "summary" in props
                       else self.scanner if "findings" in props
                       else self.classifier if "company_type" in props
                       else self.planner if "plan" in props else self.reviewer)

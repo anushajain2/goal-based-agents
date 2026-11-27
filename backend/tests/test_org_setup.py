@@ -1,4 +1,5 @@
-"""First-run setup: research the company, then set up departments, AI employees and draft goals."""
+"""Setup: onboarding researches the company and finds what it's missing out on (goals come from the
+findings); "Suggest more goals" plans goals per function from that research; functions can be added."""
 
 import httpx
 import pytest
@@ -75,6 +76,21 @@ def research_script(kw):
              "content": [{"type": "web_search_result", "url": "https://news.test/acme", "title": "Acme raises seed"}]}]
 
 
+async def suggest_goals(c, fake) -> dict:
+    """The Team page's "Suggest more goals": plans goals per function from what setup learned."""
+    r = await c.post("/api/org/setup", json={"mode": "goals"})
+    assert r.status_code == 200, r.text
+    assert r.json()["mode"] == "goals"
+    await run_org_setup(r.json()["id"], MeteredClaude(client=fake))
+    return (await c.get("/api/org/setup")).json()
+
+
+async def onboard(c, fake=None, **body) -> str:
+    setup_id = await start_setup(c, **body)
+    await run_org_setup(setup_id, MeteredClaude(client=fake or FakeAnthropic(research_script, org_planner=lambda kw: PLAN)))
+    return setup_id
+
+
 async def start_setup(c, **body) -> str:
     await sign_in(c, "founder@acme.test")
     r = await c.post("/api/org", json={"name": "Acme", "website": "acme.test",
@@ -83,12 +99,12 @@ async def start_setup(c, **body) -> str:
     return r.json()["setup_id"]
 
 
-async def test_setup_researches_and_builds_a_focused_team(with_key, fake_site):
+async def test_onboarding_researches_then_finds_gaps_without_planning_functions(with_key, fake_site):
     async with client() as c:
         setup_id = await start_setup(c)
         assert setup_id
         org = await org_of(c)
-        assert org["departments"] == []  # setup creates them
+        assert org["departments"] == []
         assert org["org"]["website"] == "https://acme.test"
 
         fake = FakeAnthropic(research_script, org_planner=lambda kw: PLAN, searches=4)
@@ -96,22 +112,57 @@ async def test_setup_researches_and_builds_a_focused_team(with_key, fake_site):
 
         st = (await c.get("/api/org/setup")).json()
         assert st["setup"]["status"] == "done", st["setup"]["error"]
-        picks = [g["name"] for d in st["setup"]["plan"]["departments"] for g in d["goals"] if g["start_here"]]
-        assert picks == ["Book 15 demos with Heads of Ops", "Get 200 newsletter signups"]  # top goal of top functions
-        assert [x["status"] for x in st["setup"]["steps"]] == ["done"] * 5
+        assert st["setup"]["mode"] == "start" and st["task"] is None
+        assert [x["key"] for x in st["setup"]["steps"]] == ["website", "research", "profile", "scan"]
+        assert [x["status"] for x in st["setup"]["steps"]] == ["done"] * 4
         assert "2 pages" in st["setup"]["steps"][0]["detail"]
         assert "4 web searches" in st["setup"]["steps"][1]["detail"]
         assert st["setup"]["cost_usd"] > 0
         profile = st["org"]["profile"]
-        assert profile["stage"] == "Seed"
+        assert profile["stage"] == "Seed" and profile["summary"].startswith("Acme makes routing software")
         assert profile["sources"] == [{"url": "https://news.test/acme", "title": "Acme raises seed"}]
+        assert "opportunities" in profile
+        # No functions or goals planned up front: goals come from what the check finds.
+        assert (await org_of(c))["departments"] == []
+        assert (await c.get("/api/campaigns")).json() == []
+        assert not any("departments" in (k.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {})
+                       for k in fake.calls)
+
+    # The research was paid by the organization, not charged to any goal budget.
+    async with session_scope() as s:
+        assert (await s.execute(select(func.count()).select_from(LedgerEntry))).scalar_one() == 0
+    # The research used the web search tool.
+    research_call = fake.calls[0]
+    assert research_call["tools"][0]["type"] == "web_search_20260209"
+    assert "acme.test" in research_call["messages"][0]["content"]
+    # Then the scan starts by picking which checks to run for this company.
+    pick_call = next(c for c in fake.calls if "checks" in (c.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
+    assert "Identity: Acme" in pick_call["messages"][0]["content"]
+
+
+async def test_suggest_more_goals_plans_goals_per_function_from_the_research(with_key, fake_site):
+    async with client() as c:
+        await onboard(c)
+        fake = FakeAnthropic(research_script, org_planner=lambda kw: PLAN, searches=3)
+        st = await suggest_goals(c, fake)
+        assert st["task"]["status"] == "done", st["task"]["error"]
+        assert st["setup"]["mode"] == "start"  # the onboarding research is still "the setup"
+        assert [x["key"] for x in st["task"]["steps"]] == ["plan", "create"]
+        assert st["task"]["steps"][0]["detail"] == "2 functions, 4 goals"
+        assert fake.agent_calls() == []  # no new web research
+        plan_call = next(k for k in fake.calls if "departments" in (k.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
+        msg = plan_call["messages"][0]["content"]
+        assert "Stage and funding: $3M seed" in msg  # the onboarding research, reused
+        assert "Suggest the goals worth setting up now" in msg
+        picks = [g["name"] for d in st["task"]["plan"]["departments"] for g in d["goals"] if g["start_here"]]
+        assert picks == ["Book 15 demos with Heads of Ops", "Get 200 newsletter signups"]  # top goal of top functions
+        assert st["org"]["profile"]["stage"] == "Seed"  # the profile stays
 
         org = await org_of(c)
         names = [d["name"] for d in org["departments"]]
         assert names == ["Sales", "Marketing"]  # duplicate and empty functions dropped
         sales = org["departments"][0]
         assert sales["agents"][0]["title"] == "Outbound pipeline"
-        assert sales["agents"][0]["objective"] == "Fill the pipeline for the new AEs"
         assert [p["email"] for p in sales["people"]] == ["founder@acme.test"]
 
         goals = (await c.get("/api/campaigns")).json()
@@ -130,25 +181,19 @@ async def test_setup_researches_and_builds_a_focused_team(with_key, fake_site):
         assert (basis["sessions"], basis["starter"], basis["full_usd"], basis["basis"]) == (28, True, 40, "typical")
         assert first["first_deliverable"] == "40 leads with a drafted email each"
         assert first["key_results"] == ["15 demos held", "300 accounts in the CRM", "Reply rate above 8%"]
-        # Editing the schedule keeps it a first-week budget.
         basis = (await c.patch(f"/api/campaigns/{first['id']}", json={"cycle_hours": 12})).json()["budget_basis"]
         assert (basis["sessions"], basis["suggested_usd"], basis["full_usd"]) == (14, 5, 20)
         assert [st["action_type"] for st in full["playbook"]["steps"]] == ["research", "create_draft", "send_message"]
         assert "Routing software for logistics teams" in full["context"]
         assert "Seed" in full["context"]
 
-    # The research was paid by the organization, not charged to any goal budget.
-    async with session_scope() as s:
-        assert (await s.execute(select(func.count()).select_from(LedgerEntry))).scalar_one() == 0
-    # The research used the web search tool, and the plan used structured output.
-    research_call = fake.calls[0]
-    assert research_call["tools"][0]["type"] == "web_search_20260209"
-    assert "acme.test" in research_call["messages"][0]["content"]
-    plan_call = next(c for c in fake.calls if "departments" in (c.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
-    assert "Research brief" in plan_call["messages"][0]["content"]
-    # Then the scan starts by picking which checks to run for this company.
-    pick_call = next(c for c in fake.calls if "checks" in (c.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
-    assert "Identity: Acme" in pick_call["messages"][0]["content"]
+        # Asking again suggests only what's missing: the plan is told what exists, and names don't repeat.
+        fake2 = FakeAnthropic(research_script, org_planner=lambda kw: PLAN)
+        await suggest_goals(c, fake2)
+        msg2 = next(k for k in fake2.calls if "departments" in (k.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))["messages"][0]["content"]
+        assert "Book 15 demos with Heads of Ops" in msg2 and "Sales, Marketing" in msg2
+        assert len((await org_of(c))["departments"]) == 2
+        assert len((await c.get("/api/campaigns")).json()) == 4
 
 
 async def test_research_pauses_are_resumed(with_key, fake_site):
@@ -170,7 +215,7 @@ async def test_research_pauses_are_resumed(with_key, fake_site):
     assert second[-1]["content"][-1]["type"] == "server_tool_use"
 
 
-async def test_failed_research_still_plans_from_site_and_description(with_key, fake_site):
+async def test_failed_research_still_profiles_from_site_and_description(with_key, fake_site):
     def broken(kw):
         raise RuntimeError("search is down")
 
@@ -179,18 +224,16 @@ async def test_failed_research_still_plans_from_site_and_description(with_key, f
         await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(broken, org_planner=lambda kw: PLAN)))
         st = (await c.get("/api/org/setup")).json()["setup"]
         assert st["status"] == "done"
-        assert [x["status"] for x in st["steps"]] == ["done", "failed", "done", "done", "done"]
+        assert [x["status"] for x in st["steps"]] == ["done", "failed", "done", "done"]
 
 
-async def test_failed_plan_offers_retry_and_basic_team(with_key, fake_site):
-    def bad_plan(kw):
+async def test_failed_setup_offers_retry_and_basic_team(with_key, fake_site):
+    def bad_profile(kw):
         raise RuntimeError("model unavailable")
 
-    startup = lambda kw: {"company_type": "startup", "size": "tiny", "reason": "Sells route-planning software to fleets."}  # noqa: E731
     async with client() as c:
         setup_id = await start_setup(c)
-        await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(research_script, org_planner=bad_plan,
-                                                                         classifier=startup)))
+        await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(research_script, profile=bad_profile)))
         st = (await c.get("/api/org/setup")).json()
         assert st["setup"]["status"] == "failed"
         assert "model unavailable" in st["setup"]["error"]
@@ -202,20 +245,21 @@ async def test_failed_plan_offers_retry_and_basic_team(with_key, fake_site):
         assert r.status_code == 200
         assert (await c.post("/api/org/setup", json={})).status_code == 409  # one at a time
         assert (await org_of(c))["org"]["description"].startswith("Route planning")
-        # ...or start with a basic team instead.
+        # ...or start with a basic set of goals instead.
         assert (await c.post("/api/org/setup/basic")).status_code == 200
         names = [d["name"] for d in (await org_of(c))["departments"]]
-        assert names == ["Sales", "Marketing", "Product", "Customer Research"]  # the pack for the type Claude decided
+        assert names == ["Sales", "Marketing", "Customer Research", "Customer Support"]
 
 
-async def test_rerun_adds_only_whats_missing(with_key, fake_site):
+async def test_failed_goal_suggestions_say_why(with_key, fake_site):
+    def bad_plan(kw):
+        raise RuntimeError("model unavailable")
+
     async with client() as c:
-        setup_id = await start_setup(c)
-        await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(research_script, org_planner=lambda kw: PLAN)))
-        again = (await c.post("/api/org/setup", json={})).json()["id"]
-        await run_org_setup(again, MeteredClaude(client=FakeAnthropic(research_script, org_planner=lambda kw: PLAN)))
-        assert len((await org_of(c))["departments"]) == 2
-        assert len((await c.get("/api/campaigns")).json()) == 4
+        await onboard(c)
+        st = await suggest_goals(c, FakeAnthropic(research_script, org_planner=bad_plan))
+        assert st["task"]["status"] == "failed" and "model unavailable" in st["task"]["error"]
+        assert st["setup"]["status"] == "done"  # the onboarding results are untouched
 
 
 async def test_without_a_claude_key_starts_with_a_basic_team(monkeypatch):
@@ -295,8 +339,8 @@ def test_planner_picks_at_most_three_goals_to_start_with():
 
 async def test_switching_older_suggestions_to_starter_budgets(with_key, fake_site):
     async with client() as c:
-        setup_id = await start_setup(c)
-        await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(research_script, org_planner=lambda kw: PLAN)))
+        await onboard(c)
+        await suggest_goals(c, FakeAnthropic(research_script, org_planner=lambda kw: PLAN))
         from app.models import Campaign
         async with session_scope() as s:  # make them look like suggestions from before starter budgets
             for g in (await s.execute(select(Campaign))).scalars():
@@ -341,8 +385,8 @@ async def test_adding_a_function_later_reuses_research(with_key, fake_site):
          "objective": "Keep cash collected and burn visible",
          "goals": [goal("Chase overdue invoices", "Finance"), goal("Monthly burn and runway report", "Finance")]}]}
     async with client() as c:
-        setup_id = await start_setup(c)
-        await run_org_setup(setup_id, MeteredClaude(client=FakeAnthropic(research_script, org_planner=lambda kw: first)))
+        await onboard(c, FakeAnthropic(research_script, org_planner=lambda kw: first))
+        await suggest_goals(c, FakeAnthropic(research_script, org_planner=lambda kw: first))
         st = (await c.get("/api/org/setup")).json()
         assert st["org"]["profile"]["size_reason"] == "8 people, $3M seed"
         assert [x["name"] for x in st["org"]["profile"]["later"]] == ["Finance", "Legal & Compliance"]
@@ -357,8 +401,8 @@ async def test_adding_a_function_later_reuses_research(with_key, fake_site):
         assert "Stage and funding: $3M seed" in planner_msg  # earlier research reused
 
         st = (await c.get("/api/org/setup")).json()
-        assert st["setup"]["status"] == "done", st["setup"]["error"]
-        assert [x["status"] for x in st["setup"]["steps"]] == ["skipped", "skipped", "done", "done", "skipped"]
+        assert st["task"]["status"] == "done", st["task"]["error"]
+        assert st["task"]["mode"] == "include" and [x["status"] for x in st["task"]["steps"]] == ["done", "done"]
         assert [x["name"] for x in st["org"]["profile"]["later"]] == ["Legal & Compliance"]
         assert st["org"]["profile"]["size_reason"] == "8 people, $3M seed"  # profile kept
         org = await org_of(c)
@@ -381,16 +425,13 @@ async def test_planner_starts_from_the_pack_and_staffs_several_ai_employees(with
             {"role": "engineer", "name": "Engineering Agent", "title": "Fixes", "objective": "Ship", "goals": [goal("Ship fixes")]}]},
     ]}
     async with client() as c:
-        setup_id = await start_setup(c, description="Route planning SaaS for logistics teams. Book a demo.")
-        fake = FakeAnthropic(research_script, org_planner=lambda kw: plan, classifier=lambda kw: {
-            "company_type": "startup", "size": "small", "reason": "Sells route-planning software to logistics companies"})
-        await run_org_setup(setup_id, MeteredClaude(client=fake))
-        formats = [k for k in fake.calls if k.get("output_config", {}).get("format")]
-        decide, planner = formats[0], formats[1]
-        assert "company_type" in decide["output_config"]["format"]["schema"]["properties"]
-        assert decide["model"] == get_settings().checker_model  # the fast, cheap model decides the type
+        await onboard(c, FakeAnthropic(research_script, org_planner=lambda kw: plan),
+                      description="Route planning SaaS for logistics teams. Book a demo.")
+        fake = FakeAnthropic(research_script, org_planner=lambda kw: plan)
+        await suggest_goals(c, fake)
+        planner = next(k for k in fake.calls if "departments" in (k.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {}))
         msg = planner["messages"][0]["content"]
-        assert "Likely type: B2B startup" in msg and "route-planning software to logistics" in msg and "Likely size: small" in msg
+        assert "Likely type: B2B startup" in msg and "Likely size: small" in msg  # from the onboarding profile
         assert "sdr (Sales)" in planner["messages"][0]["content"]  # the pack's roles by size
         assert "seo: SEO" in planner["system"]  # the role catalog
 

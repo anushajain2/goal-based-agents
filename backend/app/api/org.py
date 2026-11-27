@@ -109,8 +109,10 @@ async def create_org(body: OrgIn, s: AsyncSession = Depends(get_session), user: 
 def _setup_json(x: OrgSetup | None) -> dict | None:
     if x is None:
         return None
+    from app.agent.org_setup import mode_of
+
     return {
-        "id": x.id, "status": x.status, "steps": x.steps or [], "error": x.error,
+        "id": x.id, "mode": mode_of(x.plan), "status": x.status, "steps": x.steps or [], "error": x.error,
         "cost_usd": float(x.cost_usd or 0), "plan": x.plan, "created": x.created,
         "created_at": x.created_at.isoformat(), "updated_at": x.updated_at.isoformat(),
     }
@@ -118,15 +120,22 @@ def _setup_json(x: OrgSetup | None) -> dict | None:
 
 @router.get("/org/setup")
 async def get_setup(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    from app.agent.org_setup import mode_of
+
     org = await s.get(Organization, me.org_id)
-    latest = (await s.execute(select(OrgSetup).where(OrgSetup.org_id == me.org_id)
-                              .order_by(OrgSetup.created_at.desc()).limit(1))).scalar_one_or_none()
+    recent = (await s.execute(select(OrgSetup).where(OrgSetup.org_id == me.org_id)
+                              .order_by(OrgSetup.created_at.desc()).limit(20))).scalars().all()
+    # "setup" is the company research (onboarding, or "Check again"); "task" is the latest
+    # "Suggest more goals" / "Find more opportunities" / add-a-function run.
+    latest = next((x for x in recent if mode_of(x.plan) == "start"), None)
+    task = next((x for x in recent if mode_of(x.plan) != "start"), None)
     n_departments = (await s.execute(select(func.count()).select_from(Department)
                                      .where(Department.org_id == me.org_id))).scalar_one()
     return {
         "org": {"id": org.id, "name": org.name, "website": org.website, "description": org.description,
                 "profile": org.profile},
         "setup": _setup_json(latest),
+        "task": _setup_json(task),
         "can_research": _can_research(),
         "can_run": me.is_admin,
         "has_team": n_departments > 0,
@@ -138,6 +147,9 @@ class SetupIn(BaseModel):
     description: str | None = Field(default=None, max_length=3000)
     # Add these functions now (department kinds or names), reusing earlier research.
     add_functions: list[str] | None = Field(default=None, max_length=6)
+    # start: research the company and find what it's missing out on; goals: suggest more goals per
+    # function; more: find more opportunities (skipping what was found before).
+    mode: str = Field(default="start", pattern="^(start|goals|more)$")
 
 
 @router.post("/org/setup")
@@ -160,8 +172,9 @@ async def rerun_setup(body: SetupIn, s: AsyncSession = Depends(get_session), me:
     include = [f.strip()[:120] for f in body.add_functions or [] if f.strip()]
     if body.add_functions is not None and not include:
         raise HTTPException(400, "Pick a function to add.")
-    setup = OrgSetup(org_id=org.id, requested_by=me.user.id, steps=initial_steps(),
-                     plan={"include": include} if include else None)
+    mode = "include" if include else body.mode
+    setup = OrgSetup(org_id=org.id, requested_by=me.user.id, steps=initial_steps(mode),
+                     plan={"mode": mode, **({"include": include} if include else {})})
     s.add(setup)
     await s.flush()
     return _setup_json(setup)

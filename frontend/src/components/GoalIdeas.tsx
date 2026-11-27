@@ -1,18 +1,18 @@
 "use client";
 
-import { ArrowRight, CheckCircle2, Eye, Hand, Search, Sparkles, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Eye, Hand, Sparkles, Wallet } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { GoalPanel } from "./GoalPanel";
-import { Opportunities } from "./Opportunities";
 import { StartGoal } from "./StartGoal";
 import { UseCaseLibrary } from "./UseCaseLibrary";
 import { Campaign, OrgInfo, usd } from "@/lib/api";
 import { USE_CASES } from "@/lib/useCases";
 
-/** The Goals page's "Goal ideas" tab: what the company check found (with the goal that fixes
- *  each), other suggested goals not started yet, and the library of ideas. */
+/** The Goals page's "Goal ideas" tab: a pointer to what the company check found (on Find
+ *  opportunities), other suggested goals not started yet, and the library of ideas. */
 export function GoalIdeas({ org, goals, onChanged }: { org: OrgInfo | null | undefined; goals: Campaign[] | null | undefined; onChanged: () => void }) {
   const router = useRouter();
   const [panel, setPanel] = useState<Campaign | null>(null);
@@ -25,17 +25,14 @@ export function GoalIdeas({ org, goals, onChanged }: { org: OrgInfo | null | und
   return (
     <div className="space-y-10">
       {recommended && (
-        <section className="space-y-3 rounded-3xl border border-line bg-white/60 p-5">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold"><Search size={18} className="text-brand-600" /> Recommended for {org!.org.name}</h2>
-            <p className="text-sm text-muted">
-              From the check we ran{found!.scanned_at ? ` on ${new Date(found!.scanned_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : ""}.
-              Nothing runs, and nothing is spent, until you turn a goal on.
-            </p>
-          </div>
-          <Opportunities profile={org!.org.profile} org={org} goals={goals} orgName={org!.org.name} canStart
-            onStart={setStarting} onOpen={setPanel} titled={false} preview={2} />
-        </section>
+        <Link href="/opportunities" className="group flex items-center gap-4 rounded-2xl border border-red-200 bg-red-50/50 px-5 py-4 transition hover:bg-red-50">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-red-700 ring-1 ring-inset ring-red-200"><AlertTriangle size={18} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14.5px] font-semibold">{found!.findings.length} opportunities found for {org!.org.name}</span>
+            <span className="block truncate text-[13px] text-muted">{found!.findings.slice(0, 3).map((f) => f.title).join(" · ")}</span>
+          </span>
+          <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-red-800">See them <ArrowRight size={14} /></span>
+        </Link>
       )}
 
       {others.length > 0 && (

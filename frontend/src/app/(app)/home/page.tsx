@@ -276,7 +276,7 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
               </Link>
             )}
             {open.length > 1 && (
-              <Link href="/goals?tab=ideas" className="inline-flex h-10 items-center gap-1 px-2 text-[13.5px] font-semibold text-white/70 transition hover:text-white">
+              <Link href="/opportunities" className="inline-flex h-10 items-center gap-1 px-2 text-[13.5px] font-semibold text-white/70 transition hover:text-white">
                 See all {open.length} gaps <ArrowRight size={14} />
               </Link>
             )}
@@ -376,7 +376,7 @@ function Gaps({ open, fixing, orgName, onStart, onOpen }: {
             Fixing <b className="font-semibold text-ink">{fixing.length} of {total}</b>{open.length ? <> · <span className="font-semibold text-red-700">{open.length} still open</span></> : ""}
           </p>
         </div>
-        <Link href="/goals?tab=ideas" className="inline-flex items-center gap-0.5 text-[13px] font-semibold text-muted hover:text-ink">All findings <ArrowRight size={13} /></Link>
+        <Link href="/opportunities" className="inline-flex items-center gap-0.5 text-[13px] font-semibold text-muted hover:text-ink">All findings <ArrowRight size={13} /></Link>
       </div>
 
       <div ref={ref} className="mb-4 flex h-2 gap-1">

@@ -31,11 +31,13 @@ function factsOf(f: { points?: string[]; evidence: string }): string[] {
 const weeks = (w: number) => (w >= 8 && w % 4 === 0 ? `${w / 4} months` : `${w} week${w === 1 ? "" : "s"}`);
 
 /** "What you're missing out on": how customers find you, and gaps with the goals that fix them. */
-export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, canStart, titled = true, preview }: {
+export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, canStart, titled = true, preview, only, recheck = true }: {
   profile: CompanyProfile | null | undefined; org: OrgInfo | null | undefined; goals: Campaign[] | null | undefined; orgName: string;
   onStart: (goals: Campaign[]) => void; onOpen: (goal: Campaign) => void; canStart: boolean;
   titled?: boolean;  // false where the page title already says it (onboarding)
-  preview?: number;  // show only this many findings until "Show all" (Goal ideas)
+  preview?: number;  // show only this many findings until "Show all"
+  only?: (f: Opportunity) => boolean;  // which findings to show (e.g. only the ones not being fixed yet)
+  recheck?: boolean;  // offer "Check again" (runs the whole check again)
 }) {
   const found = profile?.opportunities;
   const has = !!found && (found.findings.length > 0 || (found.unlock || []).length > 0 || (found.scorecard || []).length > 0);
@@ -48,8 +50,12 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
   }, [has]);
   if (!found || !has) return null;
   const collapsed = !!preview && !expanded;
-  const shownFindings = collapsed ? found.findings.slice(0, preview) : found.findings;
-  const hiddenCount = found.findings.length - shownFindings.length;
+  // Keep each finding's position in the saved list: going further on a milestone refers to it.
+  const isNew = (f: Opportunity) => (found.rounds || 1) > 1 && !!f.found_at && f.found_at === found.scanned_at;
+  const listed = found.findings.map((f, i) => ({ f, i })).filter((x) => !only || only(x.f))
+    .sort((a, b) => Number(isNew(b.f)) - Number(isNew(a.f)));  // the latest finds first
+  const shownFindings = collapsed ? listed.slice(0, preview) : listed;
+  const hiddenCount = listed.length - shownFindings.length;
   const extras = [
     found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) ? "how customers find you" : "",
     (found.scorecard || []).length > 0 ? "you vs competitors" : "",
@@ -60,7 +66,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
     .filter((g): g is Campaign => !!g && g.status === "draft" && g.can_manage !== false);
   const unique = [...new Map(firstSteps.map((g) => [g.id, g])).values()];
 
-  async function recheck() {
+  async function checkAgain() {
     setBusy("recheck");
     setErr(null);
     try {
@@ -97,8 +103,8 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
           </div>
         ) : <div />}
         <div className="flex flex-wrap items-center gap-2">
-        {canStart && (
-          <button onClick={recheck} disabled={busy === "recheck"} title="Run the company check again with the latest checks (your goals stay)"
+        {canStart && recheck && (
+          <button onClick={checkAgain} disabled={busy === "recheck"} title="Run the company check again with the latest checks (your goals stay)"
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-60">
             {busy === "recheck" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Check again
           </button>
@@ -125,7 +131,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
       {!collapsed && (found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} />}
 
       <div className="space-y-4">
-        {shownFindings.map((f, i) => {
+        {shownFindings.map(({ f, i }) => {
           const steps = f.milestones || [];
           const goal = f.goal_id ? byId.get(f.goal_id) : undefined;
           const facts = factsOf(f);
@@ -133,6 +139,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
             <article key={i} className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
               <h3 className="flex max-w-[60ch] items-start gap-2 text-[19px] font-semibold leading-snug tracking-[-0.015em] text-red-700">
                 <AlertTriangle size={20} className="mt-[3px] shrink-0" aria-label="Problem" /><span>{f.title}</span>
+                {isNew(f) && <span className="mt-1 shrink-0 rounded-full bg-lime-200 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-lime-900">New</span>}
               </h3>
 
               <div className="mt-5 text-[11.5px] font-semibold uppercase tracking-wide text-muted">
@@ -174,8 +181,8 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
                   </div>
                 ) : (
                   <div className="flex items-center justify-between gap-2 border-t border-line pt-3 text-[13px]">
-                    <span className="text-muted">Needs {/^[aeiou]/i.test(teamName(f.team_kind, org)) ? "an" : "a"} {teamName(f.team_kind, org)} team</span>
-                    <Link href="/team" className="font-semibold text-brand-700 hover:underline">Add it</Link>
+                    <span className="text-muted">No goal for this yet</span>
+                    <Link href="/goals/new" className="font-semibold text-brand-700 hover:underline">Set one up</Link>
                   </div>
                 )}
               </div>
@@ -193,7 +200,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 bg-white/70 px-4 py-3 text-[13.5px] font-semibold text-brand-700 transition hover:border-stone-400 hover:bg-white">
           {expanded ? <>Show less <ChevronUp size={15} /></> : (
             <>
-              Show all{hiddenCount > 0 ? ` ${found.findings.length} findings` : ""}
+              Show all{hiddenCount > 0 ? ` ${listed.length} findings` : ""}
               {extras.length > 0 && <span className="font-normal text-muted">{hiddenCount > 0 ? ", plus " : ": "}{extras.join(", ")}</span>}
               <ChevronDown size={15} />
             </>

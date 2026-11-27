@@ -21,6 +21,7 @@ export function TeamSize({ profile, canAdd, onAdding }: { profile: CompanyProfil
       onAdding();
     } catch (e) {
       setErr((e as Error).message);
+    } finally {
       setBusy(null);
     }
   }

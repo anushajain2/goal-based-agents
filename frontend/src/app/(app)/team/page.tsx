@@ -3,12 +3,12 @@
 import { Check, Hand, PartyPopper, Pencil, Plus, Sparkles, Target, Trash2, UserPlus, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 
 import { CompanyProfileCard } from "@/components/CompanyProfile";
 import { GoalPanel } from "@/components/GoalPanel";
-import { useRouter } from "next/navigation";
 import { OrgChart } from "@/components/OrgChart";
+import { SuggestGoals, SuggestGoalsHandle } from "@/components/SuggestGoals";
 import { TeamSize } from "@/components/TeamSize";
 import { StartGoal } from "@/components/StartGoal";
 import { PersonAvatar } from "@/components/team";
@@ -25,7 +25,6 @@ export default function Page() {
 
 function TeamPage() {
   const params = useSearchParams();
-  const router = useRouter();
   const { data: org, reload, error } = useApi<OrgInfo>("/api/org");
   const { data: goals, reload: reloadGoals } = useApi<Campaign[]>("/api/campaigns");
   const [view, setView] = useState<"chart" | "list">("chart");
@@ -34,6 +33,7 @@ function TeamPage() {
   const [adding, setAdding] = useState(false);
   const [newDept, setNewDept] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const suggestions = useRef<SuggestGoalsHandle>(null);
 
   if (error) return <ErrorNote>{error}</ErrorNote>;
   if (!org) return <p className="text-muted">Loading…</p>;
@@ -103,7 +103,10 @@ function TeamPage() {
         </Card>
       )}
 
-      <TeamSize profile={org.org.profile} canAdd={org.me.is_admin} onAdding={() => router.push("/setup")} />
+      <SuggestGoals ref={suggestions} orgName={org.org.name} goals={goals} canRun={admin}
+        onOpen={setPanel} onStart={setStarting} onGoalsChanged={() => { reload(); reloadGoals(); }} />
+
+      <TeamSize profile={org.org.profile} canAdd={org.me.is_admin} onAdding={() => suggestions.current?.reload()} />
 
       <div className="inline-flex rounded-xl bg-stone-100 p-1 text-[13px] font-semibold">
         {(["chart", "list"] as const).map((v) => (

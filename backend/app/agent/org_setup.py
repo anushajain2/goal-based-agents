@@ -49,17 +49,34 @@ MAX_SEARCHES = 8
 MAX_CONTINUATIONS = 4
 CYCLE_CHOICES = [1, 3, 6, 12, 24, 48]
 
-STEPS = [
-    ("website", "Reading your website"),
-    ("research", "Researching the company on the web"),
-    ("plan", "Working out your key functions and goals"),
-    ("create", "Setting up your goals"),
-    ("scan", "Finding what you're missing out on"),
-]
+# What a setup run does, by mode:
+#   start    first-time onboarding: learn about the company, then find what it's missing out on
+#            (each finding comes with the goal that fixes it)
+#   goals    "Suggest more goals": goals for each function, from what we already know
+#   more     "Find more opportunities": look again, skipping what was already found
+#   include  add specific functions (with their goals), from what we already know
+STEPS: dict[str, list[tuple[str, str]]] = {
+    "start": [("website", "Reading your website"),
+              ("research", "Researching the company on the web"),
+              ("profile", "Understanding what you sell and who buys it"),
+              ("scan", "Finding what you're missing out on")],
+    "goals": [("plan", "Working out goals for each function"),
+              ("create", "Setting up the suggested goals")],
+    "more": [("website", "Reading your website again"),
+             ("scan", "Looking for new opportunities")],
+    "include": [("plan", "Working out goals for these functions"),
+                ("create", "Setting up the goals")],
+}
+MODES = tuple(STEPS)
 
 
-def initial_steps() -> list[dict]:
-    return [{"key": k, "label": label, "status": "pending", "detail": ""} for k, label in STEPS]
+def initial_steps(mode: str = "start") -> list[dict]:
+    return [{"key": k, "label": label, "status": "pending", "detail": ""} for k, label in STEPS.get(mode, STEPS["start"])]
+
+
+def mode_of(plan: dict | None) -> str:
+    plan = plan or {}
+    return plan.get("mode") or ("include" if plan.get("include") else "start")
 
 
 # --- prompts -----------------------------------------------------------------------------------
@@ -212,6 +229,10 @@ Starting template for this type of company:
 {task}"""
 
 FULL_TASK = "Design their AI team: the profile, the functions, and the first goals for each."
+GOALS_TASK = ("Suggest the goals worth setting up now, grouped by function (the profile is already known: "
+              "repeat it as it is). The company already has these goals: {goals}. Don't repeat them or close "
+              "variations; suggest what's missing. Use the functions it has ({existing}) and add a function only "
+              "when a goal clearly needs it.")
 ADD_TASK = ("The team already has: {existing}. The founders asked to add these functions now: {include}. "
             "Plan ONLY these functions, with their first goals; return an empty later list.")
 
@@ -392,7 +413,7 @@ def classify_schema() -> dict:
 
 
 async def classify_company(claude: MeteredClaude, setup_id: str | None, name: str, website: str, description: str,
-                           research: str, site_text: str) -> tuple[str, str, str]:
+                           research: str, site_text: str, step: str = "plan") -> tuple[str, str, str]:
     """(company type, size, reason), decided by Claude (the fast model; a fraction of a cent).
     Falls back to the general pack if it can't decide."""
     types = "\n".join(f"- {p.key}: {p.label}. {p.description}" for p in packs.PACKS.values())
@@ -409,17 +430,50 @@ async def classify_company(claude: MeteredClaude, setup_id: str | None, name: st
         log.warning("company type: %s", e)
         return "general", "", ""
     if setup_id:
-        await _step(setup_id, "plan", "running", "", result.cost)
+        await _step(setup_id, step, "running", "", result.cost)
     kind = data.get("company_type") if data.get("company_type") in packs.PACKS else "general"
     size = data.get("size") if data.get("size") in SIZES else ""
     return kind, size, (data.get("reason") or "").strip()[:300]
 
 
+PROFILE_SYSTEM = """You write a short, factual profile of a company from research and its website, and \
+decide which kind of company it is and how big. Base the type on what it actually does and how it \
+makes money, not on single words. Judge size from headcount and revenue (funding alone counts for \
+less). State facts concisely, "Unknown" where not known; trust the founders' description over \
+older web sources. current_focus: what they're pushing on now (2-4 items); challenges: what's in \
+their way (2-4 items)."""
+
+
+def profile_schema() -> dict:
+    return {"type": "json_schema", "schema": plan_schema()["schema"]["properties"]["profile"]}
+
+
+async def profile_company(claude: MeteredClaude, setup_id: str, name: str, website: str, description: str,
+                          research: str, site_text: str) -> dict:
+    """What the company sells, to whom, its stage, type and size (no goals: those come from findings)."""
+    types = "\n".join(f"- {p.key}: {p.label}. {p.description}" for p in packs.PACKS.values())
+    content = (f"Company: {name}\nWebsite: {website or '(none)'}\nWhat the founders say it does: {description or '(not given)'}\n\n"
+               f"Research:\n{(research or '(none)')[:12000]}\n\nWebsite text:\n{(site_text or '(none)')[:8000]}\n\n"
+               f"Types:\n{types}\n\nSizes:\n{sizes_text()}")
+    result = await claude.create(campaign_id=None, run_id=None, purpose="setup profile", role="worker",
+                                 system=PROFILE_SYSTEM, messages=[{"role": "user", "content": content}],
+                                 max_tokens=4000, output_format=profile_schema())
+    try:
+        data = json.loads(_texts(result.content) or "{}")
+    except json.JSONDecodeError:
+        data = {}
+    kind = data.get("company_type") if data.get("company_type") in packs.PACKS else "general"
+    profile = {**data, "company_type": kind, "pack_label": packs.PACKS[kind].label,
+               "size": data.get("size") if data.get("size") in SIZES else DEFAULT_SIZE}
+    await _step(setup_id, "profile", "done", f"{packs.PACKS[kind].label} · {SIZES[profile['size']]['label']}", result.cost)
+    return profile
+
+
 async def plan_team(claude: MeteredClaude, setup_id: str, name: str, website: str, description: str,
                     research: str, site_text: str, include: list[str] | None = None,
-                    existing: list[str] | None = None, template: str = "") -> dict:
-    task = ADD_TASK.format(existing=", ".join(existing or []) or "nothing yet",
-                           include=", ".join(include_names(include))) if include else FULL_TASK
+                    existing: list[str] | None = None, template: str = "", task: str = "") -> dict:
+    task = task or (ADD_TASK.format(existing=", ".join(existing or []) or "nothing yet",
+                                    include=", ".join(include_names(include))) if include else FULL_TASK)
     result = await claude.create(
         campaign_id=None, run_id=None, purpose="setup plan", role="planner",
         system=PLAN_SYSTEM.format(sizes=sizes_text(), max_per_dept=MAX_GOALS_PER_DEPARTMENT, max_later=MAX_LATER,
@@ -670,6 +724,31 @@ async def _add_goals(s, org_id: str, requested_by: str | None, agent: Agent, goa
         created["goals"].append(c.id)
 
 
+async def _earlier_research(s, org: Organization, setup_id: str) -> str:
+    """What earlier setups learned (for runs that don't research again)."""
+    research = (await s.execute(
+        select(OrgSetup.research).where(OrgSetup.org_id == org.id, OrgSetup.id != setup_id,
+                                        OrgSetup.research.is_not(None), OrgSetup.research != "")
+        .order_by(OrgSetup.created_at.desc()).limit(1))).scalar_one_or_none() or ""
+    if not research and org.profile:
+        research = json.dumps({k: v for k, v in org.profile.items() if k not in ("sources", "later", "opportunities")})
+    return research
+
+
+async def _read_website(setup_id: str, website: str) -> str:
+    if not website:
+        await _step(setup_id, "website", "skipped", "No website given")
+        return ""
+    await _step(setup_id, "website", "running")
+    reading = await read_site(website)
+    if reading.pages:
+        await _step(setup_id, "website", "done",
+                    f"Read {len(reading.pages)} page{'s' if len(reading.pages) != 1 else ''} on {reading.domain}")
+    else:
+        await _step(setup_id, "website", "failed", reading.error or "Couldn't read the website")
+    return reading.as_text()
+
+
 async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> None:
     claude = claude or MeteredClaude()
     async with session_scope() as s:
@@ -677,121 +756,70 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
         org = await s.get(Organization, setup.org_id)
         org_id, requested_by = org.id, setup.requested_by
         name, website, description = org.name, org.website, org.description
-        setup.steps = setup.steps or initial_steps()
+        mode = mode_of(setup.plan)
+        setup.steps = setup.steps or initial_steps(mode)
         setup.error = None
         include = list((setup.plan or {}).get("include") or [])
         org_profile = dict(org.profile or {})
-        earlier_research, existing = "", []
-        if include:  # adding functions later: reuse what setup learned before
-            earlier_research = (await s.execute(
-                select(OrgSetup.research).where(OrgSetup.org_id == org_id, OrgSetup.id != setup_id,
-                                                OrgSetup.research.is_not(None), OrgSetup.research != "")
-                .order_by(OrgSetup.created_at.desc()).limit(1))).scalar_one_or_none() or ""
-            existing = [n for (n,) in (await s.execute(
-                select(Department.name).where(Department.org_id == org_id).order_by(Department.created_at))).all()]
-            if not earlier_research and org.profile:
-                earlier_research = json.dumps({k: v for k, v in org.profile.items() if k not in ("sources", "later")})
-    current = "website"
+        earlier_research = await _earlier_research(s, org, setup_id) if mode != "start" else ""
+        existing = [n for (n,) in (await s.execute(
+            select(Department.name).where(Department.org_id == org_id).order_by(Department.created_at))).all()]
+        goal_names = [n for (n,) in (await s.execute(select(Campaign.name).where(Campaign.org_id == org_id)
+                                                     .order_by(Campaign.created_at))).all()]
+    current = STEPS[mode][0][0]
+    created: dict = {"departments": [], "agents": [], "goals": []}
     try:
-        # 1. Website
-        site_text = ""
-        if include:
-            await _step(setup_id, "website", "skipped", "Using what we learned before")
-        elif website:
-            await _step(setup_id, "website", "running")
-            reading = await read_site(website)
-            site_text = reading.as_text()
-            if reading.pages:
-                await _step(setup_id, "website", "done",
-                            f"Read {len(reading.pages)} page{'s' if len(reading.pages) != 1 else ''} on {reading.domain}")
-            else:
-                await _step(setup_id, "website", "failed", reading.error or "Couldn't read the website")
-        else:
-            await _step(setup_id, "website", "skipped", "No website given")
-
-        # 2. Research. Setup can still go on from the website and description if this fails.
-        current = "research"
-        if include:
-            research, sources = earlier_research, []
-            await _step(setup_id, "research", "skipped", "Using what we learned before")
-        else:
-            await _step(setup_id, "research", "running")
-        try:
-            if not include:
-                research, sources = await research_company(claude, setup_id, name, website, description, site_text)
-        except Exception as e:
-            log.warning("setup research failed: %s", e)
-            research, sources = "", []
-            await _step(setup_id, "research", "failed", f"Web research didn't work ({type(e).__name__}); "
-                                                         "carrying on with what you told us")
-            if not site_text and not description:
-                raise
-        async with session_scope() as s:
-            (await s.get(OrgSetup, setup_id)).research = research
-
-        # 3. Plan
-        current = "plan"
-        await _step(setup_id, "plan", "running")
-        # Claude decides which type of company this is and how big; that type's pack is the
-        # starting template, and the planner personalises it.
-        known_type = (org_profile or {}).get("company_type") if include else None
-        if known_type in packs.PACKS:
-            pack_key, size_guess, reason = known_type, (org_profile or {}).get("size", ""), ""
-        else:
-            pack_key, size_guess, reason = await classify_company(claude, setup_id, name, website, description,
-                                                                  research, site_text)
-            async with session_scope() as s:  # kept even if planning fails (a starter team can use it)
-                org = await s.get(Organization, org_id)
-                org.profile = {**(org.profile or {}), "company_type": pack_key,
-                               "pack_label": packs.PACKS[pack_key].label}
-        plan = await plan_team(claude, setup_id, name, website, description, research, site_text,
-                               include=include or None, existing=existing,
-                               template=packs.pack_brief(pack_key, reason, size_guess))
-        company_type = (plan.get("profile") or {}).get("company_type") or pack_key
-        plan["profile"] = {**(plan.get("profile") or {}), "company_type": company_type,
-                           "pack_label": packs.PACKS[company_type].label, "type_reason": reason}
-        if not plan["departments"]:
-            raise RuntimeError("Couldn't work out any functions to set up. Add a few words about what you do and try again.")
-        async with session_scope() as s:
-            per, basis, n = await estimate.session_cost(s, org_id)
-        for d in plan["departments"]:  # budget = sessions x cost per session + paid spend
-            for g in d["goals"]:
-                g["budget_basis"] = estimate.starter(per, g["cycle_hours"], g["duration_days"], g["paid_spend_usd"], basis, n)
-                g["budget_usd"] = g["budget_basis"]["suggested_usd"]
-        async with session_scope() as s:
-            (await s.get(OrgSetup, setup_id)).plan = {**plan, "include": include} if include else plan
-            org = await s.get(Organization, org_id)
-            if include:  # keep the profile; what was just added is no longer "later"
-                added = {d["kind"] for d in plan["departments"] if d["kind"]} | {d["name"].lower() for d in plan["departments"]}
-                added |= set(include) | {n.lower() for n in include_names(include)}
-                org.profile = {**(org.profile or {}), "later": [
-                    x for x in (org.profile or {}).get("later") or [] if x["kind"] not in added and x["name"].lower() not in added]}
-            else:
-                org.profile = {**(plan.get("profile") or {}), "sources": sources, "later": plan.get("later") or [],
-                               "researched_at": utcnow().isoformat()}
-
-        # 4. Create
-        current = "create"
-        await _step(setup_id, "create", "running")
-        created = await create_team(setup_id, org_id, requested_by, plan)
-
-        # 5. Scan: what they're missing, tied to goals. Nice to have: setup is done without it.
-        current = "scan"
-        if include:
-            await _step(setup_id, "scan", "skipped", "Kept your earlier findings")
-        else:
+        if mode == "start":
+            created = await _start(claude, setup_id, org_id, requested_by, name, website, description)
+        elif mode == "more":
+            current = "website"
+            site_text = await _read_website(setup_id, website)
+            current = "scan"
             await _step(setup_id, "scan", "running")
-            try:
-                found = await opportunities.scan(claude, org_id, requested_by, research, site_text)
-                created["goals"] += [g for g in (await _goals_added(org_id)) if g not in created["goals"]]
-                n = len(found["findings"])
-                ran = f"Ran {found['ran']} checks plus measurements · " if found.get("ran") else ""
-                await _step(setup_id, "scan", "done",
-                            ran + (f"{n} thing{'s' if n != 1 else ''} you could do better" if n else "nothing big stood out"),
-                            found["cost"])
-            except Exception as e:
-                log.warning("opportunity scan failed: %s", e, exc_info=True)
-                await _step(setup_id, "scan", "failed", "Couldn't finish this check; your goals are ready anyway")
+            found = await opportunities.scan(claude, org_id, requested_by, earlier_research, site_text, more=True)
+            n = found.get("new", len(found["findings"]))
+            await _step(setup_id, "scan", "done",
+                        (f"Ran {found['ran']} more checks · " if found.get("ran") else "")
+                        + (f"{n} new opportunit{'ies' if n != 1 else 'y'}" if n else "nothing new stood out this time"),
+                        found["cost"])
+            created["goals"] = found.get("goals") or []
+        else:  # goals / include: plan goals per function from what we know, then set them up
+            current = "plan"
+            await _step(setup_id, "plan", "running")
+            known_type = org_profile.get("company_type")
+            if known_type in packs.PACKS:
+                pack_key, size_guess, reason = known_type, org_profile.get("size", ""), ""
+            else:
+                pack_key, size_guess, reason = await classify_company(claude, setup_id, name, website, description,
+                                                                      earlier_research, "")
+            task = GOALS_TASK.format(goals="; ".join(goal_names[:60]) or "none yet",
+                                     existing=", ".join(existing) or "none yet") if mode == "goals" else ""
+            plan = await plan_team(claude, setup_id, name, website, description, earlier_research, "",
+                                   include=include or None, existing=existing,
+                                   template=packs.pack_brief(pack_key, reason, size_guess), task=task)
+            if not plan["departments"]:
+                raise RuntimeError("Couldn't work out any goals to suggest. Add a few words about what you do and try again.")
+            async with session_scope() as s:
+                per, basis, n = await estimate.session_cost(s, org_id)
+            for d in plan["departments"]:  # budget = sessions x cost per session + paid spend
+                for g in d["goals"]:
+                    g["budget_basis"] = estimate.starter(per, g["cycle_hours"], g["duration_days"], g["paid_spend_usd"], basis, n)
+                    g["budget_usd"] = g["budget_basis"]["suggested_usd"]
+            async with session_scope() as s:
+                (await s.get(OrgSetup, setup_id)).plan = {**plan, "include": include, "mode": mode}
+                org = await s.get(Organization, org_id)
+                # The profile stays; what was just added is no longer "later".
+                added = {d["kind"] for d in plan["departments"] if d["kind"]} | {d["name"].lower() for d in plan["departments"]}
+                added |= set(include) | {x.lower() for x in include_names(include)}
+                later = [x for x in (org.profile or {}).get("later") or [] if x["kind"] not in added and x["name"].lower() not in added]
+                if mode == "goals":
+                    later += [x for x in plan.get("later") or [] if x["kind"] not in {y["kind"] for y in later}]
+                org.profile = {**(org.profile or {}), "later": later}
+                if not (org.profile or {}).get("company_type"):
+                    org.profile = {**org.profile, "company_type": pack_key, "pack_label": packs.PACKS[pack_key].label}
+            current = "create"
+            await _step(setup_id, "create", "running")
+            created = await create_team(setup_id, org_id, requested_by, plan)
         async with session_scope() as s:
             setup = await s.get(OrgSetup, setup_id)
             setup.created = created
@@ -799,12 +827,53 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
             setup.locked_by = None
     except Exception as e:
         log.exception("org setup %s failed", setup_id)
-        await _step(setup_id, current, "failed")
+        async with session_scope() as s:  # the step that was running is the one that failed
+            running = next((x["key"] for x in (await s.get(OrgSetup, setup_id)).steps or [] if x["status"] == "running"), None)
+        await _step(setup_id, running or current, "failed")
         async with session_scope() as s:
             setup = await s.get(OrgSetup, setup_id)
             setup.status = "failed"
             setup.error = str(e)[:1000] or type(e).__name__
             setup.locked_by = None
+
+
+async def _start(claude: MeteredClaude, setup_id: str, org_id: str, requested_by: str | None, name: str,
+                 website: str, description: str) -> dict:
+    """Onboarding: read the site, research, profile, then find what the company is missing out on.
+    Goals come from the findings (each finding has the goal that fixes it); "Suggest more goals" on
+    the Team page plans goals per function later, from this research."""
+    site_text = await _read_website(setup_id, website)
+
+    # Research. Setup can still go on from the website and description if this fails.
+    await _step(setup_id, "research", "running")
+    try:
+        research, sources = await research_company(claude, setup_id, name, website, description, site_text)
+    except Exception as e:
+        log.warning("setup research failed: %s", e)
+        research, sources = "", []
+        await _step(setup_id, "research", "failed", f"Web research didn't work ({type(e).__name__}); "
+                                                     "carrying on with what you told us")
+        if not site_text and not description:
+            raise
+    async with session_scope() as s:
+        (await s.get(OrgSetup, setup_id)).research = research
+
+    await _step(setup_id, "profile", "running")
+    profile = await profile_company(claude, setup_id, name, website, description, research, site_text)
+    async with session_scope() as s:
+        org = await s.get(Organization, org_id)
+        keep = {k: v for k, v in (org.profile or {}).items() if k in ("opportunities", "later")}
+        org.profile = {**keep, **profile, "sources": sources, "researched_at": utcnow().isoformat()}
+        (await s.get(OrgSetup, setup_id)).plan = {"mode": "start", "profile": profile}
+
+    await _step(setup_id, "scan", "running")
+    found = await opportunities.scan(claude, org_id, requested_by, research, site_text)
+    n = len(found["findings"])
+    ran = f"Ran {found['ran']} checks plus measurements · " if found.get("ran") else ""
+    await _step(setup_id, "scan", "done",
+                ran + (f"{n} thing{'s' if n != 1 else ''} you could do better" if n else "nothing big stood out"),
+                found["cost"])
+    return {"departments": [], "agents": [], "goals": await _goals_added(org_id)}
 
 
 async def _goals_added(org_id: str) -> list[str]:
