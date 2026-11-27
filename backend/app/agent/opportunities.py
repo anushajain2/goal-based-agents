@@ -36,6 +36,7 @@ from app.db import session_scope
 from app.models import Agent, Campaign, Department, Membership, Organization, Role, utcnow
 from app.org import DEPARTMENT_PRESETS, PRESET_NAMES, add_department, default_agent_name
 from app.services import estimate, presence
+from app.services.presence import social as social_counts
 
 log = logging.getLogger(__name__)
 
@@ -336,14 +337,22 @@ async def read_social(claude: MeteredClaude, name: str, website: str, competitor
                      + (f"; video on its home page: {', '.join(vids) or 'none'}" if vids is not None else ""))
     task = (f"Today is {utcnow().date().isoformat()}. Measure these companies' last 30 days on LinkedIn and X, "
             f"company accounts and founders:\n" + "\n".join(lines))
+    uses = SOCIAL_USES
+    if social_counts.enabled():
+        # Posts are counted exactly from each account's URL afterwards, so the searches go on
+        # finding every account (company and founders) and its exact profile URL.
+        task += ("\n\nEach account's posts are counted separately from its URL, so spend your searches on "
+                 "finding every account and its exact profile URL (linkedin.com/company/..., linkedin.com/in/..., "
+                 "x.com/<handle>). Leave counts you didn't see as null.")
+        uses = 8
     messages: list[dict] = [{"role": "user", "content": task}]
-    tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": SOCIAL_USES},
-             {"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": SOCIAL_USES}]
+    tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": uses},
+             {"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": uses}]
     cost = Decimal("0")
     for _ in range(MAX_CONTINUATIONS + 1):
         result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", task="social_read",
                                      system=SOCIAL_SYSTEM, messages=messages, tools=tools, max_tokens=6000,
-                                     max_web_searches=SOCIAL_USES, output_format=social_schema())
+                                     max_web_searches=uses, output_format=social_schema())
         cost += result.cost
         if result.stop_reason != "pause_turn":
             break
@@ -352,7 +361,9 @@ async def read_social(claude: MeteredClaude, name: str, website: str, competitor
         data = json.loads(_texts(result.content) or "{}")
     except ValueError:
         data = {}
-    return {"accounts": data.get("accounts") or [], "videos": data.get("videos") or []}, cost
+    # Claude finds the accounts; Apify (when set up) counts their posts exactly.
+    accounts, c_apify = await social_counts.count_posts(data.get("accounts") or [])
+    return {"accounts": accounts, "videos": data.get("videos") or []}, cost + c_apify
 
 
 def social_rows(social: dict, name: str, competitors: list[dict]) -> list[dict]:
@@ -361,7 +372,8 @@ def social_rows(social: dict, name: str, competitors: list[dict]) -> list[dict]:
     # An account that couldn't be read has no numbers, whatever came back.
     accounts = [{**a, "posts_30d": None, "engagement_30d": None} if a.get("coverage") == "blocked" else a
                 for a in social.get("accounts") or []]
-    note = "Read from public posts by AI; approximate"
+    note = ("Counted from each account's public posts" if any(a.get("source") == "apify" for a in accounts)
+            else "Read from public posts by AI; approximate")
 
     def fmt(a: dict | None) -> str | None:
         if not a:
