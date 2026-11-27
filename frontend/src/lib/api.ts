@@ -294,7 +294,7 @@ export type CompanyProfile = {
   revenue?: string; size?: "tiny" | "small" | "mid" | "large"; size_reason?: string; later?: LaterFunction[];
   company_type?: string; pack_label?: string;
   opportunities?: {
-    findings: Opportunity[]; scanned_at: string; rounds?: number;
+    findings: Opportunity[]; scanned_at: string; rounds?: number; social?: SocialUsed;
     deeper?: { check: string; tool: string; label: string; title: string; why: string }[];
     unlock?: { team_kind: string; checks: { key: string; title: string; how: string; tool: string; label: string; goal: string }[] }[];
     checks?: { key: string; title: string; method: string; team?: string; why?: string; expect?: string; score?: number }[];
@@ -314,7 +314,15 @@ export type Visibility = {
 };
 export type ScoreRow = {
   key: string; label: string; team: string; note: string;
-  you: { display: string; status: "good" | "ok" | "bad" }; others: { name: string; display: string }[];
+  you: { display: string; status: "good" | "ok" | "bad"; url?: string | null }; others: { name: string; display: string }[];
+};
+/** The company's social profiles a check used: confirmed by the company, or found by searching. */
+export type SocialUsed = {
+  confirmed: boolean;
+  profiles: { who: "company" | "founder"; name: string; platform: "linkedin" | "x"; url: string; coverage: string }[];
+};
+export type SocialProfiles = {
+  linkedin?: string | null; x?: string | null; founders?: { name: string; linkedin?: string | null; x?: string | null }[];
 };
 export type Milestone = {
   name: string; outcome: string; weeks: number; ai_usd: number; paid_usd: number; total_usd: number;
@@ -326,6 +334,7 @@ export type Opportunity = {
   confidence: "high" | "medium" | "low"; sources: string[]; goal_id: string | null;
   check?: string; milestones?: Milestone[]; total_usd?: number | null;
   metric_name?: string; metric_now?: string; metric_goal?: string; pull?: number; found_at?: string;
+  profiles?: SocialUsed;
 };
 export type LaterFunction = { kind: string; name: string; when: string };
 export const SIZE_LABEL: Record<string, string> = { tiny: "1-10 people", small: "11-50 people", mid: "51-250 people", large: "250+ people" };
@@ -335,7 +344,7 @@ export type PlannedGoal = {
   why: string; category: string; steps?: PlanStep[]; budget_basis?: BudgetBasis; first_week?: string; start_here?: boolean;
 };
 export type SetupRun = {
-  id: string; mode: "start" | "goals" | "more" | "include"; status: "queued" | "running" | "done" | "failed"; steps: SetupStep[];
+  id: string; mode: "start" | "goals" | "more" | "include" | "social"; status: "queued" | "running" | "done" | "failed"; steps: SetupStep[];
   error: string | null; cost_usd: number;
   plan: { profile?: CompanyProfile; departments?: { kind: string; name: string; agent_title: string; why: string; goals: PlannedGoal[] }[] } | null;
   created: { departments: string[]; agents: string[]; goals: string[] } | null; created_at: string;

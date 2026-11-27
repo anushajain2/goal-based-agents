@@ -55,6 +55,7 @@ CYCLE_CHOICES = [1, 3, 6, 12, 24, 48]
 #   goals    "Suggest more goals": goals for each function, from what we already know
 #   more     "Find more opportunities": look again, skipping what was already found
 #   include  add specific functions (with their goals), from what we already know
+#   social   after people correct their social profiles: the social checks again, findings replaced
 STEPS: dict[str, list[tuple[str, str]]] = {
     "start": [("website", "Reading your website"),
               ("research", "Researching the company on the web"),
@@ -66,6 +67,7 @@ STEPS: dict[str, list[tuple[str, str]]] = {
              ("scan", "Looking for new opportunities")],
     "include": [("plan", "Working out goals for these functions"),
                 ("create", "Setting up the goals")],
+    "social": [("scan", "Reading your social media again and updating what we found")],
 }
 MODES = tuple(STEPS)
 
@@ -778,6 +780,16 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
     try:
         if mode == "start":
             created = await _start(claude, setup_id, org_id, requested_by, name, website, description)
+        elif mode == "social":
+            current = "scan"
+            await _step(setup_id, "scan", "running")
+            found = await opportunities.scan(claude, org_id, requested_by, earlier_research, "",
+                                             only=sorted(opportunities.SOCIAL_KEYS))
+            n = len(found["findings"])
+            await _step(setup_id, "scan", "done",
+                        f"{n} finding{'s' if n != 1 else ''} about social media" if n else "Nothing to fix on social media",
+                        found["cost"])
+            created["goals"] = found.get("goals") or []
         elif mode == "more":
             current = "website"
             site_text = await _read_website(setup_id, website)

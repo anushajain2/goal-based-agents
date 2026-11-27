@@ -4,7 +4,8 @@ import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, Chevro
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { andMore, api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, ScoreRow, usd, useApi, Visibility } from "@/lib/api";
+import { andMore, api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, ScoreRow, SocialUsed, usd, useApi, Visibility } from "@/lib/api";
+import { ProfilesUsed, profileLabel } from "./SocialProfiles";
 import { TeamTag } from "./team";
 import { cx, ErrorNote } from "./ui";
 
@@ -130,7 +131,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
       )}
 
       {details && !collapsed && found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) && <Findable v={found.visibility} name={orgName} />}
-      {details && !collapsed && (found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} />}
+      {details && !collapsed && (found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} social={found.social} canEdit={canStart} />}
 
       <div className="space-y-4">
         {shownFindings.map(({ f, i }) => {
@@ -162,6 +163,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
                       </li>
                     ))}
                   </ul>
+                  {f.check === "social_performance" && <ProfilesUsed used={f.profiles || found.social} orgName={orgName} canEdit={canStart} />}
                 </div>
 
                 {/* The prize: what fixing it gets you, and the one move to start */}
@@ -553,7 +555,7 @@ function Findable({ v, name }: { v: Visibility; name: string }) {
 }
 
 /** The website, domain and presence, measured next to competitors. */
-function Scorecard({ rows, name }: { rows: ScoreRow[]; name: string }) {
+function Scorecard({ rows, name, social, canEdit }: { rows: ScoreRow[]; name: string; social?: SocialUsed; canEdit: boolean }) {
   const names = [...new Set(rows.flatMap((r) => r.others.map((o) => o.name)))].slice(0, 3);
   const bad = rows.filter((r) => r.you.status === "bad").length;
   return (
@@ -588,6 +590,11 @@ function Scorecard({ rows, name }: { rows: ScoreRow[]; name: string }) {
                     <span className={cx("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", r.you.status === "bad" ? "bg-red-500" : r.you.status === "good" ? "bg-emerald-500" : "bg-stone-300")} />
                     {r.you.display}
                   </span>
+                  {r.you.url && (
+                    <a href={r.you.url} target="_blank" rel="noreferrer" className="mt-0.5 block truncate pl-3 text-[11.5px] text-muted underline decoration-stone-300 underline-offset-2 hover:text-ink">
+                      {profileLabel(r.key === "social_x" ? "x" : "linkedin", r.you.url)}
+                    </a>
+                  )}
                 </td>
                 {names.map((n) => <td key={n} className="px-3 py-2.5 text-stone-600">{r.others.find((o) => o.name === n)?.display ?? <span className="text-stone-300">-</span>}</td>)}
               </tr>
@@ -595,6 +602,9 @@ function Scorecard({ rows, name }: { rows: ScoreRow[]; name: string }) {
           </tbody>
         </table>
       </div>
+      {rows.some((r) => r.key.startsWith("social_")) && (
+        <div className="border-t border-line px-5 pb-4"><ProfilesUsed used={social} orgName={name} canEdit={canEdit} /></div>
+      )}
     </div>
   );
 }

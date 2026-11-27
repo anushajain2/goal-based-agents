@@ -31,7 +31,8 @@ export default function OpportunitiesPage() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const task = info?.task?.mode === "more" ? info.task : null;
+  // "Find more" and re-checking social media (after people correct their profiles) show here.
+  const task = info?.task?.mode === "more" || info?.task?.mode === "social" ? info.task : null;
   const looking = !!task && (task.status === "queued" || task.status === "running");
   const researching = !!info?.setup && (info.setup.status === "queued" || info.setup.status === "running");
   // Only one research run at a time (e.g. "Suggest more goals" on the Team page).
@@ -102,15 +103,19 @@ export default function OpportunitiesPage() {
 
       {task && looking && (
         <Card className="p-5">
-          <div className="mb-3 flex items-center gap-2 text-[15px] font-semibold"><Search size={16} className="text-brand-600" /> Looking for new opportunities</div>
+          <div className="mb-3 flex items-center gap-2 text-[15px] font-semibold"><Search size={16} className="text-brand-600" />
+            {task.mode === "social" ? "Checking your social media again, with your profiles" : "Looking for new opportunities"}</div>
           <RunProgress steps={task.steps} />
-          <p className="mt-3 text-xs text-muted">This takes a few minutes. It skips what we found before, so everything it adds is new. You can leave this page.</p>
+          <p className="mt-3 text-xs text-muted">
+            {task.mode === "social" ? "About a minute. Only the social media findings are updated; the rest stay as they are."
+              : "This takes a few minutes. It skips what we found before, so everything it adds is new."} You can leave this page.
+          </p>
         </Card>
       )}
       {task && task.status === "done" && (task.created?.goals || []).length === 0 && !looking && task.steps.at(-1)?.detail?.includes("nothing new") && (
         <Card className="p-4 text-sm text-muted">The last search didn&apos;t find anything new. Try again later, after your site or market changes.</Card>
       )}
-      {task && task.status === "failed" && <ErrorNote>Finding more didn&apos;t finish: {task.error || "something went wrong"}. Try again.</ErrorNote>}
+      {task && task.status === "failed" && <ErrorNote>{task.mode === "social" ? "Checking social media again" : "Finding more"} didn&apos;t finish: {task.error || "something went wrong"}. Try again.</ErrorNote>}
 
       {!found && !researching && (
         <Card className="flex flex-wrap items-center gap-3 p-5">

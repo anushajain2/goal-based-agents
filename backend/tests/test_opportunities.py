@@ -384,3 +384,85 @@ async def test_find_more_opportunities_skips_what_was_found_and_adds_new_ones(wi
         goals = {g["name"] for g in (await c.get("/api/campaigns")).json()}
         assert "Fix: 12 reviews against Routeco's 240" in goals
         assert "Fix: Routeco posts 5x more on LinkedIn!" not in goals  # no stray goal for the dropped repeat
+
+
+def test_profiles_the_company_confirms_replace_what_the_search_found():
+    from app.agent.opportunities import apply_confirmed, norm_profile, own_profiles
+
+    assert norm_profile("x", "@acme") == "https://x.com/acme"
+    assert norm_profile("x", "twitter.com/acme?s=1") == "https://x.com/acme"
+    assert norm_profile("linkedin", "linkedin.com/company/acme/") == "https://linkedin.com/company/acme"
+    found = [
+        {"company": "Acme", "who": "company", "name": "Acme Corp (wrong)", "platform": "linkedin",
+         "url": "https://linkedin.com/company/acme-corp", "coverage": "verified", "posts_30d": 40, "engagement_30d": 900},
+        {"company": "Acme", "who": "founder", "name": "Someone Else", "platform": "x", "url": "https://x.com/else",
+         "coverage": "verified", "posts_30d": 3, "engagement_30d": 10},
+        {"company": "Routeco", "who": "company", "name": "Routeco", "platform": "linkedin",
+         "url": "https://linkedin.com/company/routeco", "coverage": "verified", "posts_30d": 10, "engagement_30d": 500},
+    ]
+    confirmed = {"linkedin": "https://www.linkedin.com/company/acme-routing", "x": None,
+                 "founders": [{"name": "Ada Founder", "linkedin": "https://linkedin.com/in/ada", "x": None}]}
+    out = apply_confirmed(found, "Acme", confirmed)
+    acme = [a for a in out if a["company"] == "Acme"]
+    assert [(a["who"], a["platform"], a["url"]) for a in acme] == [
+        ("company", "linkedin", "https://www.linkedin.com/company/acme-routing"), ("founder", "linkedin", "https://linkedin.com/in/ada")]
+    assert all(a["confirmed"] and a["posts_30d"] is None for a in acme)  # the wrong account's numbers are gone
+    assert any(a["company"] == "Routeco" and a["posts_30d"] == 10 for a in out)  # competitors untouched
+    used = own_profiles({"accounts": out}, "Acme", True)
+    assert used["confirmed"] and [p["url"] for p in used["profiles"]][0].endswith("acme-routing")
+
+
+async def test_correcting_social_profiles_rechecks_just_social_media(with_key, fake_site):
+    def finding(check, title):
+        return {"check": check, "team_kind": "marketing", "title": title, "evidence": "Measured.", "points": ["A fact"],
+                "impact": "x", "estimate": "", "assumption": "", "confidence": "high", "pull": 4, "metric_name": "",
+                "metric_now": "", "metric_goal": "", "source_urls": [], "goal_id": "",
+                "new_goal": goal(f"Fix: {title}", "Marketing & demand gen"), "milestones": []}
+
+    social_prompts = []
+
+    def social(kw):
+        social_prompts.append(kw["messages"][0]["content"])
+        return {"accounts": [{"company": "Acme", "who": "company", "name": "Acme", "platform": "linkedin",
+                              "url": "https://linkedin.com/company/wrong-acme", "coverage": "verified",
+                              "posts_30d": 1, "engagement_30d": 2, "note": ""}], "videos": []}
+
+    first = {"findings": [finding("social_performance", "No LinkedIn activity"), finding("review_gap", "Few reviews")]}
+    after = {"findings": [finding("social_performance", "LinkedIn page posts once a month")]}
+    pick = lambda kw: {"checks": [{"key": "social_performance", "score": 5, "why": "", "expect": ""},  # noqa: E731
+                                  {"key": "review_gap", "score": 5, "why": "", "expect": ""}],
+                       "queries": [], "competitors": [{"name": "Routeco", "domain": "routeco.test"}]}
+    async with client() as c:
+        await onboard(c, FakeAnthropic(research_script, routes={"checks": pick, "accounts": social}, scanner=lambda kw: first))
+        opp = (await c.get("/api/org/setup")).json()["org"]["profile"]["opportunities"]
+        social_finding = next(f for f in opp["findings"] if f["check"] == "social_performance")
+        assert social_finding["profiles"]["profiles"][0]["url"] == "https://linkedin.com/company/wrong-acme"
+        assert not social_finding["profiles"]["confirmed"]
+
+        # Wrong page picked up: the company corrects it.
+        r = await c.put("/api/org/socials", json={"linkedin": "linkedin.com/company/acme-routing", "x": "@acmeroutes",
+                                                  "founders": [{"name": "Ada", "linkedin": "", "x": ""}]})
+        assert r.status_code == 200, r.text
+        assert r.json() == {"linkedin": "https://linkedin.com/company/acme-routing", "x": "https://x.com/acmeroutes",
+                            "founders": []}
+        assert (await c.put("/api/org/socials", json={"linkedin": "https://facebook.com/acme"})).status_code == 400
+
+        r = await c.post("/api/org/setup", json={"mode": "social"})
+        assert r.status_code == 200 and r.json()["mode"] == "social"
+        fake = FakeAnthropic(research_script, routes={"accounts": social}, scanner=lambda kw: after)
+        await run_org_setup(r.json()["id"], MeteredClaude(client=fake))
+        st = (await c.get("/api/org/setup")).json()
+        assert st["task"]["status"] == "done", st["task"]["error"]
+        assert not any("checks" in (k.get("output_config") or {}).get("format", {}).get("schema", {}).get("properties", {})
+                       for k in fake.calls)  # no new check picking: the same competitors, social media only
+        assert "profiles the company confirmed" in social_prompts[-1] and "acme-routing" in social_prompts[-1]
+        opp = st["org"]["profile"]["opportunities"]
+        assert [f["title"] for f in opp["findings"]] == ["Few reviews", "LinkedIn page posts once a month"]
+        new = opp["findings"][-1]
+        assert new["profiles"]["confirmed"] is True
+        assert {p["url"] for p in new["profiles"]["profiles"]} == {"https://linkedin.com/company/acme-routing",
+                                                                    "https://x.com/acmeroutes"}
+        li = next(r for r in opp["scorecard"] if r["key"] == "social_linkedin")
+        assert li["you"]["url"] == "https://linkedin.com/company/acme-routing" and li["you"]["display"] == "Couldn't read"
+        socials = (await c.get("/api/org/socials")).json()
+        assert socials["confirmed"]["x"] == "https://x.com/acmeroutes" and len(socials["used"]) == 2

@@ -325,8 +325,9 @@ def social_schema() -> dict:
 
 
 async def read_social(claude: MeteredClaude, name: str, website: str, competitors: list[dict],
-                      sites: dict) -> tuple[dict, Decimal]:
-    """Posts and engagement in the last 30 days, and launch videos, for the company and competitors."""
+                      sites: dict, confirmed: dict | None = None) -> tuple[dict, Decimal]:
+    """Posts and engagement in the last 30 days, and launch videos, for the company and competitors.
+    `confirmed`: the company's own profiles as it gave them (used exactly, instead of searching)."""
     companies = [(name, host(website))] + [(c["name"], host(c["domain"])) for c in competitors]
     lines = []
     for n, d in companies:
@@ -335,6 +336,8 @@ async def read_social(claude: MeteredClaude, name: str, website: str, competitor
         lines.append(f"- {n} ({d or 'no website'}): profiles linked from its site: "
                      + (", ".join(f"{k} {v}" for k, v in so.items()) or "none found")
                      + (f"; video on its home page: {', '.join(vids) or 'none'}" if vids is not None else ""))
+        if n == name and confirmed:
+            lines[-1] += "; " + confirmed_text(confirmed)
     task = (f"Today is {utcnow().date().isoformat()}. Measure these companies' last 30 days on LinkedIn and X, "
             f"company accounts and founders:\n" + "\n".join(lines))
     uses = SOCIAL_USES
@@ -361,9 +364,77 @@ async def read_social(claude: MeteredClaude, name: str, website: str, competitor
         data = json.loads(_texts(result.content) or "{}")
     except ValueError:
         data = {}
-    # Claude finds the accounts; Apify (when set up) counts their posts exactly.
-    accounts, c_apify = await social_counts.count_posts(data.get("accounts") or [])
+    # The company's own word beats a search; then Apify (when set up) counts the posts exactly.
+    found = apply_confirmed(data.get("accounts") or [], name, confirmed or {})
+    accounts, c_apify = await social_counts.count_posts(found)
     return {"accounts": accounts, "videos": data.get("videos") or []}, cost + c_apify
+
+
+SOCIAL_PLATFORMS = ("linkedin", "x")
+
+
+def norm_profile(platform: str, raw: str | None) -> str | None:
+    """A profile as a URL: "@acme" or "acme" on X -> https://x.com/acme; LinkedIn needs its URL."""
+    v = (raw or "").strip()
+    if not v:
+        return None
+    if platform == "x" and re.fullmatch(r"@?[A-Za-z0-9_]{1,15}", v):
+        return f"https://x.com/{v.lstrip('@')}"
+    if "://" not in v:
+        v = "https://" + v
+    v = re.sub(r"^https?://(www\.|mobile\.)?twitter\.com", "https://x.com", v.split("?")[0].rstrip("/"))
+    return re.sub(r"^http://", "https://", v)
+
+
+def _same_profile(a: str | None, b: str | None) -> bool:
+    key = lambda u: re.sub(r"^https?://(www\.)?", "", (u or "").lower().rstrip("/"))  # noqa: E731
+    return bool(a and b) and key(a) == key(b)
+
+
+def confirmed_text(c: dict) -> str:
+    parts = [f"{p} {c[p]}" for p in SOCIAL_PLATFORMS if c.get(p)]
+    for f in c.get("founders") or []:
+        links = ", ".join(f"{p} {f[p]}" for p in SOCIAL_PLATFORMS if f.get(p))
+        if links:
+            parts.append(f"founder {f.get('name') or 'founder'} ({links})")
+    return ("profiles the company confirmed (use exactly these; don't search for other accounts in their place): "
+            + "; ".join(parts)) if parts else ""
+
+
+def apply_confirmed(accounts: list[dict], name: str, confirmed: dict) -> list[dict]:
+    """The company's confirmed profiles replace whatever the search picked for it (keeping counts the
+    search read from the same profile); profiles it didn't confirm stay as found."""
+    if not confirmed:
+        return accounts
+    out = [dict(a) for a in accounts]
+    mine = lambda a, who, platform: (a.get("company", "").lower() == name.lower() and a.get("who") == who  # noqa: E731
+                                     and a.get("platform") == platform)
+
+    def put(who: str, platform: str, url: str, label: str) -> dict:
+        same = next((a for a in out if mine(a, who, platform) and _same_profile(a.get("url"), url)), None)
+        entry = same or {"company": name, "who": who, "name": label, "platform": platform, "url": url,
+                         "coverage": "blocked", "posts_30d": None, "engagement_30d": None, "note": ""}
+        entry.update(url=url, name=label or entry.get("name"), confirmed=True)
+        return entry
+
+    keep = [a for a in out if a.get("company", "").lower() != name.lower()]
+    own = [a for a in out if a.get("company", "").lower() == name.lower()]
+    for platform in SOCIAL_PLATFORMS:
+        if confirmed.get(platform):
+            own = [a for a in own if not mine(a, "company", platform)] + [put("company", platform, confirmed[platform], name)]
+    if confirmed.get("founders"):
+        own = [a for a in own if a.get("who") != "founder"]
+        for f in confirmed["founders"]:
+            own += [put("founder", p, f[p], f.get("name") or "Founder") for p in SOCIAL_PLATFORMS if f.get(p)]
+    return keep + own
+
+
+def own_profiles(social: dict, name: str, confirmed: bool) -> dict:
+    """Which of the company's profiles the social numbers come from, for people to check."""
+    accounts = [a for a in social.get("accounts") or [] if a.get("company", "").lower() == name.lower()]
+    return {"confirmed": confirmed,
+            "profiles": [{"who": a.get("who"), "name": a.get("name") or "", "platform": a.get("platform"),
+                          "url": a.get("url") or "", "coverage": a.get("coverage") or ""} for a in accounts if a.get("url")]}
 
 
 def social_rows(social: dict, name: str, competitors: list[dict]) -> list[dict]:
@@ -406,7 +477,8 @@ def social_rows(social: dict, name: str, competitors: list[dict]) -> list[dict]:
         if not mine and not any(a for _, a in theirs):
             continue
         rows.append({"key": f"social_{platform}", "label": label, "team": "marketing",
-                     "you": {"display": fmt(mine) or "No account found", "status": verdict(mine, [a for _, a in theirs])},
+                     "you": {"display": fmt(mine) or "No account found", "status": verdict(mine, [a for _, a in theirs]),
+                             "url": (mine or {}).get("url") or None},
                      "others": [{"name": n, "display": fmt(a)} for n, a in theirs if a], "note": note})
 
     def founders(company: str) -> dict | None:
@@ -697,11 +769,13 @@ async def look(claude: MeteredClaude, name: str, website: str, description: str,
 
 
 async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, research: str, site_text: str,
-               more: bool = False) -> dict:
+               more: bool = False, only: list[str] | None = None) -> dict:
     """Run the checks, save the findings on the profile, and return {"findings", "ran", "cost"}.
 
     more=True ("Find more opportunities"): run checks that haven't run yet, skip what was already
-    found, and add the new findings to the earlier ones (returns "new" and the new "goals")."""
+    found, and add the new findings to the earlier ones (returns "new" and the new "goals").
+    only=[keys] (e.g. after people correct their social profiles): run just these checks again,
+    with the same competitors, and replace their findings; everything else stays."""
     from app.agent import org_setup  # the goal schema, tidying and goal creation live there
 
     usage_org.set(org_id)
@@ -719,54 +793,65 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
                                  .where(Campaign.org_id == org_id))).all()
         teams = ", ".join(f"{d.name} ({d.kind or 'custom'})" for d in depts) or "(none yet)"
         per, basis, n = await estimate.session_cost(s, org_id)
-        before = dict((org.profile or {}).get("opportunities") or {}) if more else {}
+        before = dict((org.profile or {}).get("opportunities") or {}) if (more or only) else {}
+        confirmed = dict((org.profile or {}).get("socials") or {})  # profiles the company gave us
     ran_before = {c.get("key") for c in before.get("checks") or []}
-    found_before = [f.get("title", "") for f in before.get("findings") or [] if f.get("title")]
+    found_before = [f.get("title", "") for f in before.get("findings") or []
+                    if f.get("title") and f.get("check") not in (only or [])]
     mine = host(website)
     cost = Decimal("0")
 
-    # 1. Pick the checks for this company, its customers' searches and its competitors.
-    options = catalog.runnable(pack_key)
-    if more:  # checks that haven't run yet (all of them again once every one has)
-        options = [c for c in options if c.key not in ran_before] or options
-    result = await claude.create(
-        campaign_id=None, run_id=None, purpose="opportunity scan", task="pick_checks", system=PICK_SYSTEM,
-        messages=[{"role": "user", "content": PICK_TASK.format(
-            name=name, website=website or "(none)", description=description or "(not given)",
-            research=(research or "(none)")[:6000], max_queries=MAX_QUERIES,
-            checks="\n".join(f"- {c.key}: {c.title}. Looks at: {c.how}. Number: {c.metric}. "
-                             f"Example headline: \"{c.example}\"" for c in options))}],
-        max_tokens=3000, output_format=pick_schema([c.key for c in options]))
-    cost += result.cost
-    plan = json.loads(_texts(result.content) or "{}")
-    allowed_keys = {c.key for c in options}
-    chosen, seen = [], set()
-    for x in plan.get("checks") or []:  # one entry per check, in Claude's order
-        if isinstance(x, dict) and x.get("key") in allowed_keys and x["key"] not in seen:
-            seen.add(x["key"])
-            chosen.append(x)
-    chosen = sorted(chosen, key=lambda x: -int(x.get("score") or 0))  # stable: ties keep Claude's order
-    # The core checks always run for early companies; Claude's strongest picks fill the rest.
-    must = [k for k in catalog.core(pack_key, size) if k in allowed_keys]
-    by_key = {x["key"]: x for x in chosen}
-    core_picks = [by_key.get(k) or {"key": k, "score": 5, "why": "Checked for every early company", "expect": ""} for k in must]
-    extra = [x for x in chosen if x["key"] not in must and int(x.get("score") or 0) >= MIN_SCORE]
-    chosen = (core_picks + extra)[:max(MAX_CHECKS, len(core_picks))] or chosen[:2]
-    picked = [catalog.BY_KEY[x["key"]] for x in chosen]
-    reasons = {x["key"]: {"why": str(x.get("why", ""))[:200], "expect": str(x.get("expect", ""))[:200],
-                          "score": int(x.get("score") or 0)} for x in chosen}
-    name_words = {w for w in re.findall(r"[a-z0-9]+", name.lower()) if len(w) > 2}
-    queries = [q for q in plan.get("queries") or []
-               if q.get("query") and not (name_words & set(re.findall(r"[a-z0-9]+", q["query"].lower())))][:MAX_QUERIES]
-    competitors = [c for c in plan.get("competitors") or [] if c.get("name") and host(c.get("domain", ""))
-                   and not _same_site(host(c["domain"]), mine)][:MAX_COMPETITORS]
+    if only:  # just these checks again, with the competitors found before
+        picked = [catalog.BY_KEY[k] for k in only if k in catalog.BY_KEY]
+        old_checks = {c.get("key"): c for c in before.get("checks") or []}
+        reasons = {k: {"why": str(old_checks.get(k, {}).get("why", "")), "expect": str(old_checks.get(k, {}).get("expect", "")),
+                       "score": int(old_checks.get(k, {}).get("score") or 5)} for k in only}
+        queries, local = [], None
+        competitors = [c for c in (before.get("visibility") or {}).get("competitors") or [] if c.get("name")]
+        markets = [{"label": "United States", "gl": "us", "hl": "en"}]
+    else:
+        # 1. Pick the checks for this company, its customers' searches and its competitors.
+        options = catalog.runnable(pack_key)
+        if more:  # checks that haven't run yet (all of them again once every one has)
+            options = [c for c in options if c.key not in ran_before] or options
+        result = await claude.create(
+            campaign_id=None, run_id=None, purpose="opportunity scan", task="pick_checks", system=PICK_SYSTEM,
+            messages=[{"role": "user", "content": PICK_TASK.format(
+                name=name, website=website or "(none)", description=description or "(not given)",
+                research=(research or "(none)")[:6000], max_queries=MAX_QUERIES,
+                checks="\n".join(f"- {c.key}: {c.title}. Looks at: {c.how}. Number: {c.metric}. "
+                                 f"Example headline: \"{c.example}\"" for c in options))}],
+            max_tokens=3000, output_format=pick_schema([c.key for c in options]))
+        cost += result.cost
+        plan = json.loads(_texts(result.content) or "{}")
+        allowed_keys = {c.key for c in options}
+        chosen, seen = [], set()
+        for x in plan.get("checks") or []:  # one entry per check, in Claude's order
+            if isinstance(x, dict) and x.get("key") in allowed_keys and x["key"] not in seen:
+                seen.add(x["key"])
+                chosen.append(x)
+        chosen = sorted(chosen, key=lambda x: -int(x.get("score") or 0))  # stable: ties keep Claude's order
+        # The core checks always run for early companies; Claude's strongest picks fill the rest.
+        must = [k for k in catalog.core(pack_key, size) if k in allowed_keys]
+        by_key = {x["key"]: x for x in chosen}
+        core_picks = [by_key.get(k) or {"key": k, "score": 5, "why": "Checked for every early company", "expect": ""} for k in must]
+        extra = [x for x in chosen if x["key"] not in must and int(x.get("score") or 0) >= MIN_SCORE]
+        chosen = (core_picks + extra)[:max(MAX_CHECKS, len(core_picks))] or chosen[:2]
+        picked = [catalog.BY_KEY[x["key"]] for x in chosen]
+        reasons = {x["key"]: {"why": str(x.get("why", ""))[:200], "expect": str(x.get("expect", ""))[:200],
+                              "score": int(x.get("score") or 0)} for x in chosen}
+        name_words = {w for w in re.findall(r"[a-z0-9]+", name.lower()) if len(w) > 2}
+        queries = [q for q in plan.get("queries") or []
+                   if q.get("query") and not (name_words & set(re.findall(r"[a-z0-9]+", q["query"].lower())))][:MAX_QUERIES]
+        competitors = [c for c in plan.get("competitors") or [] if c.get("name") and host(c.get("domain", ""))
+                       and not _same_site(host(c["domain"]), mine)][:MAX_COMPETITORS]
 
-    markets = [{"label": m["country"][:40], "gl": m["gl"].lower()[:2], "hl": m["hl"].lower()[:5]}
-               for m in plan.get("markets") or [] if m.get("country") and m.get("gl") and m.get("hl")][:3 if size in ("mid", "large") else 2] \
-        or [{"label": "United States", "gl": "us", "hl": "en"}]
-    local = plan.get("local") or {}
-    local = {"query": local.get("query", "")[:80], "cities": [c for c in local.get("cities") or [] if c][:3],
-             "gl": markets[0]["gl"], "hl": markets[0]["hl"]} if local.get("query") and local.get("cities") else None
+        markets = [{"label": m["country"][:40], "gl": m["gl"].lower()[:2], "hl": m["hl"].lower()[:5]}
+                   for m in plan.get("markets") or [] if m.get("country") and m.get("gl") and m.get("hl")][:3 if size in ("mid", "large") else 2] \
+            or [{"label": "United States", "gl": "us", "hl": "en"}]
+        local = plan.get("local") or {}
+        local = {"query": local.get("query", "")[:80], "cities": [c for c in local.get("cities") or [] if c][:3],
+                 "gl": markets[0]["gl"], "hl": markets[0]["hl"]} if local.get("query") and local.get("cities") else None
 
     picked_keys = {c.key for c in picked}
 
@@ -805,9 +890,12 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     search = m.get("google") or web
     ai = ai + (m.get("assistants") or [])
     rows = presence.scorecard(m) if m else []
+    social_used = None
     if SOCIAL_KEYS & {c.key for c in picked}:
         try:
-            social, c_social = await read_social(claude, name, website or "", competitors, m.get("sites") or {})
+            social, c_social = await read_social(claude, name, website or "", competitors, m.get("sites") or {},
+                                                 confirmed=confirmed)
+            social_used = own_profiles(social, name, bool(confirmed))
             cost += c_social
             rows += social_rows(social, name, competitors)
         except Exception as e:  # the rest of the scan still runs
@@ -905,19 +993,27 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
                        "local": m.get("local") or [], "highlights": highlights(search, ai)},
         "scorecard": rows,
     }
+    if social_used is not None:  # which of the company's profiles the numbers come from
+        fresh["social"] = social_used
+        for f in findings:
+            if f["check"] in SOCIAL_KEYS:
+                f["profiles"] = social_used
     async with session_scope() as s:
         org = await s.get(Organization, org_id)
-        old = dict((org.profile or {}).get("opportunities") or {}) if more else {}
+        old = dict((org.profile or {}).get("opportunities") or {}) if (more or only) else {}
         if old:
             vis = fresh["visibility"]
             rows_by_key = {r.get("key"): r for r in old.get("scorecard") or []}
             rows_by_key.update({r.get("key"): r for r in rows})
-            fresh = {**fresh,
-                     "findings": (old.get("findings") or []) + findings,
+            # "only": these checks' earlier findings are replaced by the new ones.
+            kept = [f for f in old.get("findings") or [] if not (only and f.get("check") in only)]
+            fresh = {**old, **fresh,
+                     "findings": kept + findings,
                      "goals_added": (old.get("goals_added") or []) + created,
-                     "checks": (old.get("checks") or []) + fresh["checks"],
+                     "checks": (old.get("checks") or []) + ([] if only else fresh["checks"]),
                      "visibility": vis if (vis["search"] or vis["ai"]) else old.get("visibility") or vis,
                      "scorecard": list(rows_by_key.values()),
+                     "social": fresh.get("social") or old.get("social"),
                      "rounds": int(old.get("rounds") or 1) + 1}
         org.profile = {**(org.profile or {}), "opportunities": fresh}
     return {"findings": findings, "ran": len(picked), "cost": cost, "new": len(findings), "goals": created}

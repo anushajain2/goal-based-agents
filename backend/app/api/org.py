@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import case, delete, func, select
@@ -149,7 +151,7 @@ class SetupIn(BaseModel):
     add_functions: list[str] | None = Field(default=None, max_length=6)
     # start: research the company and find what it's missing out on; goals: suggest more goals per
     # function; more: find more opportunities (skipping what was found before).
-    mode: str = Field(default="start", pattern="^(start|goals|more)$")
+    mode: str = Field(default="start", pattern="^(start|goals|more|social)$")
 
 
 @router.post("/org/setup")
@@ -178,6 +180,45 @@ async def rerun_setup(body: SetupIn, s: AsyncSession = Depends(get_session), me:
     s.add(setup)
     await s.flush()
     return _setup_json(setup)
+
+
+class FounderProfiles(BaseModel):
+    name: str = Field(default="", max_length=120)
+    linkedin: str | None = Field(default=None, max_length=300)
+    x: str | None = Field(default=None, max_length=300)
+
+
+class SocialProfiles(BaseModel):
+    linkedin: str | None = Field(default=None, max_length=300)
+    x: str | None = Field(default=None, max_length=300)
+    founders: list[FounderProfiles] = Field(default_factory=list, max_length=5)
+
+
+@router.get("/org/socials")
+async def get_socials(s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    """The company's social profiles as it confirmed them, and the ones the last check used."""
+    org = await s.get(Organization, me.org_id)
+    profile = org.profile or {}
+    return {"confirmed": profile.get("socials") or {},
+            "used": ((profile.get("opportunities") or {}).get("social") or {}).get("profiles") or []}
+
+
+@router.put("/org/socials")
+async def put_socials(body: SocialProfiles, s: AsyncSession = Depends(get_session), me: Member = Depends(current_member)):
+    """Correct or add the company's social profiles; every check from now on uses exactly these."""
+    from app.agent.opportunities import norm_profile
+
+    require_admin(me)
+    clean = {p: norm_profile(p, getattr(body, p)) for p in ("linkedin", "x")}
+    founders = [{"name": f.name.strip()[:120], **{p: norm_profile(p, getattr(f, p)) for p in ("linkedin", "x")}}
+                for f in body.founders]
+    founders = [f for f in founders if f["linkedin"] or f["x"]]
+    for url in [*clean.values(), *(f[p] for f in founders for p in ("linkedin", "x"))]:
+        if url and not re.match(r"^https://([a-z0-9-]+\.)*(linkedin\.com|x\.com)/", url, re.I):
+            raise HTTPException(400, f"That doesn't look like a LinkedIn or X profile: {url}")
+    org = await s.get(Organization, me.org_id)
+    org.profile = {**(org.profile or {}), "socials": {**clean, "founders": founders}}
+    return org.profile["socials"]
 
 
 @router.post("/org/opportunities/{finding}/milestones/{step}/goal")
