@@ -21,7 +21,7 @@ SERP_CONCURRENCY = 5
 def sources() -> dict[str, bool]:
     s = get_settings()
     return {"google": google.enabled(), "keywords": keywords.enabled(), "pagespeed": True, "youtube": bool(s.google_api_key),
-            "authority": bool(s.openpagerank_key), "meta_ads": bool(s.meta_ad_library_token), "x": bool(s.x_bearer_token),
+            "authority": bool(s.openpagerank_key), "meta_ads": bool(s.meta_ad_library_token),
             "assistants": bool(assistants.configured())}
 
 
@@ -61,7 +61,7 @@ async def measure(name: str, website: str, competitors: list[dict], queries: lis
     url = website if website.startswith("http") else f"https://{mine}"
     comps = competitors[:3]
     sem = asyncio.Semaphore(SERP_CONCURRENCY)
-    calls = {"serpapi": 0, "dataforseo": 0, "assistants": 0, "x": 0}
+    calls = {"serpapi": 0, "dataforseo": 0, "assistants": 0}
 
     async def serp(coro):
         async with sem:
@@ -152,9 +152,6 @@ async def measure(name: str, website: str, competitors: list[dict], queries: lis
         got["tools"] = site.page_tools(html) if html else None
         got["videos"] = site.page_videos(html) if html else None
         got["socials"] = site.social_links(html) if html else None
-        if got["socials"] and got["socials"].get("x") and get_settings().x_bearer_token:
-            calls["x"] += 1
-            got["x"] = await public.x_activity(got["socials"]["x"])
         return got
 
     async def own_domain() -> dict:
@@ -179,7 +176,7 @@ async def measure(name: str, website: str, competitors: list[dict], queries: lis
 def cost(calls: dict) -> Decimal:
     s = get_settings()
     return Decimal(str(round(calls.get("serpapi", 0) * s.serpapi_cost_usd + calls.get("dataforseo", 0) * s.dataforseo_cost_usd
-                             + calls.get("assistants", 0) * s.assistant_cost_usd + calls.get("x", 0) * s.x_cost_usd, 4)))
+                             + calls.get("assistants", 0) * s.assistant_cost_usd, 4)))
 
 
 # --- the scorecard ------------------------------------------------------------------------------
@@ -261,21 +258,6 @@ def scorecard(m: dict) -> list[dict]:
     row("video", "Video on the home page", "marketing", video,
         lambda me, them: "bad" if not me.get("videos") and any(t.get("videos") for t in them) else "good" if me.get("videos") else "ok",
         note="A launch or demo video buyers can watch and share")
-
-    def xs(s):
-        x = s.get("x")
-        if not x:
-            return None
-        return f"{x['posts_30d']} posts · {x['engagement_30d']:,} likes, replies and reposts" + (f" · {x['videos_30d']} videos" if x.get("videos_30d") else "")
-
-    def x_verdict(me, them):
-        mx, best = me.get("x") or {}, max(((t.get("x") or {}) for t in them), key=lambda x: x.get("engagement_30d", 0), default={})
-        if not mx:
-            return "bad" if best else "ok"
-        if mx.get("posts_30d", 0) * 2 < best.get("posts_30d", 0) or mx.get("engagement_30d", 0) * 3 < best.get("engagement_30d", 0):
-            return "bad"
-        return "ok"
-    row("x_activity", "X, last 30 days", "marketing", xs, x_verdict, note="Company account, from X's API")
 
     def tools(kind, label):
         def f(s):

@@ -242,12 +242,23 @@ async def test_practical_checks_get_the_measured_social_and_video_numbers(with_k
     import httpx
 
     from app.agent.opportunities import LOOK_SYSTEM, PICK_SYSTEM
-    from app.config import get_settings
     from app.services.presence import http
     from tests.test_presence import QA, handler
 
-    monkeypatch.setattr(get_settings(), "x_bearer_token", "xt")
     monkeypatch.setattr(http, "transport", httpx.MockTransport(handler))
+    social_calls = []
+
+    def social(kw):  # the AI reading public posts
+        social_calls.append(kw["messages"][0]["content"])
+        acc = lambda company, who, name, platform, posts, eng: {"company": company, "who": who, "name": name,  # noqa: E731
+                                                                 "platform": platform, "url": "", "posts_30d": posts,
+                                                                 "engagement_30d": eng, "note": ""}
+        return {"accounts": [acc("Acme", "company", "Acme", "linkedin", 3, 20), acc("Routeco", "company", "Routeco", "linkedin", 10, 500),
+                             acc("Acme", "company", "Acme", "x", None, None), acc("Routeco", "company", "Routeco", "x", 22, 900),
+                             acc("Routeco", "founder", "Rita Route", "linkedin", 8, 4000)],
+                "videos": [{"company": "Acme", "found": False, "where": "", "url": "", "views_or_engagement": ""},
+                           {"company": "Routeco", "found": True, "where": "YouTube", "url": "https://youtube.test/v",
+                            "views_or_engagement": "18,000 views"}]}
     keys = ["asking_for_you", "social_performance", "launch_video", "competitor_unhappy", "homepage_clarity",
             "prospects_now", "funding_available"]
 
@@ -259,7 +270,7 @@ async def test_practical_checks_get_the_measured_social_and_video_numbers(with_k
 
     async with client() as c:
         setup_id = await start_setup(c)
-        fake = FakeAnthropic(script, org_planner=lambda kw: PLAN, routes={"checks": pick_practical},
+        fake = FakeAnthropic(script, org_planner=lambda kw: PLAN, routes={"checks": pick_practical, "accounts": social},
                              scanner=lambda kw: {"findings": []})
         await run_org_setup(setup_id, MeteredClaude(client=fake))
         opp = (await c.get("/api/org/setup")).json()["org"]["profile"]["opportunities"]
@@ -273,7 +284,13 @@ async def test_practical_checks_get_the_measured_social_and_video_numbers(with_k
              for x in fake.calls if x.get("system") == LOOK_SYSTEM}
     social = looks[checks.BY_KEY["social_performance"].title]
     assert "Social profiles linked from Acme's site (acme.test): linkedin: linkedin.com/company/acme-routing, x: acmeroutes" in social
-    assert "X, last 30 days: you 3 posts · 18 likes, replies and reposts (bad); competitors: Routeco 10 posts · 500" in social
+    assert "LinkedIn page, last 30 days: you 3 posts · 20 likes and comments (bad); competitors: Routeco 10 posts · 500" in social
+    assert "X account, last 30 days: you Couldn't read (bad); competitors: Routeco 22 posts · 900" in social
+    assert "Founders' posts, last 30 days: you None found (bad); competitors: Routeco 8 posts · 4,000 likes and comments (Rita Route)" in social
+    assert "Launch or demo video: you None found (bad); competitors: Routeco YouTube · 18,000 views" in looks[checks.BY_KEY["launch_video"].title]
     assert "Video on the home page: you None (bad); competitors: Routeco YouTube" in looks[checks.BY_KEY["launch_video"].title]
+    # The social read starts from the profiles each site links to.
+    assert len(social_calls) == 1 and "Acme (acme.test): profiles linked from its site: linkedin linkedin.com/company/acme-routing, x acmeroutes" in social_calls[0]
     rows = {r["key"]: r for r in opp["scorecard"]}
-    assert rows["video"]["you"]["status"] == "bad" and rows["x_activity"]["you"]["status"] == "bad"
+    assert rows["video"]["you"]["status"] == "bad" and rows["social_linkedin"]["you"]["status"] == "bad"
+    assert rows["social_linkedin"]["note"] == "Read from public posts by AI; approximate"

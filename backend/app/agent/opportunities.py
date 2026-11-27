@@ -277,6 +277,153 @@ Write your notes. End with a line "RESULT:" giving the number for the company an
 competitor, and the single most striking fact you found."""
 
 
+# --- 3b. social media, read from public posts --------------------------------------------------------
+
+SOCIAL_KEYS = {"social_performance", "launch_video"}
+SOCIAL_USES = 14  # searches and page reads for the whole social read
+SOCIAL_SYSTEM = """You measure a company's social media next to its competitors by reading public \
+posts: LinkedIn and X, for each company's own account and its founders' personal accounts.
+
+How:
+- Start from the profiles each company's website links to (given). Find the founders (the company's \
+site, its LinkedIn page, news) and their LinkedIn and X profiles.
+- For each account, count the posts from the last 30 days and add up likes (reactions) and comments \
+(replies) on them. Read public posts: search for them (e.g. site:linkedin.com/posts "<company>"; \
+site:x.com <handle>) and open the posts and profile pages you can. Count only what you saw; if an \
+account's posts can't be read, give null rather than a guess, and say why in the note.
+- Also look at the first page of each company's own accounts (and its YouTube or Product Hunt page if \
+linked) for a launch, demo or explainer video, and note its views or engagement when shown.
+- Public information only. Founders' public posts about their company may be counted; never judge \
+or rank other individual employees."""
+
+
+def social_schema() -> dict:
+    account = {"type": "object", "properties": {
+        "company": {"type": "string", "description": "Which company the account belongs to, exactly as given"},
+        "who": {"type": "string", "enum": ["company", "founder"]},
+        "name": {"type": "string", "description": "The account name, e.g. the company or the founder's name"},
+        "platform": {"type": "string", "enum": ["linkedin", "x"]},
+        "url": {"type": "string"},
+        "posts_30d": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+        "engagement_30d": {"anyOf": [{"type": "integer"}, {"type": "null"}],
+                           "description": "Likes/reactions plus comments/replies on those posts"},
+        "note": {"type": "string"}},
+        "required": ["company", "who", "name", "platform", "url", "posts_30d", "engagement_30d", "note"],
+        "additionalProperties": False}
+    video = {"type": "object", "properties": {
+        "company": {"type": "string"}, "found": {"type": "boolean"}, "where": {"type": "string"},
+        "url": {"type": "string"}, "views_or_engagement": {"type": "string"}},
+        "required": ["company", "found", "where", "url", "views_or_engagement"], "additionalProperties": False}
+    return {"type": "json_schema", "schema": {"type": "object", "properties": {
+        "accounts": {"type": "array", "items": account}, "videos": {"type": "array", "items": video}},
+        "required": ["accounts", "videos"], "additionalProperties": False}}
+
+
+async def read_social(claude: MeteredClaude, name: str, website: str, competitors: list[dict],
+                      sites: dict) -> tuple[dict, Decimal]:
+    """Posts and engagement in the last 30 days, and launch videos, for the company and competitors."""
+    companies = [(name, host(website))] + [(c["name"], host(c["domain"])) for c in competitors]
+    lines = []
+    for n, d in companies:
+        so = (sites.get(d) or {}).get("socials") or {}
+        vids = (sites.get(d) or {}).get("videos")
+        lines.append(f"- {n} ({d or 'no website'}): profiles linked from its site: "
+                     + (", ".join(f"{k} {v}" for k, v in so.items()) or "none found")
+                     + (f"; video on its home page: {', '.join(vids) or 'none'}" if vids is not None else ""))
+    task = (f"Today is {utcnow().date().isoformat()}. Measure these companies' last 30 days on LinkedIn and X, "
+            f"company accounts and founders:\n" + "\n".join(lines))
+    messages: list[dict] = [{"role": "user", "content": task}]
+    tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": SOCIAL_USES},
+             {"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": SOCIAL_USES}]
+    cost = Decimal("0")
+    for _ in range(MAX_CONTINUATIONS + 1):
+        result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", role="worker",
+                                     system=SOCIAL_SYSTEM, messages=messages, tools=tools, max_tokens=6000,
+                                     max_web_searches=SOCIAL_USES, output_format=social_schema())
+        cost += result.cost
+        if result.stop_reason != "pause_turn":
+            break
+        messages = [messages[0], {"role": "assistant", "content": result.content}]
+    try:
+        data = json.loads(_texts(result.content) or "{}")
+    except ValueError:
+        data = {}
+    return {"accounts": data.get("accounts") or [], "videos": data.get("videos") or []}, cost
+
+
+def social_rows(social: dict, name: str, competitors: list[dict]) -> list[dict]:
+    """Scorecard rows: you vs competitors on LinkedIn, X, founders, and launch videos."""
+    names = [name] + [c["name"] for c in competitors]
+    accounts = social.get("accounts") or []
+    note = "Read from public posts by AI; approximate"
+
+    def fmt(a: dict | None) -> str | None:
+        if not a:
+            return None
+        if a.get("posts_30d") is None:
+            return "Couldn't read"
+        eng = a.get("engagement_30d")
+        return f"{a['posts_30d']} posts" + (f" · {eng:,} likes and comments" if eng is not None else "")
+
+    def find(company: str, who: str, platform: str) -> list[dict]:
+        return [a for a in accounts if a.get("company", "").lower() == company.lower() and a.get("who") == who
+                and a.get("platform") == platform]
+
+    def verdict(me: dict | None, them: list[dict]) -> str:
+        best = max((t for t in them if t and t.get("posts_30d") is not None), default=None,
+                   key=lambda t: (t.get("engagement_30d") or 0, t.get("posts_30d") or 0))
+        if not me or me.get("posts_30d") is None:
+            return "bad" if best else "ok"
+        if not best:
+            return "good"
+        if (me["posts_30d"] or 0) * 2 < (best["posts_30d"] or 0) or (me.get("engagement_30d") or 0) * 3 < (best.get("engagement_30d") or 0):
+            return "bad"
+        return "good" if (me.get("engagement_30d") or 0) >= (best.get("engagement_30d") or 0) else "ok"
+
+    rows = []
+    for platform, label in (("linkedin", "LinkedIn page, last 30 days"), ("x", "X account, last 30 days")):
+        mine = (find(name, "company", platform) or [None])[0]
+        theirs = [(n, (find(n, "company", platform) or [None])[0]) for n in names[1:]]
+        if not mine and not any(a for _, a in theirs):
+            continue
+        rows.append({"key": f"social_{platform}", "label": label, "team": "marketing",
+                     "you": {"display": fmt(mine) or "No account found", "status": verdict(mine, [a for _, a in theirs])},
+                     "others": [{"name": n, "display": fmt(a)} for n, a in theirs if a], "note": note})
+
+    def founders(company: str) -> dict | None:
+        fs = [a for a in accounts if a.get("company", "").lower() == company.lower() and a.get("who") == "founder"
+              and a.get("posts_30d") is not None]
+        if not fs:
+            return None
+        return {"posts_30d": sum(a["posts_30d"] for a in fs), "engagement_30d": sum(a.get("engagement_30d") or 0 for a in fs),
+                "who": ", ".join(sorted({a["name"] for a in fs}))}
+    mine_f = founders(name)
+    theirs_f = [(n, founders(n)) for n in names[1:]]
+    if mine_f or any(f for _, f in theirs_f):
+        rows.append({"key": "social_founders", "label": "Founders' posts, last 30 days", "team": "marketing",
+                     "you": {"display": (fmt(mine_f) + f" ({mine_f['who']})") if mine_f else "None found",
+                             "status": verdict(mine_f, [f for _, f in theirs_f])},
+                     "others": [{"name": n, "display": fmt(f) + f" ({f['who']})"} for n, f in theirs_f if f], "note": note})
+
+    videos = {v.get("company", "").lower(): v for v in social.get("videos") or []}
+    if videos:
+        def vid(n):
+            v = videos.get(n.lower())
+            if not v:
+                return None
+            if not v.get("found"):
+                return "None found"
+            return " · ".join(x for x in (v.get("where"), v.get("views_or_engagement")) if x) or "Yes"
+        mine_v = vid(name)
+        rows.append({"key": "launch_video", "label": "Launch or demo video", "team": "marketing",
+                     "you": {"display": mine_v or "None found",
+                             "status": "good" if (videos.get(name.lower()) or {}).get("found")
+                             else "bad" if any((videos.get(n.lower()) or {}).get("found") for n in names[1:]) else "ok"},
+                     "others": [{"name": n, "display": vid(n)} for n in names[1:] if vid(n)],
+                     "note": "Home page, YouTube, LinkedIn, X and Product Hunt (first page of each)"})
+    return rows
+
+
 # --- 4. findings ---------------------------------------------------------------------------------
 
 STRUCTURE_SYSTEM = """You turn an analyst's measurements and notes into the few findings that \
@@ -595,7 +742,14 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     search = m.get("google") or web
     ai = ai + (m.get("assistants") or [])
     rows = presence.scorecard(m) if m else []
-    measured_text = presence.summary(m, rows) if m else ""
+    if SOCIAL_KEYS & {c.key for c in picked}:
+        try:
+            social, c_social = await read_social(claude, name, website or "", competitors, m.get("sites") or {})
+            cost += c_social
+            rows += social_rows(social, name, competitors)
+        except Exception as e:  # the rest of the scan still runs
+            log.warning("reading social media failed: %s", e)
+    measured_text = presence.summary(m, rows) if m else presence.summary({}, rows)
 
     # 3. Look at public pages for the rest.
     try:
