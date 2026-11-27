@@ -51,10 +51,8 @@ def compute(per_session: float, cycle_hours: float, days: float, paid_spend: flo
         sessions = min(sessions, max(1, int(max_sessions)))
     ai = sessions * per_session
     paid = max(float(paid_spend or 0), 0)
-    # Round up to the next whole dollar for small jobs, so a one-off fix that costs under a dollar
-    # isn't priced at $5; bigger budgets round up to the next $5.
-    total = ai + paid
-    suggested = max(1, math.ceil(total)) if total < 10 else math.ceil(total / 5) * 5
+    # The exact cost, to the cent: no rounding up, so people see what the work really costs.
+    suggested = max(0.01, round(ai + paid, 2))
     return {
         "per_session_usd": round(per_session, 3), "sessions": sessions, "cycle_hours": cycle_hours, "days": days,
         "ai_usd": round(ai, 2), "paid_spend_usd": round(paid, 2), "suggested_usd": suggested,

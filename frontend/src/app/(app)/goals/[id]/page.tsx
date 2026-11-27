@@ -188,7 +188,7 @@ function GoalPage() {
             <button disabled={busy} onClick={async () => {
               setBusy(true);
               try {
-                await api(`/api/campaigns/${c.id}`, { method: "PATCH", json: { budget_total: c.budget.total + (c.budget_basis?.suggested_usd || 5) } });
+                await api(`/api/campaigns/${c.id}`, { method: "PATCH", json: { budget_total: c.budget.total + (c.budget_basis?.suggested_usd || 1) } });
                 await reload();
               } finally {
                 setBusy(false);
@@ -478,7 +478,7 @@ function SettingsTab({ c, onSaved, onDeleted }: { c: Campaign; onSaved: () => vo
           </div>
         </Field>
         <Field label="Total budget (USD)" hint={`Already spent ${usd(c.budget.spent)}.`}>
-          <Input type="number" min="1" value={form.budget_total} onChange={set("budget_total")} />
+          <Input type="number" min="0.01" step="0.01" value={form.budget_total} onChange={set("budget_total")} />
         </Field>
         <Field label="Daily cap (USD)">
           <Input type="number" min="0" value={form.daily_cap} onChange={set("daily_cap")} placeholder="No cap" />
