@@ -218,6 +218,18 @@ BROWSER_TOOLS = [
 
 CAMPAIGN_TOOLS = [
     _tool(
+        "record_channel_results",
+        "For outreach: record the totals so far (not just this session) for each channel and opener you've used, "
+        "e.g. LinkedIn with 'their funding round' as the opener: 40 sent, 6 replies, 2 meetings. Later sessions see "
+        "which channel and opener book calls, and do more of that.",
+        {"rows": {"type": "array", "items": {"type": "object", "properties": {
+            "channel": {"type": "string", "description": "e.g. LinkedIn, Email, X, Instagram"},
+            "opener": {"type": "string", "description": "The angle the first message led with, a few words"},
+            "sent": {"type": "integer"}, "replies": {"type": "integer"}, "meetings": {"type": "integer"}},
+            "required": ["channel", "opener", "sent", "replies", "meetings"], "additionalProperties": False}}},
+        ["rows"],
+    ),
+    _tool(
         "record_metric",
         "Record a measurement of a campaign metric (e.g. meetings booked, signups, sales). Always record the "
         "primary metric at least once per cycle, as a running total since the goal started (targets count "

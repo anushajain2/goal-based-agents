@@ -23,6 +23,7 @@ from app.agent.executor import Outcome, Pending, ToolExecutor
 from app.services import helpers as helper_service
 from app.agent.llm import MeteredClaude
 from app.agent.planner import make_plan
+from app.agent.playbook import OUTREACH_KNOWHOW, is_outreach
 from app.agent.tools import MAX_WEB_SEARCHES_PER_CALL, all_tools
 from app.config import get_settings
 from app.connectors.composio_hub import hub_for_org
@@ -433,6 +434,8 @@ class CycleRunner:
                                        .order_by(McpServer.created_at))).scalars().all() if campaign.org_id else []
             brief += prompts.plan_and_tools(campaign.playbook, servers)
             brief += goal_approach.brief_text(campaign.approach, pace_text)
+            if is_outreach(campaign):
+                brief += "\n\n## " + OUTREACH_KNOWHOW
             integrations = (await s.execute(select(Integration).where(Integration.org_id == campaign.org_id))).scalars().all() \
                 if campaign.org_id else []
             handoff_to = await s.get(Agent, agent.handoff_to_agent_id) if agent and agent.handoff_to_agent_id else None

@@ -29,6 +29,7 @@ from urllib.parse import urlparse
 from sqlalchemy import select
 
 from app.agent import checks as catalog
+from app.agent.playbook import OUTREACH_KNOWHOW
 from app.agent.llm import MeteredClaude
 from app.catalog import TOOLS
 from app.db import session_scope
@@ -806,7 +807,9 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
         task += ("\n\nAlready found and shown to them (don't repeat these or variations of them; find different "
                  "gaps):\n" + "\n".join(f"- {t}" for t in found_before[:40]))
     result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", role="worker",
-                                 system=STRUCTURE_SYSTEM.format(threshold=MILESTONES_ABOVE_USD),
+                                 system=STRUCTURE_SYSTEM.format(threshold=MILESTONES_ABOVE_USD)
+                                 + "\n\nFor fixes that reach people one to one (buyers with a trigger, people asking, "
+                                   "competitors' unhappy customers):\n" + OUTREACH_KNOWHOW,
                                  messages=[{"role": "user", "content": task}], max_tokens=12000,
                                  output_format=findings_schema(goal_schema, [c.key for c in picked]))
     cost += result.cost

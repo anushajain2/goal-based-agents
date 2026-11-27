@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from app.agent.llm import MeteredClaude
 from app.catalog import CHANNEL_TOOLS, TOOLS, tool_for
@@ -47,6 +48,39 @@ tool is the main tool the step uses: a listed tool, "web" for web research and b
 "none"."""
 
 
+# What a good founder or SDR knows about reaching people one to one. Given to the plan, the steps
+# and every work session of an outreach goal (see is_outreach): know-how, not rules.
+OUTREACH_KNOWHOW = """How good outreach works (use what fits this goal and audience):
+- Open with something specific and useful about them, not about you: a finding about their company, \
+a trigger you noticed (funding, a new hire, a launch), a sharp observation about their market. End \
+with one small ask ("Want the full list?"), not a pitch.
+- Warm up where they're active: a genuinely useful reply or comment on a recent post, a day or two \
+before the message, so your name isn't new.
+- Use the channel they actually use: LinkedIn for most B2B buyers (a connection request with a short \
+personal note, the message once they accept); email for volume and as the second touch; X DMs for \
+people active on X, after a reply; Instagram mainly for consumer brands and shops.
+- Sequence: warm-up, first message, one follow-up 3-5 days later on another channel that adds \
+something new, then stop. Two unanswered messages is the limit.
+- Protect the sender: cold email goes from a separate domain set up for outreach (SPF, DKIM, \
+DMARC) and warmed up gradually before volume; stay well within LinkedIn's weekly connection limits; \
+start small and grow as replies come in.
+- Learn by channel: for each person note the channel and the opener used; keep the totals (sent, \
+replies, meetings) by channel and opener with record_channel_results, and double down on what books \
+calls."""
+
+_OUTREACH_WORDS = re.compile(r"outbound|outreach|prospect|meetings?|demos?|discovery calls?|replies|intro|"
+                             r"new clients?|client acquisition|cold|leads?\b|book(ed|ing)? calls?", re.I)
+
+
+def is_outreach(c: Campaign) -> bool:
+    """Whether a goal is about reaching people one to one (cold or warm outreach)."""
+    steps = (c.playbook or {}).get("steps") or []
+    if any(st.get("action_type") == "send_message" for st in steps):
+        return True
+    text = " ".join(str(x or "") for x in (c.name, c.use_case, c.primary_metric, c.category))
+    return bool(_OUTREACH_WORDS.search(text))
+
+
 def default_key_results(metric: str, target: float | None) -> list[str]:
     return [f"{target:g} {metric}" if target else f"Grow {metric}"]
 
@@ -73,7 +107,20 @@ def default_playbook(c: Campaign) -> dict:
     """Used without a Claude key: a sensible outline from the goal's channels."""
     tools = [t.key for t in (tool_for(ch) for ch in c.channels or []) if t]
     main = tools[0] if tools else "gmail"
-    outreach = main in ("gmail", "outlook", "linkedin", "twitter")
+    outreach = is_outreach(c) or main in ("gmail", "outlook")
+    if outreach:
+        steps = [
+            {"text": "Get the sending basics ready: a separate outreach domain with email authentication, warmed up, "
+                     "and a booking link", "action_type": "modify_account", "tool": "web"},
+            {"text": "Find people who fit, each with something specific about them (a trigger, a finding)",
+             "action_type": "research", "tool": "web"},
+            {"text": "Warm up with a useful reply or comment on a recent post", "action_type": "reply", "tool": "linkedin"},
+            {"text": "Write a short first message that leads with that specific thing", "action_type": "create_draft", "tool": main},
+            {"text": "Send it on the channel they use, then one follow-up on another channel, then stop",
+             "action_type": "send_message", "tool": main},
+            {"text": f"Book calls and record {c.primary_metric} by channel and opener", "action_type": "read_data", "tool": main},
+        ]
+        return {"steps": steps, "source": "default", "key_results": default_key_results(c.primary_metric, c.target_value)}
     steps = [
         {"text": f"Research who and what matters for: {c.goal_description[:120]}", "action_type": "research", "tool": "web"},
         {"text": "Build a list of the best people, companies or places to focus on", "action_type": "research", "tool": "web"},
@@ -93,8 +140,10 @@ async def generate_playbook(claude: MeteredClaude, c: Campaign) -> dict:
         f"Progress measured as: {c.primary_metric}" + (f" (target {c.target_value:g})" if c.target_value else "") + "\n"
         f"Preferred channels: {', '.join(c.channels) if c.channels else 'any'}\n"
         f"Context:\n{(c.context or '(none)')[:3000]}\n\n"
-        f"Tools available: {tools_list}.\n\n{STEP_GUIDANCE}\n\nAlso give 2 or 3 key_results: short, measurable "
-        f"outcomes that show the goal is on track (the first is the goal's own target), e.g. '8 discovery calls held'."
+        f"Tools available: {tools_list}.\n\n{STEP_GUIDANCE}\n\n"
+        + (f"{OUTREACH_KNOWHOW}\n\n" if is_outreach(c) else "")
+        + "Also give 2 or 3 key_results: short, measurable "
+        "outcomes that show the goal is on track (the first is the goal's own target), e.g. '8 discovery calls held'."
     )
     result = await claude.create(
         campaign_id=c.id, run_id=None, purpose="plan of action", role="worker",

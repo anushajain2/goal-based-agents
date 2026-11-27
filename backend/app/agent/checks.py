@@ -81,7 +81,8 @@ CHECKS: list[Check] = [
        "one of those triggers",
        "List up to 25 of them by name, each with the dated trigger, a link, and the role to contact",
        "Check whether the company already shows them as customers (logos, case studies)"],
-      "Researches each buyer and drafts a personal first message about their trigger, for your OK",
+      "Researches each buyer, warms up where they post, and sends a short first message about their trigger with one "
+      "follow-up, for your OK",
       "23 fleets in your market raised money or hired a new Head of Operations in the last 60 days; none are your customers",
       packs=("startup", "solo_saas", "agency", "services", "general")),
     W("asking_for_you", "sales", "People asking for what you sell, right now",
@@ -105,7 +106,8 @@ CHECKS: list[Check] = [
        "Count them and group them into the 2-3 complaints that come up most",
        "Mark the complaints this company clearly answers better (from its site and product)",
        "Where the reviewer or their company is public, note it (only what they posted publicly)"],
-      "Drafts outreach and replies for people who are clearly shopping for a switch, about the exact pain, for your OK",
+      "Replies to people who are clearly shopping for a switch, and reaches out about their exact pain, with one "
+      "follow-up, for your OK",
       "31 Routeco customers complained about slow support in the last 90 days; your site promises a 1-hour reply",
       packs=("startup", "solo_saas", "agency", "services", "ecommerce", "general")),
     W("tenders", "sales", "Open tenders you could win",
@@ -200,8 +202,10 @@ CHECKS: list[Check] = [
        "Check whether the site has an online booking link (measured booking tools are given) or only a contact form",
        "Check the founders' LinkedIn profiles: a clear headline saying what they sell and to whom, and recent activity",
        "Check whether there's a short deck, one-pager or demo video a buyer can be sent",
+       "Note whether cold email would go from the main domain: outreach belongs on a separate, warmed-up domain",
        "Score the 5 basics and say which are missing"],
-      "Sets up what's missing (DNS records for your OK, a booking link, a one-pager) before any outreach",
+      "Sets up what's missing before any outreach (a separate outreach domain with email authentication, warmed up; "
+      "a booking link; a one-pager), with your OK",
       "DMARC is missing and there's no booking link: cold emails will mostly land in spam, and replies can't book a call",
       packs=("startup", "solo_saas", "agency", "services", "general")),
     W("agency_briefs", "sales", "Client briefs you could pitch for",

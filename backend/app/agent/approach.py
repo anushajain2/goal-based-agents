@@ -25,7 +25,7 @@ import uuid
 from datetime import datetime
 
 from app.agent.llm import MeteredClaude
-from app.agent.playbook import TOOL_CHOICES
+from app.agent.playbook import OUTREACH_KNOWHOW, TOOL_CHOICES, is_outreach
 from app.catalog import TOOLS
 from app.models import Campaign, utcnow
 
@@ -134,7 +134,8 @@ async def generate(claude: MeteredClaude, c: Campaign, milestones: list[dict] | 
               f"Company context:\n{(c.context or '(none)')[:3000]}\n\n"
               f"How the work runs (for context; these are not the approaches):\n{steps or '(none yet)'}\n\n"
               + (f"Milestones:\n{stones}\n\n" if stones else "")
-              + f"Tools available: {tools}.")
+              + f"Tools available: {tools}."
+              + (f"\n\n{OUTREACH_KNOWHOW}" if is_outreach(c) else ""))
     result = await claude.create(campaign_id=c.id, run_id=None, purpose="how this goal gets hit", role="planner",
                                  system=SYSTEM, messages=[{"role": "user", "content": prompt}], max_tokens=6000,
                                  output_format=schema())
@@ -289,6 +290,13 @@ def brief_text(approach: dict | None, pace_text: str = "") -> str:
         lines += [f"- {x['name']} [{x.get('status', 'planned')}{', creative' if x.get('creative') else ''}]: {x['what']}"
                   + (f" E.g. {x['example']}" if x.get("example") else "")
                   for x in a["approaches"]]
+    rows = a.get("outreach") or []
+    if rows:
+        lines += ["", "## Outreach so far, by channel and opener (do more of what books calls)"]
+        for r in sorted(rows, key=lambda x: (-x["meetings"], -x["replies"])):
+            rate = f"{r['replies'] / r['sent']:.0%} reply" if r["sent"] else "no sends yet"
+            lines.append(f"- {r['channel']} / \"{r['opener']}\": {r['sent']} sent, {r['replies']} replies ({rate}), "
+                         f"{r['meetings']} meetings")
     exps = a.get("experiments") or []
     if exps:
         lines += ["", "## Experiments"]

@@ -789,6 +789,29 @@ class ToolExecutor:
                            "Read the number from the tool itself next time.")
         return Outcome("Recorded" + (" as measured." if verified else "."))
 
+    async def t_record_channel_results(self, inp: dict, _id: str) -> Outcome:
+        rows = [r for r in inp.get("rows") or [] if (r.get("channel") or "").strip()][:20]
+        if not rows:
+            return Outcome("Give at least one channel with its numbers.", is_error=True)
+        async with session_scope() as s:
+            c = await self._campaign(s)
+            a = dict(c.approach or {})
+            table = {(x["channel"].lower(), x["opener"].lower()): dict(x) for x in a.get("outreach") or []}
+            for r in rows:
+                n = {k: max(int(r.get(k) or 0), 0) for k in ("sent", "replies", "meetings")}
+                row = {"channel": r["channel"].strip()[:40], "opener": (r.get("opener") or "").strip()[:80], **n,
+                       "updated": utcnow().isoformat()}
+                table[(row["channel"].lower(), row["opener"].lower())] = row
+            a["outreach"] = list(table.values())[-30:]
+            c.approach = a
+            best = max(a["outreach"], key=lambda x: (x["meetings"], x["replies"]))
+            await activity.log(s, self.campaign_id, "metric",
+                               f"Outreach by channel: best so far {best['channel']} with \"{best['opener']}\" "
+                               f"({best['replies']} replies, {best['meetings']} meetings from {best['sent']})",
+                               run_id=self.run_id, status="info", details={"outreach": a["outreach"]})
+            await notify(s, self.campaign_id, "campaign")
+        return Outcome("Recorded. Do more of what books calls.")
+
     async def t_update_strategy(self, inp: dict, _id: str) -> Outcome:
         async with session_scope() as s:
             campaign = await self._campaign(s)

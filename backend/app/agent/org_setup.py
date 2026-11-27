@@ -26,7 +26,7 @@ from app.db import session_scope
 from app.models import Agent, Campaign, Department, Membership, Organization, OrgSetup, Role, utcnow
 from app.org import CATEGORY_KEYS, DEPARTMENT_PRESETS, PRESET_NAMES, add_department
 from app.agent import opportunities, packs
-from app.agent.playbook import STEP_GUIDANCE, default_key_results, step_schema, tidy_steps
+from app.agent.playbook import OUTREACH_KNOWHOW, STEP_GUIDANCE, default_key_results, step_schema, tidy_steps
 from app.services import activity, estimate, targets
 from app.services.website import read_site
 
@@ -478,7 +478,8 @@ async def plan_team(claude: MeteredClaude, setup_id: str, name: str, website: st
         campaign_id=None, run_id=None, purpose="setup plan", role="planner",
         system=PLAN_SYSTEM.format(sizes=sizes_text(), max_per_dept=MAX_GOALS_PER_DEPARTMENT, max_later=MAX_LATER,
                                   max_agents=MAX_AGENTS_PER_DEPARTMENT, step_guidance=STEP_GUIDANCE,
-                                  catalog=packs.catalog_text()),
+                                  catalog=packs.catalog_text())
+               + "\n\nFor goals that reach people one to one:\n" + OUTREACH_KNOWHOW,
         messages=[{"role": "user", "content": PLAN_TASK.format(
             name=name, website=website or "(none given)", description=description or "(not given)",
             research=research or "(no research available)", site=(site_text or "(not available)")[:12000],
