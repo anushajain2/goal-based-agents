@@ -363,17 +363,17 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
               <ArrowRight size={16} className="shrink-0 transition group-hover:translate-x-0.5" />
             </button>
             {price ? (
-              <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-white/[0.07] px-3.5 py-2.5 ring-1 ring-inset ring-white/15">
-                <ShieldCheck size={17} className="mt-0.5 shrink-0 text-lime-300" />
-                <p className="text-[13.5px] leading-snug text-white/75">
-                  <b className="tabular text-[16px] font-bold text-white">{usd(price)}</b> budget, a hard limit.{" "}
-                  <span className="font-semibold text-white">Nothing runs until you say so.</span>
+              <div className="mt-3 text-center">
+                <p className="flex items-center justify-center gap-1.5 text-[14px] text-white/80">
+                  <ShieldCheck size={15} className="shrink-0 text-lime-300" />
+                  <span><b className="tabular text-[15px] font-bold text-white">{usd(price)}</b> budget, a hard limit</span>
                 </p>
+                <p className="mt-0.5 text-[13px] text-white/60">Nothing runs until you say so.</p>
               </div>
             ) : null}
           </>
         ) : null}
-        {multi && <p className="mt-2 text-center text-[13px] text-white/60">The full fix: <b className="tabular font-semibold text-white/85">{usd(total)}</b> over {weeks(span)}. Go further only if it works.</p>}
+        {multi && <p className="mt-3 text-center text-[13px] text-white/60">The full fix: <b className="tabular font-semibold text-white/85">{usd(total)}</b> over {weeks(span)}. Go further only if it works.</p>}
       </div>
     </aside>
   );
