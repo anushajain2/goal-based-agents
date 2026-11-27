@@ -151,7 +151,7 @@ def _x_of(a: dict, linked_x: set[str] | None) -> str | None:
     """The account's X handle, if it's an x.com URL or a handle a company's site links to."""
     url = str(a.get("url") or "")
     h = x_handle(url)
-    if h and (re.search(r"(?:x|twitter)\.com/", url, re.I) or h in (linked_x or set())):
+    if h and (re.search(r"(?:x|twitter)\.com/", url, re.IGNORECASE) or h in (linked_x or set())):
         return h
     return None
 

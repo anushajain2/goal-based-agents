@@ -147,11 +147,9 @@ class FakeClaude:
         text = json.dumps({"accounts": accounts, "videos": [{"company": "Acme (acme.test)", "found": False, "where": "",
                                                              "url": "", "views_or_engagement": ""}]})
 
-        class R:
-            content = [{"type": "text", "text": text}]
-            cost = Decimal("0.1")
-            stop_reason = "end_turn"
-        return R()
+        from types import SimpleNamespace
+
+        return SimpleNamespace(content=[{"type": "text", "text": text}], cost=Decimal("0.1"), stop_reason="end_turn")
 
 
 async def test_the_social_read_puts_back_the_company_names_and_counts(apify):
