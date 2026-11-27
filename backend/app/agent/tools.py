@@ -303,6 +303,25 @@ CAMPAIGN_TOOLS = [
 ]
 
 
+VIDEO_TOOLS = [
+    _tool(
+        "make_launch_video",
+        "Make a ~20-second launch video from a website (by default the company's own): it looks at the site, "
+        "writes the story (a hook, what it is, 2-3 real screens zoomed in, the call to action), renders it with "
+        "motion and music, and writes the copy to post it with. Takes about 10 minutes; the video then goes to "
+        "the Reviewer to watch and approve, and you'll see it in the work log. It doesn't post anything: once "
+        "approved, post it (with the approved copy) as a separate step. One at a time per goal.",
+        {
+            "url": {"type": "string", "description": "The site to make it from. Leave out for the company's website."},
+            "format": {"type": "string", "enum": ["landscape", "vertical", "square"],
+                       "description": "landscape (16:9) for the website, YouTube, LinkedIn and X; vertical (9:16) for "
+                       "Reels, Shorts and TikTok; square for feeds. Default landscape."},
+            "notes": {"type": "string", "description": "Optional: what to emphasise, who it's for, what to leave out."},
+        },
+    ),
+]
+
+
 def all_tools(include_apps: bool, include_mcp: bool = False, tool_sets: list[str] | tuple = (),
               browser: bool = True) -> list[dict]:
     """Deterministic order (the prompt cache is a prefix match)."""
@@ -315,6 +334,8 @@ def all_tools(include_apps: bool, include_mcp: bool = False, tool_sets: list[str
         tools += GITHUB_TOOLS
     if "database" in tool_sets:
         tools += DATABASE_TOOLS
+    if "video" in tool_sets:
+        tools += VIDEO_TOOLS
     if browser:
         tools += BROWSER_TOOLS
     tools += CAMPAIGN_TOOLS

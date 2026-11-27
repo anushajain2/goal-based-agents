@@ -23,11 +23,13 @@ and creates the whole setup. You don't need to run any servers yourself.
 | autopilot-web | The app people open. Sends `/api/*` to the API over Render's private network, so everything is one address and cookies just work. | Starter |
 | autopilot-api | Sign-in, goals, approvals, live updates. Runs database migrations before each deploy. | Starter |
 | autopilot-worker | Runs AI employees, company setups and team-lead reviews around the clock. On a deploy it finishes or hands back its work, so nothing is lost. | Starter |
+| autopilot-video | Makes launch videos: looks at a site with Chrome, has Claude write the story, renders it with Remotion. Only video jobs, so rendering never slows the AI sessions. Delete it to turn videos off (and remove `VIDEOS` from autopilot-worker). | Standard (2 GB) |
 | autopilot-db | Postgres with daily backups. Only the services above can reach it. | Basic 256 MB |
 
 All of it runs in Frankfurt. To use another region, change `region:` everywhere in `render.yaml`, keeping
-all four in the same region. Check current prices on render.com/pricing. Four small instances cost
-roughly a few dollars each per month. Claude usage is billed separately by Anthropic.
+all of them in the same region. Check current prices on render.com/pricing. The small instances cost
+roughly a few dollars each per month; the video worker needs a Standard instance (about $25 a month),
+since Chrome rendering frames needs 2 GB. Claude usage is billed separately by Anthropic.
 
 ## One-time setup (about 30 minutes)
 
@@ -126,6 +128,22 @@ low spend limit.
 - **Production checks.** With `ENVIRONMENT=production`, the API and worker refuse to start without a
   `SECRET_KEY`, a Postgres `DATABASE_URL` and an `https://` `FRONTEND_ORIGIN`. Missing email or Claude
   keys are logged as warnings.
+
+## Launch videos
+
+Goals can make a ~20-second launch video from a website (`make_launch_video`). `autopilot-video`
+looks at the site in Chrome, Claude writes the storyboard (as data, never code), and fixed Remotion
+templates in [`video/`](../video) render it with motion and a soundtrack made for each video. The mp4
+is stored in Postgres and goes to the Reviewer to watch and approve. Nothing is posted until then.
+
+- One video at a time per video worker. On a Standard instance it takes about 10-15 minutes; a Pro
+  instance (2 CPUs) with `VIDEO_RENDER_CONCURRENCY=2` takes about half that.
+- The image is built from `backend/Dockerfile.video` (Node 22, the renderer's packages, Chrome and its
+  headless shell, fonts).
+- Remotion is free for individuals and companies of up to 3 people. Bigger companies need a Remotion
+  company license (remotion.dev/license).
+- On your computer: `cd video && npm ci`, and a local worker makes videos too (any Chrome works; set
+  `VIDEO_CHROME_PATH` to a chrome-headless-shell for faster renders).
 
 ## The desktop helper
 

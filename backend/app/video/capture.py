@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
+import re
 import socket
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -77,25 +78,38 @@ async def _public(url: str) -> bool:
 _READ_BRAND = r"""
 () => {
   const css = (el, p) => el ? getComputedStyle(el).getPropertyValue(p) : "";
-  const rgb = (s) => { const m = (s || "").match(/rgba?\(([^)]+)\)/); if (!m) return null;
-    const [r, g, b, a] = m[1].split(",").map((x) => parseFloat(x)); if (a === 0) return null;
-    return "#" + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join(""); };
+  // Any CSS colour (rgb, oklch, lab, color(...)) to #rrggbb by painting it; transparent is null.
+  const cv = document.createElement("canvas"); cv.width = cv.height = 1;
+  const cx = cv.getContext("2d", { willReadFrequently: true });
+  const rgb = (s) => { s = (s || "").trim(); if (!s || s === "transparent") return null;
+    cx.clearRect(0, 0, 1, 1); cx.fillStyle = "#000"; cx.fillStyle = s; cx.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = cx.getImageData(0, 0, 1, 1).data; if (a < 128) return null;
+    return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join(""); };
   const text = (el) => (el?.innerText || "").replace(/\s+/g, " ").trim();
   const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-  let bg = rgb(css(document.body, "background-color")) || rgb(css(document.documentElement, "background-color"));
-  if (!bg) { const main = document.querySelector("main, #__next, #root, .page, header"); bg = rgb(css(main, "background-color")) || "#ffffff"; }
+  // The background a visitor sees behind the headline: the nearest ancestor of the h1 that paints one
+  // (the hero is often dark while the page body is light).
   const h1 = document.querySelector("h1");
+  const paints = (el) => { for (let e = el; e; e = e.parentElement) { const c = rgb(css(e, "background-color")); if (c) return c; } return null; };
+  const bodyBg = rgb(css(document.body, "background-color")) || rgb(css(document.documentElement, "background-color")) || "#ffffff";
   const fg = rgb(css(h1 || document.body, "color")) || "#111111";
+  let bg = (h1 && paints(h1)) || bodyBg;
+  const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; };
+  // Light text on a light "background" means the real backdrop is an image or gradient: call it dark.
+  if (lum(fg) > 0.7 && lum(bg) > 0.6) bg = "#111111";
+  if (lum(fg) < 0.3 && lum(bg) < 0.3) bg = "#ffffff";
+  const sat = (hex) => { const n = parseInt(hex.slice(1), 16); const c = [n >> 16 & 255, n >> 8 & 255, n & 255];
+    const mx = Math.max(...c), mn = Math.min(...c); return mx < 80 ? 0 : (mx - mn) / mx; }; // dark colours aren't accents
   const counts = {};
   for (const el of document.querySelectorAll("a, button, [role=button]")) {
     if (!visible(el)) continue;
     const c = rgb(css(el, "background-color"));
-    if (!c || c === bg || c === "#ffffff" || c === "#000000") continue;
+    if (!c || c === bg || sat(c) < 0.25) continue;
     const r = el.getBoundingClientRect();
     counts[c] = (counts[c] || 0) + (r.top < innerHeight ? 3 : 1);
   }
   const accents = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c]) => c);
-  const links = [...document.querySelectorAll("a")].map((a) => rgb(css(a, "color"))).filter((c) => c && c !== fg);
+  const links = [...document.querySelectorAll("a, h1 span, h1 em, h2 span")].map((a) => rgb(css(a, "color"))).filter((c) => c && c !== fg && sat(c) >= 0.25);
   const muted = rgb(css(document.querySelector("p"), "color"));
   const family = (css(h1 || document.body, "font-family") || "").split(",")[0].replace(/["']/g, "").trim();
   const buttons = [...document.querySelectorAll("a, button")].filter(visible)
@@ -110,7 +124,7 @@ _READ_BRAND = r"""
     title: document.title, description: document.querySelector("meta[name=description]")?.content || document.querySelector("meta[property='og:description']")?.content || "",
     headline: text(h1), headings: [...document.querySelectorAll("h2, h3")].filter(visible).map(text).filter((t) => t && t.length < 120).slice(0, 12),
     buttons: [...new Set(buttons)].slice(0, 10), quotes,
-    colors: { bg, fg, accent: accents[0] || links[0] || fg, accent2: accents[1] || links[0] || accents[0] || fg, muted: muted || fg },
+    colors: { bg, fg, accent: accents[0] || links[0] || null, accent2: accents[1] || links[0] || null, muted: muted || null },
     font: family, logoBox, height: document.documentElement.scrollHeight,
   };
 }
@@ -174,7 +188,7 @@ async def capture(url: str, job: Path, fmt: str = "landscape") -> Capture:
             cap.buttons, cap.quotes = brand["buttons"], brand["quotes"]
             cap.colors = brand["colors"]
             cap.dark = _luma(cap.colors.get("bg", "#ffffff")) < 0.4
-            fam = (brand.get("font") or "").strip()
+            fam = re.sub(r"\s+(Variable|VF)$", "", (brand.get("font") or "").strip())
             cap.font = fam if fam.lower() not in _GENERIC_FONTS and not fam.startswith("__") else None
 
             if brand.get("logoBox"):
@@ -194,6 +208,8 @@ async def capture(url: str, job: Path, fmt: str = "landscape") -> Capture:
                 await page.wait_for_timeout(450)
                 name = f"shot{i}.jpg"
                 await page.screenshot(path=str(job / name), type="jpeg", quality=88)
+                # A 1x copy for Claude to look at when it writes the storyboard (smaller, same framing).
+                await page.screenshot(path=str(job / f"look{i}.jpg"), type="jpeg", quality=70, scale="css")
                 cap.shots.append({"src": name, "width": vw * 2, "height": vh * 2, "y": y})
         finally:
             await browser.close()

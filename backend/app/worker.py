@@ -28,9 +28,11 @@ from app.agent.team_lead import run_review, schedule_due_reviews
 from app.config import get_settings
 from app.db import session_scope
 from app.observability import check_and_init
-from app.models import AgentRun, Campaign, CampaignStatus, LeadReview, OrgSetup, RunStatus, utcnow
+from app.models import AgentRun, Campaign, CampaignStatus, LaunchVideo, LeadReview, OrgSetup, RunStatus, utcnow
 from app.services import activity, autonomy, helpers, targets, whatsapp
 from app.services.events import notify
+from app.video import render as video_render
+from app.video.job import run_video
 
 log = logging.getLogger("autopilot.worker")
 
@@ -42,6 +44,10 @@ MAX_CONCURRENT_RUNS = int(os.environ.get("AUTOPILOT_MAX_CONCURRENT_RUNS", "3"))
 # On a deploy the host sends SIGTERM and waits a while before killing us: finish what we can in
 # that time, then hand the rest back so the next worker picks it up at once.
 SHUTDOWN_GRACE_SECONDS = float(os.environ.get("AUTOPILOT_SHUTDOWN_GRACE_SECONDS", "20"))
+# What this worker does: "all" (default), "agents" (everything but videos) or "video" (only launch videos,
+# on a machine with the renderer; see backend/Dockerfile.video). Hosted, videos get their own worker so
+# rendering never slows the AI sessions down.
+WORKER_JOBS = os.environ.get("WORKER_JOBS", "all").strip().lower()
 
 
 async def schedule_due_cycles() -> int:
@@ -206,6 +212,35 @@ async def claim_review(worker_id: str) -> str | None:
         return review_id if result.rowcount == 1 else None
 
 
+async def claim_video(worker_id: str) -> str | None:
+    """Same claiming pattern, for launch videos."""
+    async with session_scope() as s:
+        video_id = (
+            await s.execute(
+                select(LaunchVideo.id).where(LaunchVideo.status == "queued")
+                .order_by(LaunchVideo.created_at).limit(1).with_for_update(skip_locked=True)
+            )
+        ).scalar_one_or_none()
+        if not video_id:
+            return None
+        result = await s.execute(
+            update(LaunchVideo).where(LaunchVideo.id == video_id, LaunchVideo.status == "queued")
+            .values(status="running", locked_by=worker_id, locked_at=utcnow(), attempts=LaunchVideo.attempts + 1)
+        )
+        return video_id if result.rowcount == 1 else None
+
+
+async def recover_stale_videos() -> None:
+    """A video whose worker died: try once more, then give up. (Rendering updates locked_at per step,
+    and the longest step is bounded by VIDEO_TIMEOUT_SECONDS.)"""
+    async with session_scope() as s:
+        stale = and_(LaunchVideo.status == "running",
+                     LaunchVideo.locked_at < utcnow() - timedelta(seconds=get_settings().video_timeout_seconds + 300))
+        await s.execute(update(LaunchVideo).where(stale, LaunchVideo.attempts < 2).values(status="queued", locked_by=None))
+        await s.execute(update(LaunchVideo).where(stale, LaunchVideo.attempts >= 2)
+                        .values(status="failed", locked_by=None, error="Making the video stopped responding."))
+
+
 async def recover_stale_reviews() -> None:
     async with session_scope() as s:
         await s.execute(update(LeadReview).where(LeadReview.status == "running", LeadReview.locked_at < utcnow() - STALE_AFTER)
@@ -283,6 +318,43 @@ async def release_claims(worker_id: str) -> None:
                         .values(status="queued", locked_by=None, attempts=OrgSetup.attempts - 1))
         await s.execute(update(LeadReview).where(LeadReview.locked_by == worker_id, LeadReview.status == "running")
                         .values(status="queued", locked_by=None))
+        await s.execute(update(LaunchVideo).where(LaunchVideo.locked_by == worker_id, LaunchVideo.status == "running")
+                        .values(status="queued", locked_by=None, attempts=LaunchVideo.attempts - 1))
+
+
+async def _agent_work(worker_id: str, runner: CycleRunner, tasks: set, settings) -> None:
+    """One pass of everything but videos: schedule, recover and claim runs, setups and reviews."""
+    await recover_stale_runs()
+    await recover_stale_setups()
+    await schedule_due_cycles()
+    await release_heads_ups(tasks)
+    await deliver_whatsapp()
+    if not settings.agent_chrome_enabled:
+        await wake_helper_runs()
+    while len(tasks) < MAX_CONCURRENT_RUNS:
+        review_id = await claim_review(worker_id)
+        if not review_id:
+            break
+        log.info("team lead review (%s)", review_id)
+        task = asyncio.create_task(run_review(review_id))
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+    while len(tasks) < MAX_CONCURRENT_RUNS:
+        setup_id = await claim_setup(worker_id)
+        if not setup_id:
+            break
+        log.info("setting up organization (%s)", setup_id)
+        task = asyncio.create_task(run_org_setup(setup_id))
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+    while len(tasks) < MAX_CONCURRENT_RUNS:
+        run_id = await claim_run(worker_id)
+        if not run_id:
+            break
+        log.info("running %s", run_id)
+        task = asyncio.create_task(_drive(runner, run_id))
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
 
 
 async def main() -> None:
@@ -294,6 +366,11 @@ async def main() -> None:
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
     runner = CycleRunner()
     tasks: set[asyncio.Task] = set()
+    videos: set[asyncio.Task] = set()  # one at a time: rendering uses every CPU it gets
+    agents = WORKER_JOBS != "video"
+    can_render = WORKER_JOBS != "agents" and video_render.available()
+    if WORKER_JOBS == "video" and not can_render:
+        raise SystemExit("WORKER_JOBS=video, but the video renderer isn't installed (see backend/Dockerfile.video)")
     last_rollover = None
     stopping = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -305,43 +382,26 @@ async def main() -> None:
     log.info("worker %s started (max %d concurrent runs)", worker_id, MAX_CONCURRENT_RUNS)
     while not stopping.is_set():
         try:
-            await recover_stale_runs()
-            await recover_stale_setups()
-            await schedule_due_cycles()
-            await release_heads_ups(tasks)
-            await deliver_whatsapp()
-            if not settings.agent_chrome_enabled:
-                await wake_helper_runs()
-            if not last_rollover or utcnow() - last_rollover > timedelta(minutes=1):
-                last_rollover = utcnow()
-                await roll_over_targets()
-                await recover_stale_reviews()
-                if settings.anthropic_api_key:
-                    await schedule_due_reviews()
-            while len(tasks) < MAX_CONCURRENT_RUNS:
-                review_id = await claim_review(worker_id)
-                if not review_id:
-                    break
-                log.info("team lead review (%s)", review_id)
-                task = asyncio.create_task(run_review(review_id))
-                tasks.add(task)
-                task.add_done_callback(tasks.discard)
-            while len(tasks) < MAX_CONCURRENT_RUNS:
-                setup_id = await claim_setup(worker_id)
-                if not setup_id:
-                    break
-                log.info("setting up organization (%s)", setup_id)
-                task = asyncio.create_task(run_org_setup(setup_id))
-                tasks.add(task)
-                task.add_done_callback(tasks.discard)
-            while len(tasks) < MAX_CONCURRENT_RUNS:
-                run_id = await claim_run(worker_id)
-                if not run_id:
-                    break
-                log.info("running %s", run_id)
-                task = asyncio.create_task(_drive(runner, run_id))
-                tasks.add(task)
-                task.add_done_callback(tasks.discard)
+            if can_render and not videos:
+                video_id = await claim_video(worker_id)
+                if video_id:
+                    log.info("making launch video (%s)", video_id)
+                    task = asyncio.create_task(run_video(video_id))
+                    videos.add(task)
+                    task.add_done_callback(videos.discard)
+            if not agents:
+                if not last_rollover or utcnow() - last_rollover > timedelta(minutes=1):
+                    last_rollover = utcnow()
+                    await recover_stale_videos()
+            else:
+                await _agent_work(worker_id, runner, tasks, settings)
+                if not last_rollover or utcnow() - last_rollover > timedelta(minutes=1):
+                    last_rollover = utcnow()
+                    await roll_over_targets()
+                    await recover_stale_reviews()
+                    await recover_stale_videos()
+                    if settings.anthropic_api_key:
+                        await schedule_due_reviews()
         except Exception:
             log.exception("worker loop error")
         try:
@@ -350,6 +410,7 @@ async def main() -> None:
             pass
 
     log.info("worker %s stopping: %d task(s) in progress", worker_id, len(tasks))
+    tasks |= videos
     if tasks:
         _done, pending = await asyncio.wait(set(tasks), timeout=SHUTDOWN_GRACE_SECONDS)
         for task in pending:

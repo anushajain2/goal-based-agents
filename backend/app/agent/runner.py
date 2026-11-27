@@ -27,6 +27,7 @@ from app.agent.tools import MAX_WEB_SEARCHES_PER_CALL, all_tools
 from app.config import get_settings
 from app.connectors.composio_hub import hub_for_org
 from app.db import session_scope
+from app.video import render as video_render
 from app.models import (
     Activity,
     Agent,
@@ -147,6 +148,8 @@ class CycleRunner:
                 uses_mcp = bool((await s.execute(select(McpServer.id).where(McpServer.org_id == owner_id).limit(1))).first())
                 kinds = {k for (k,) in (await s.execute(select(Integration.kind).where(Integration.org_id == owner_id))).all()}
                 tool_sets = sorted({"github": "github", "postgres": "database"}[k] for k in kinds if k in ("github", "postgres"))
+                if video_render.enabled():
+                    tool_sets.append("video")
             await self._log(campaign_id, run_id, "cycle", "Started a work session", status="info")
             try:
                 model = await self._ensure_approach(campaign_id)

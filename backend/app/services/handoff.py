@@ -17,7 +17,7 @@ from app.services.events import notify
 
 HANDOFF_BUDGET_USD = Decimal("10")  # a small, capped budget per handed-off piece of work
 
-KIND_WORDS = {"prd": "PRD", "analysis": "analysis", "report": "report"}
+KIND_WORDS = {"prd": "PRD", "analysis": "analysis", "report": "report", "video": "launch video"}
 
 
 def build_playbook() -> dict:

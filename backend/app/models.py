@@ -386,7 +386,7 @@ class Deliverable(Base):
     org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
     campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
     agent_id: Mapped[str | None] = mapped_column(ForeignKey("agents.id", ondelete="SET NULL"), nullable=True, index=True)
-    kind: Mapped[str] = mapped_column(String(20))  # prd | analysis | report
+    kind: Mapped[str] = mapped_column(String(20))  # prd | analysis | report | video
     title: Mapped[str] = mapped_column(String(300))
     content: Mapped[str] = mapped_column(Text)
     summary: Mapped[str] = mapped_column(Text, default="")
@@ -394,6 +394,36 @@ class Deliverable(Base):
     status: Mapped[str] = mapped_column(String(30), default="submitted")
     handed_to_campaign_id: Mapped[str | None] = mapped_column(ForeignKey("campaigns.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+
+
+class LaunchVideo(Base):
+    """A launch video made from a company's website (by the worker; see app/video). The finished
+    mp4 and its poster are stored here, so they survive deploys without a separate file store."""
+
+    __tablename__ = "launch_videos"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    campaign_id: Mapped[str | None] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True)
+    url: Mapped[str] = mapped_column(String(500))
+    format: Mapped[str] = mapped_column(String(20), default="landscape")  # landscape | vertical | square
+    notes: Mapped[str] = mapped_column(Text, default="")  # what the goal or person wants from it
+    status: Mapped[str] = mapped_column(String(20), default="queued", index=True)  # queued|running|done|failed
+    step: Mapped[str] = mapped_column(String(200), default="")  # what it's doing now, for the UI
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    storyboard: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
+    share_copy: Mapped[str] = mapped_column(Text, default="")
+    seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    video: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
+    poster: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
+    deliverable_id: Mapped[str | None] = mapped_column(ForeignKey("deliverables.id", ondelete="SET NULL"), nullable=True)
+    cost_usd: Mapped[Decimal] = mapped_column(Money, default=Decimal("0"))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow)
 
 
 class Invitation(Base):

@@ -40,9 +40,11 @@ from app.models import (
     Department,
     Deliverable,
     Integration,
+    LaunchVideo,
     LedgerKind,
     McpServer,
     MetricSnapshot,
+    Organization,
     RequestKind,
     RequestStatus,
     UserRequest,
@@ -864,6 +866,32 @@ class ToolExecutor:
         )
         return Outcome("Sent for review" + (f"; once approved it goes to {target_name}" if target_name else "")
                        + ". You'll see the decision in the work log. Carry on with other work.")
+
+    # ------------------------------------------------------------------ launch videos
+
+    async def t_make_launch_video(self, inp: dict, _id: str) -> Outcome:
+        fmt = inp.get("format") if inp.get("format") in ("landscape", "vertical", "square") else "landscape"
+        async with session_scope() as s:
+            c = await s.get(Campaign, self.campaign_id)
+            org = await s.get(Organization, c.org_id) if c.org_id else None
+            url = (inp.get("url") or (org.website if org else "") or "").strip()
+            if not url:
+                return Outcome("No website to make it from: give a url, or ask the owner for the company's site.",
+                               is_error=True)
+            busy = (await s.execute(select(LaunchVideo.id).where(LaunchVideo.campaign_id == c.id,
+                                                                 LaunchVideo.status.in_(("queued", "running"))).limit(1))
+                    ).scalar_one_or_none()
+            if busy:
+                return Outcome("A video for this goal is already being made. It goes to the Reviewer when it's ready; "
+                               "carry on with other work.")
+            v = LaunchVideo(org_id=c.org_id, campaign_id=c.id, url=url[:500], format=fmt,
+                            notes=(inp.get("notes") or "").strip()[:2000])
+            s.add(v)
+            await s.flush()
+            video_id = v.id
+        await self._step(f"Started a {fmt} launch video from {url}"[:300], channel="video", details={"video_id": video_id})
+        return Outcome("Started. It takes about 10 minutes, then goes to the Reviewer to watch and approve, with the copy "
+                       "to post it with. Carry on with other work; once it's approved, post it as a separate step.")
 
     # ------------------------------------------------------------------ GitHub (code)
 

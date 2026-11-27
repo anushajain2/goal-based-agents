@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, Clock, Compass, ExternalLink, FileText, HelpCircle, KeyRound, Link2, Lock, MessageSquare, ShieldQuestion, TrendingUp, Users, X } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, Check, Clock, Compass, ExternalLink, FileText, HelpCircle, KeyRound, Link2, Lock, MessageSquare, ShieldQuestion, TrendingUp, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -169,10 +169,25 @@ export function ApprovalCard({ req, onDone, showCampaign, detail }: { req: UserR
               <Lock size={12} /> {headsUp ? "Nothing has been sent or changed yet. You can still edit or stop it." : "Nothing has been sent or changed yet. It only happens if you approve."}
             </p>
           )}
+          {req.preview.video_id && (
+            <div className="space-y-1.5">
+              <video
+                controls
+                playsInline
+                preload="metadata"
+                poster={`${API_URL}/api/videos/${req.preview.video_id}/poster.jpg`}
+                src={`${API_URL}/api/videos/${req.preview.video_id}/video.mp4`}
+                className="w-full max-w-2xl rounded-lg border border-line bg-black"
+              />
+              <a href={`${API_URL}/api/videos/${req.preview.video_id}/video.mp4?download=true`} className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
+                <ArrowDownToLine size={12} /> Download
+              </a>
+            </div>
+          )}
           {editable.map((key) => (
             <div key={key}>
               <div className="mb-1 flex items-center justify-between text-xs font-semibold text-muted">
-                <span>{req.kind === "review" ? "The document" : key === "content" ? "Exact content" : key}</span>
+                <span>{req.preview.video_id ? "Post it with" : req.kind === "review" ? "The document" : key === "content" ? "Exact content" : key}</span>
                 {canDecide && !decided && <span>You can edit this before approving</span>}
               </div>
               <Textarea disabled={!canDecide || decided} value={edits[key]} onChange={(e) => setEdits({ ...edits, [key]: e.target.value })} rows={rowsFor(edits[key], detail)} />

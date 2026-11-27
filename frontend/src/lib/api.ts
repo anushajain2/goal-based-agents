@@ -128,6 +128,7 @@ export type UserRequest = {
     options?: string[];
     deliverable_id?: string;
     handoff_to?: string | null;
+    video_id?: string | null;
     change?: { type: "target" | "pause" | "resume" | "new_goal" | "new_agent"; target?: number; period?: Period; by?: "agent" | "lead";
       agent?: { name: string; title: string; objective: string } };
     current?: TargetView | null;

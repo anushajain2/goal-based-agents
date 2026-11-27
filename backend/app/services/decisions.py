@@ -17,6 +17,7 @@ from app.models import (
     AgentRun,
     Campaign,
     Deliverable,
+    LaunchVideo,
     PermissionGrant,
     RequestKind,
     RequestStatus,
@@ -146,6 +147,13 @@ async def decide(s: AsyncSession, me: Member, request_id: str, body: DecisionIn)
                 if target and d.kind == "prd":
                     goal = await hand_off(s, d, source, target, who)
                     handoff_note = f" and handed on as a new goal: {goal.name}"
+            if d.kind == "video":
+                v = (await s.execute(select(LaunchVideo).where(LaunchVideo.deliverable_id == d.id))).scalar_one_or_none()
+                if v:
+                    v.share_copy = d.content
+                    if approved:
+                        from app.api.videos import share_url
+                        handoff_note = f". Ready to post with the approved copy; the file: {share_url(v.id)}"
 
     heads_up = req.auto_approve_at is not None
     if heads_up and not approved:

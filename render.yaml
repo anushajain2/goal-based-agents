@@ -6,6 +6,8 @@
 #   autopilot-api     FastAPI backend. Runs database migrations before each deploy. Desktop helpers
 #                     connect to it (keep it at 1 instance: helper connections live in its memory).
 #   autopilot-worker  Runs the AI employees, setups and team-lead reviews, around the clock.
+#   autopilot-video   Makes launch videos (Chrome + Remotion). Needs 2 GB of memory; delete it to turn
+#                     videos off (then also remove VIDEOS from autopilot-worker).
 #   autopilot-db      Managed Postgres (daily backups; reachable only from these services).
 #
 # Deploys happen when main is pushed and GitHub checks (CI) pass.
@@ -127,12 +129,36 @@ services:
         value: "45"
       - key: AUTOPILOT_MAX_CONCURRENT_RUNS
         value: "3"
+      - key: WORKER_JOBS # launch videos are made by autopilot-video
+        value: agents
+      - key: VIDEOS # goals can ask for launch videos
+        value: "true"
       # The API's private address: website steps reach a desktop helper through it.
       - key: API_INTERNAL_HOSTPORT
         fromService:
           type: web
           name: autopilot-api
           property: hostport
+      - fromGroup: autopilot-backend
+
+  - type: worker
+    name: autopilot-video
+    runtime: docker
+    region: frankfurt
+    plan: standard # 1 CPU, 2 GB: Chrome renders the frames. A 20-second video takes about 10-15 minutes.
+    dockerContext: .
+    dockerfilePath: ./backend/Dockerfile.video
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 60
+    buildFilter:
+      paths: ["backend/**", "video/**"]
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: autopilot-db
+          property: connectionString
+      - key: VIDEO_RENDER_CONCURRENCY
+        value: "1"
       - fromGroup: autopilot-backend
 
   - type: web

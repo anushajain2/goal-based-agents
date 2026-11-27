@@ -113,6 +113,16 @@ class Settings(BaseSettings):
     chrome_debug_port: int = 9333
     browser_headless: bool = False  # only for CI/tests; locally you want to see the window
 
+    # --- Launch videos ------------------------------------------------------------
+    # The renderer (video/, Remotion) needs Node and its packages installed (npm ci in video/).
+    # Whether goals can make videos: on when this machine can render, unless set. Hosted, the video
+    # worker renders, so the API and agent worker are told with VIDEOS=true.
+    videos: bool | None = None
+    video_dir: Path = REPO_ROOT / "video"
+    video_chrome_path: str | None = None  # Chrome for rendering; Remotion's own headless shell when unset
+    video_render_concurrency: int = 2  # browser tabs rendering frames in parallel (about 1 per CPU)
+    video_timeout_seconds: int = 1800
+
     # --- Files ------------------------------------------------------------------
     data_dir: Path = REPO_ROOT / "data"
 
