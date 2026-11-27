@@ -30,7 +30,7 @@ export function GitHubForm({ onDone }: { onDone: () => void }) {
         <Input required value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="owner/repository" />
         <Input required type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder="GitHub token" />
       </div>
-      <p className="text-[11.5px] text-muted">
+      <p className="text-[12px] text-muted">
         Use a fine-grained token for just this repository with <b>Contents</b> and <b>Pull requests</b> (read and write) and <b>Issues</b> (read).
         Oton opens pull requests; merging always waits for an engineer.
       </p>
@@ -60,7 +60,7 @@ export function DatabaseForm({ onDone }: { onDone: () => void }) {
       }
     }}>
       <Input required type="password" autoComplete="off" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="postgresql://readonly_user:password@host:5432/db" />
-      <p className="text-[11.5px] text-muted">Read-only: Oton can only run SELECT queries, and every query runs in a read-only transaction. A read-only user or a replica is best.</p>
+      <p className="text-[12px] text-muted">Read-only: Oton can only run SELECT queries, and every query runs in a read-only transaction. A read-only user or a replica is best.</p>
       {err && <p className="text-xs text-red-600">{err}</p>}
       <Button size="sm" variant="primary" disabled={busy}>{busy ? "Checking…" : "Connect database"}</Button>
     </form>

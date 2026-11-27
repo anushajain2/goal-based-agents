@@ -57,7 +57,7 @@ export const CATEGORY_ICON: Record<string, ReactNode> = {
 
 export function FitBadge({ fit }: { fit: UseCase["fit"] }) {
   const tone = fit === "H" ? "bg-emerald-50 text-emerald-700" : fit === "M" ? "bg-stone-50 text-stone-700" : "bg-stone-100 text-stone-600";
-  return <span className={cx("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold", tone)}>{FIT_LABEL[fit]}</span>;
+  return <span className={cx("shrink-0 rounded-full px-2 py-0.5 text-[12px] font-semibold", tone)}>{FIT_LABEL[fit]}</span>;
 }
 
 export function UseCaseCard({ uc, onPick, cta = "Start this goal" }: { uc: UseCase; onPick: (uc: UseCase) => void; cta?: string }) {
@@ -180,7 +180,7 @@ function CatButton({ on, onClick, icon, label, count }: { on: boolean; onClick: 
     >
       <span className={on ? "text-brand-600" : "text-stone-400"}>{icon}</span>
       <span className="flex-1">{label}</span>
-      <span className="text-[11px] font-medium text-stone-400">{count}</span>
+      <span className="text-[12px] font-medium text-stone-400">{count}</span>
     </button>
   );
 }

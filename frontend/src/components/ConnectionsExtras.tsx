@@ -71,7 +71,7 @@ export function McpServers() {
               <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
                 <Dot tone={m.error ? "red" : "green"} />
                 <span className="font-semibold">{m.name}</span>
-                <span className="min-w-0 flex-1 truncate text-xs text-muted">{m.url}{m.has_key ? " · key saved" : ""}</span>
+                <span className="min-w-0 flex-1 truncate text-xs text-muted">{m.url}{m.has_key ? ", key saved" : ""}</span>
                 <Button size="sm" variant="ghost" disabled={busy} onClick={() => run(() => api(`/api/mcp-servers/${m.id}/refresh`, { method: "POST" }))}><RefreshCw size={13} /> Check</Button>
                 {admin && <Button size="sm" variant="ghost" disabled={busy} onClick={() => confirm(`Remove ${m.name}?`) && run(() => api(`/api/mcp-servers/${m.id}`, { method: "DELETE" }))}><Trash2 size={13} /></Button>}
               </div>
@@ -84,8 +84,8 @@ export function McpServers() {
                       <span className="font-mono text-[12.5px]">{t.name}</span>
                       <span className="min-w-0 flex-1 truncate text-xs text-muted">{t.description}</span>
                       {t.asks_first
-                        ? <Badge tone="amber">Asks first · {t.kind_label}</Badge>
-                        : <Badge tone="green">On its own · only reads</Badge>}
+                        ? <Badge tone="amber">Asks first: {t.kind_label}</Badge>
+                        : <Badge tone="green">On its own (only reads)</Badge>}
                     </li>
                   ))}
                 </ul>
@@ -220,7 +220,7 @@ export function DesktopHelper({ downloadUrl }: { downloadUrl?: string }) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{d.name}</span>
                   <span className="block text-xs text-muted">
-                    {d.online ? "Online, ready for website steps" : d.paused ? "Paused or signing in: website steps wait" : d.last_seen_at ? `Offline · last seen ${timeAgo(d.last_seen_at)}` : "Not connected yet"}
+                    {d.online ? "Online, ready for website steps" : d.paused ? "Paused or signing in: website steps wait" : d.last_seen_at ? `Offline, last seen ${timeAgo(d.last_seen_at)}` : "Not connected yet"}
                   </span>
                 </span>
                 <Button size="sm" variant="ghost" onClick={() => remove(d)} title="Disconnect this computer"><Trash2 size={14} /></Button>

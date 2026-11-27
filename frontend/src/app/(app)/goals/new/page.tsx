@@ -206,7 +206,7 @@ function NewGoal() {
                   onClick={() => (i < step || !valid(step) ? setStep(i) : null)}
                   className={cx("flex w-full items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-semibold", i === step ? "bg-white text-brand-700 shadow-sm ring-1 ring-line" : "text-muted hover:text-ink")}
                 >
-                  <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[11px]", i < step ? "bg-emerald-600 text-white" : i === step ? "bg-brand-500 text-white" : "bg-stone-200")}>
+                  <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[12px]", i < step ? "bg-emerald-600 text-white" : i === step ? "bg-brand-500 text-white" : "bg-stone-200")}>
                     {i < step ? <Check size={12} /> : i}
                   </span>
                   {s}
@@ -226,7 +226,7 @@ function NewGoal() {
                       className={cx("flex items-center gap-3 rounded-lg border px-3 py-2 text-left", a.id === agentId ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500" : "border-line hover:border-stone-400")}>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{a.department.name}</span>
-                        <span className="block truncate text-xs text-muted">{a.title ? `${a.title} · ` : ""}{a.active_goals} active</span>
+                        <span className="block truncate text-xs text-muted">{a.title ? `${a.title}, ` : ""}{a.active_goals} active</span>
                       </span>
                     </button>
                   ))}
@@ -371,7 +371,7 @@ function NewGoal() {
                 <Item k="What counts as one" v={doneWhen || "—"} />
                 <Item k="Progress measured as" v={`${metric}${target ? ` (target ${target} a ${period})` : ""}`} />
                 <Item k="For" v={client || "Your company"} />
-                <Item k="Budget" v={`$${budget}${dailyCap ? ` · $${dailyCap}/day cap` : ""}${endDate ? ` · deadline ${endDate}` : ""}`} />
+                <Item k="Budget" v={`$${budget}${dailyCap ? `, at most $${dailyCap} a day` : ""}${endDate ? `, by ${endDate}` : ""}`} />
                 <Item k="Works on it" v={`About every ${cycleHours}h`} />
                 <Item k="Never" v={types.filter((t) => effective[t.key] === "never").map((t) => t.label).join(", ") || "—"} />
                 <Item k="Without asking" v={types.filter((t) => t.default === "ask" && effective[t.key] === "auto").map((t) => t.label).join(", ") || "Nothing: it asks first"} />

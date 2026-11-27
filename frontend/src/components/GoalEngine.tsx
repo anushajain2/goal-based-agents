@@ -25,7 +25,7 @@ export function Funnel({ a, compact }: { a: GoalApproach; compact?: boolean }) {
                   <span className="tabular text-[20px] font-bold leading-tight">{fmt(s.now)}</span>
                   {stuck && <span className="rounded-full bg-signal-500 px-1.5 text-[12px] font-bold text-white">Bottleneck</span>}
                 </div>
-                {!compact && s.benchmark && <div className="truncate text-[11px] text-muted" title={s.benchmark}>Good: {s.benchmark}</div>}
+                {!compact && s.benchmark && <div className="truncate text-[12px] text-muted" title={s.benchmark}>Good: {s.benchmark}</div>}
               </div>
               {i < stages.length - 1 && <ChevronRight size={16} className="shrink-0 text-stone-300" />}
             </div>
@@ -73,11 +73,11 @@ export function UpdateCard({ u, who, at, className }: { u: GoalUpdate; who?: str
   ];
   return (
     <div className={cx("rounded-xl border border-line bg-white p-3.5", className)}>
-      {(who || at) && <div className="mb-2 text-[11.5px] font-semibold text-muted">{who ? `Update from ${who}` : "Update"}{at ? ` · ${timeAgo(at)}` : ""}</div>}
+      {(who || at) && <div className="mb-2 text-[12px] font-semibold text-muted">{who ? `Update from ${who}` : "Update"}{at ? `, ${timeAgo(at)}` : ""}</div>}
       <ul className="space-y-1.5">
         {rows.filter(([, , t]) => t).map(([icon, label, t]) => (
           <li key={label} className="flex gap-2 text-[13px] leading-snug">
-            <span className={cx("mt-0.5 inline-flex w-[84px] shrink-0 items-center gap-1 text-[11.5px] font-semibold",
+            <span className={cx("mt-0.5 inline-flex w-[84px] shrink-0 items-center gap-1 text-[12px] font-semibold",
               label === "Changing" ? "text-brand-700" : "text-stone-500")}>{icon}{label}</span>
             <span className={label === "Changing" ? "font-medium" : ""}>{t}</span>
           </li>
@@ -102,7 +102,7 @@ export function Approaches({ a, milestone }: { a: GoalApproach; milestone?: numb
           <div className="flex items-center gap-1.5">
             {x.creative && <Sparkles size={13} className="shrink-0 text-brand-600" />}
             <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{x.name}</span>
-            {x.status !== "planned" && <span className={cx("rounded-full px-1.5 text-[10.5px] font-semibold capitalize", STATUS[x.status])}>{x.status}</span>}
+            {x.status !== "planned" && <span className={cx("rounded-full px-1.5 text-[12px] font-semibold capitalize", STATUS[x.status])}>{x.status}</span>}
           </div>
           <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted">{x.what}</div>
         </li>
@@ -120,15 +120,15 @@ export function Learning({ a }: { a: GoalApproach }) {
     <div className="space-y-3">
       {running && (
         <div className="rounded-xl bg-canvas px-3 py-2.5 ring-1 ring-inset ring-line">
-          <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-muted"><Beaker size={13} /> {running.status === "running" ? "Testing now" : "First test"}</div>
+          <div className="flex items-center gap-1.5 text-[12px] font-semibold text-muted"><Beaker size={13} /> {running.status === "running" ? "Testing now" : "First test"}</div>
           <div className="mt-0.5 text-[13px] font-medium">{running.hypothesis}</div>
-          <div className="text-[12px] text-muted">{running.change}{running.judge_after ? ` · judged after ${running.judge_after}` : ""}</div>
+          <div className="text-[12px] text-muted">{running.change}{running.judge_after ? `, judged after ${running.judge_after}` : ""}</div>
         </div>
       )}
       {done.map((x) => (
         <div key={x.id} className="flex gap-2 text-[12.5px]">
           {x.status === "kept" ? <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-emerald-600" /> : <XCircle size={14} className="mt-0.5 shrink-0 text-stone-400" />}
-          <span><span className="font-medium">{x.hypothesis}</span>{x.result ? <span className="text-muted"> · {x.result}</span> : null}</span>
+          <span><span className="font-medium">{x.hypothesis}</span>{x.result ? <span className="text-muted">: {x.result}</span> : null}</span>
         </div>
       ))}
       {a.learnings.length > 0 && (
@@ -241,7 +241,7 @@ export function PlanStory({ goal }: { goal: Campaign }) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 text-[15px] font-semibold">
                     {x.name}
-                    {x.creative && <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-px text-[10.5px] font-semibold text-brand-700"><Sparkles size={10} /> creative</span>}
+                    {x.creative && <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-px text-[12px] font-semibold text-brand-700"><Sparkles size={10} /> creative</span>}
                   </div>
                   <p className="text-[14px] leading-relaxed text-stone-600">{x.what}</p>
                   {x.example && <p className="mt-1 text-[13px] italic leading-relaxed text-stone-500">e.g. {x.example}</p>}
@@ -291,7 +291,7 @@ export function WhatItWillDo({ goal, compact }: { goal: Campaign; compact?: bool
     return (
       <div className="flex flex-wrap gap-1.5">
         {a.approaches.slice(0, 5).map((x) => (
-          <span key={x.id} className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-medium ring-1 ring-inset",
+          <span key={x.id} className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-medium ring-1 ring-inset",
             x.creative ? "bg-brand-50 text-brand-800 ring-brand-100" : "bg-white text-stone-700 ring-line")}>
             {x.creative && <Sparkles size={11} />}{x.name}
           </span>

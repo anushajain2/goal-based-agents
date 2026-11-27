@@ -84,14 +84,14 @@ export const SuggestGoals = forwardRef<SuggestGoalsHandle, {
       )}
       {fresh.length > 0 && (
         <div className="border-t border-line p-5">
-          <div className="mb-3 text-[12px] font-semibold text-muted">Suggested just now · {fresh.length} goal{fresh.length === 1 ? "" : "s"}</div>
+          <div className="mb-3 text-[12px] font-semibold text-muted">{fresh.length} goal{fresh.length === 1 ? "" : "s"} suggested just now</div>
           <ul className="grid gap-2.5 md:grid-cols-2">
             {fresh.map((g) => (
               <li key={g.id} className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3">
                 <button onClick={() => onOpen(g)} className="min-w-0 flex-1 text-left">
                   <span className="block truncate text-[14px] font-semibold">{g.name}</span>
                   <span className="block truncate text-[12.5px] text-muted">
-                    {g.department?.name ? `${g.department.name} · ` : ""}{g.suggested_reason || g.first_deliverable || `${usd(g.budget.total)} budget`}
+                    {g.department?.name ? `${g.department.name}: ` : ""}{g.suggested_reason || g.first_deliverable || `${usd(g.budget.total)} budget`}
                   </span>
                 </button>
                 <button onClick={() => onStart([g])} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-brand-600 px-3 text-[12.5px] font-semibold text-white hover:bg-brand-700">

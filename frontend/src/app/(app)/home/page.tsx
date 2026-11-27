@@ -1,10 +1,9 @@
 "use client";
 
 import { Activity, ArrowRight, Check, Hand, Plus, Sparkles, Zap } from "lucide-react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 
 import { KIND_BADGE } from "@/components/ApprovalCard";
 import { GoalProgress } from "@/components/goal";
@@ -18,11 +17,11 @@ import { YourRole } from "@/components/YourRole";
 import { GoalPanel } from "@/components/GoalPanel";
 import { StartGoal } from "@/components/StartGoal";
 import { Opportunities } from "@/components/Opportunities";
-import { ActivityItem, Campaign, num, Opportunity, OrgInfo, Overview, SetupInfo, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
+import { HeroBackdrop, heroFromUrl, HeroKey } from "@/components/HeroBackdrop";
+import { ActivityItem, andMore, Campaign, num, Opportunity, OrgInfo, Overview, SetupInfo, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
 import { useCountUp, useLiteMotion } from "@/lib/motion";
 import { CATEGORIES, FEATURED, findUseCase } from "@/lib/useCases";
 
-const SoftAurora = dynamic(() => import("@/components/reactbits/SoftAurora"), { ssr: false });
 
 type Gap = { f: Opportunity; goal: Campaign };
 
@@ -37,6 +36,8 @@ export default function HomePage() {
   const { data: setup } = useApi<SetupInfo>("/api/org/setup", { live: false, pollMs: 5000 });
   const [starting, setStarting] = useState<Campaign[] | null>(null);
   const [panel, setPanel] = useState<Campaign | null>(null);
+  const [hero, setHero] = useState<HeroKey>("dark");
+  useEffect(() => setHero(heroFromUrl()), []);
   const researching = setup?.setup && ["queued", "running"].includes(setup.setup.status);
 
   if (error) return <ErrorNote>Can&apos;t reach the backend ({error}). Is <code>./scripts/dev.sh</code> running?</ErrorNote>;
@@ -79,7 +80,7 @@ export default function HomePage() {
   return (
     <div className="space-y-8">
       <Pulse
-        lite={lite} ov={ov} log={log || []} hello={`${hello}${firstName ? `, ${firstName}` : ""}`} orgName={orgName}
+        hero={hero} lite={lite} ov={ov} log={log || []} hello={`${hello}${firstName ? `, ${firstName}` : ""}`} orgName={orgName}
         live={live.length} onTrack={onTrack} results={results} actionsEver={actionsEver} open={open} fixing={fixing}
         ideas={otherIdeas} onStart={(g) => setStarting([g])}
       />
@@ -107,7 +108,7 @@ export default function HomePage() {
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100"><Sparkles size={18} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-[14.5px] font-semibold">{gaps.length ? `${otherIdeas.length} more goals` : `${otherIdeas.length} suggested goals`} picked for {orgName}, ready to turn on</span>
-            <span className="block truncate text-[13px] text-muted">{otherIdeas.slice(0, 3).map((g) => g.name).join(" · ")}</span>
+            <span className="block truncate text-[13px] text-muted">{andMore(otherIdeas.map((g) => g.name))}</span>
           </span>
           <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold text-brand-700">Review <ArrowRight size={14} className="transition group-hover:translate-x-0.5" /></span>
         </Link>
@@ -159,7 +160,7 @@ export default function HomePage() {
                           : <Badge tone="green"><span className="signal-dot scale-75" /> Working</Badge>
                         : <Badge tone="gray">Idle</Badge>}
                     </div>
-                    <div className="mt-0.5 text-[12px] text-muted">{dGoals.length} goal{dGoals.length === 1 ? "" : "s"} · {dLive.length} live</div>
+                    <div className="mt-0.5 text-[12px] text-muted">{dGoals.length} goal{dGoals.length === 1 ? "" : "s"}, {dLive.length ? `${dLive.length} live` : "none live"}</div>
                     <div className="mt-3 space-y-2.5">
                       {dLive.slice(0, 3).map((g) => (
                         <div key={g.id}>
@@ -215,10 +216,35 @@ export default function HomePage() {
 }
 
 /** The top of Home: what Oton has done for you, or what you're missing while it sits idle, with the next move. */
-function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsEver, open, fixing, ideas, onStart }: {
-  lite: boolean; ov: Overview; log: ActivityItem[]; hello: string; orgName: string; live: number; onTrack: number;
+// Class names for the hero on its dark and its light background.
+const DARK = {
+  section: "bg-ink text-white", hello: "text-white/55", sub: "text-white/70", strong: "text-white", warn: "text-amber-200",
+  grey: "text-white/55", primary: "bg-lime-300 text-ink hover:bg-lime-200",
+  secondary: "bg-white/10 text-white ring-1 ring-inset ring-white/20 hover:bg-white/15", ghost: "text-white/70 hover:text-white",
+  miniVal: "text-white", miniHot: "text-amber-300", miniLabel: "text-white/50 group-hover:text-white/80", miniDim: "text-white/40",
+  panel: "bg-white/[0.06] ring-white/10 backdrop-blur-sm", panelLabel: "text-white/50",
+  nowBox: "bg-lime-300/10 ring-lime-300/25 hover:bg-lime-300/15", nowTitle: "text-lime-100", feedHover: "hover:bg-white/5",
+  feedDot: "bg-lime-300", feedText: "text-white/90", feedMeta: "text-white/40", idleDot: "bg-white/30", idleLi: "border-white/15",
+  idleOn: "text-white/90", idleOff: "text-white/55", chipOn: "bg-lime-300/15 text-lime-200",
+  chipBtn: "bg-white/10 text-white/70 hover:bg-lime-300 hover:text-ink", chipOff: "bg-white/10 text-white/50",
+};
+const LIGHT: typeof DARK = {
+  section: "bg-white text-ink ring-1 ring-inset ring-line", hello: "text-muted", sub: "text-stone-600", strong: "text-ink", warn: "text-signal-700",
+  grey: "text-ink/40", primary: "bg-brand-600 text-white hover:bg-brand-700",
+  secondary: "bg-white text-ink ring-1 ring-inset ring-line hover:bg-stone-50", ghost: "text-stone-600 hover:text-ink",
+  miniVal: "text-ink", miniHot: "text-signal-600", miniLabel: "text-muted group-hover:text-ink", miniDim: "text-ink/35",
+  panel: "bg-white/80 ring-line shadow-[var(--shadow-card)] backdrop-blur-md", panelLabel: "text-muted",
+  nowBox: "bg-brand-50 ring-brand-200 hover:bg-brand-100", nowTitle: "text-brand-800", feedHover: "hover:bg-stone-50",
+  feedDot: "bg-brand-500", feedText: "text-ink", feedMeta: "text-muted", idleDot: "bg-stone-300", idleLi: "border-stone-300 bg-white/60",
+  idleOn: "text-ink", idleOff: "text-stone-500", chipOn: "bg-brand-50 text-brand-700",
+  chipBtn: "bg-stone-100 text-stone-600 hover:bg-brand-600 hover:text-white", chipOff: "bg-stone-100 text-stone-500",
+};
+
+function Pulse({ hero, lite, ov, log, hello, orgName, live, onTrack, results, actionsEver, open, fixing, ideas, onStart }: {
+  hero: HeroKey; lite: boolean; ov: Overview; log: ActivityItem[]; hello: string; orgName: string; live: number; onTrack: number;
   results: number; actionsEver: number; open: Gap[]; fixing: Gap[]; ideas: Campaign[]; onStart: (g: Campaign) => void;
 }) {
+  const t = hero === "dark" ? DARK : LIGHT;
   const delivered = actionsEver > 0 || results > 0;
   const top = open.find((x) => x.goal.can_manage !== false);
 
@@ -229,17 +255,17 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
       ? <><Num n={ov.actions_this_week} /> things done for {orgName} this week</>
       : <><Num n={actionsEver} /> things done for {orgName} so far</>;
     sub = <>
-      {results > 0 && <><b className="font-semibold text-white">{num(results)} results</b> so far. </>}
-      {live > 0 ? `${live} goal${live === 1 ? " is" : "s are"} live. ` : <span className="text-amber-200">Nothing is running right now. </span>}
-      {open.length ? <span className="text-amber-200">There&apos;s more to fix, each with a fix ready to turn on.</span>
+      {results > 0 && <><b className={cx("font-semibold", t.strong)}>{num(results)} results</b> so far. </>}
+      {live > 0 ? `${live} goal${live === 1 ? " is" : "s are"} live. ` : <span className={t.warn}>Nothing is running right now. </span>}
+      {open.length ? <span className={t.warn}>There&apos;s more to fix, each with a fix ready to turn on.</span>
         : fixing.length ? "Everything we found is being worked on."
           : ideas.length ? `${ideas.length} more goals picked for ${orgName} are ready to turn on.` : ""}
     </>;
   } else if (live > 0) {
     headline = <>Your AI team just got to work</>;
-    sub = <>{live} goal{live === 1 ? " is" : "s are"} live; the first drafts usually land within a day.{open.length ? <> <span className="text-amber-200">More gaps we found still have nothing working on them.</span></> : ""}</>;
+    sub = <>{live} goal{live === 1 ? " is" : "s are"} live; the first drafts usually land within a day.{open.length ? <> <span className={t.warn}>More gaps we found still have nothing working on them.</span></> : ""}</>;
   } else if (open.length) {
-    headline = <>We found gaps and opportunities for {orgName} to grow. <span className="text-white/55">Nothing is working on them yet.</span></>;
+    headline = <>We found gaps and opportunities for {orgName} to grow. <span className={t.grey}>Nothing is working on them yet.</span></>;
     sub = <>Each one has a goal ready to go. Nothing runs, and nothing is spent, until you turn it on.</>;
   } else {
     headline = <>Your AI team is waiting for its first goal</>;
@@ -252,19 +278,16 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
   const idle = [...fixing.map((x) => x.goal), ...open.map((x) => x.goal), ...ideas].slice(0, 5);
   const quiet = !delivered && live === 0;
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-ink text-white shadow-[var(--shadow-pop)]">
+    <section className={cx("relative overflow-hidden rounded-3xl shadow-[var(--shadow-pop)]", t.section)}>
       <div aria-hidden className="absolute inset-0">
-        {lite
-          ? <div className="h-full w-full bg-[radial-gradient(60%_60%_at_80%_100%,rgba(132,204,22,0.35),transparent)]" />
-          : <SoftAurora color1="#d9f99d" color2="#10b981" brightness={0.9} bandHeight={0.2} noiseAmplitude={0.6} speed={0.8} />}
-        <div className="absolute inset-0 bg-[linear-gradient(100deg,rgba(21,26,14,0.92)_0%,rgba(21,26,14,0.7)_45%,rgba(21,26,14,0.25)_100%)]" />
+        <HeroBackdrop kind={hero} lite={lite} />
       </div>
 
       <div className="relative grid gap-8 p-6 md:p-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="rise flex min-w-0 flex-col">
-          <div className="text-[13.5px] font-medium text-white/55">{hello}</div>
+          <div className={cx("text-[13.5px] font-medium", t.hello)}>{hello}</div>
           <h1 className="display mt-2 max-w-[24ch] text-[30px] leading-[1.08] md:text-[38px]">{headline}</h1>
-          <p className="mt-3 max-w-[60ch] text-[14.5px] leading-relaxed text-white/70">{sub}</p>
+          <p className={cx("mt-3 max-w-[60ch] text-[14.5px] leading-relaxed", t.sub)}>{sub}</p>
 
           <div className="mt-6 flex flex-wrap items-center gap-2.5">
             {ov.waiting_on_you > 0 && (
@@ -274,53 +297,53 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
             )}
             {top ? (
               <button onClick={() => onStart(top.goal)} className={cx("inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[14px] font-semibold transition",
-                ov.waiting_on_you ? "bg-white/10 text-white ring-1 ring-inset ring-white/20 hover:bg-white/15" : "bg-lime-300 text-ink hover:bg-lime-200")}>
+                ov.waiting_on_you ? t.secondary : t.primary)}>
                 <Zap size={16} /> Turn on the top fix
               </button>
             ) : ideas.length > 0 ? (
-              <Link href="/goals?tab=ideas" className="inline-flex h-10 items-center gap-2 rounded-xl bg-lime-300 px-4 text-[14px] font-semibold text-ink transition hover:bg-lime-200">
+              <Link href="/goals?tab=ideas" className={cx("inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[14px] font-semibold transition", t.primary)}>
                 <Sparkles size={16} /> Review {ideas.length} suggested goals
               </Link>
             ) : (
-              <Link href="/goals/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-lime-300 px-4 text-[14px] font-semibold text-ink transition hover:bg-lime-200">
+              <Link href="/goals/new" className={cx("inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[14px] font-semibold transition", t.primary)}>
                 <Plus size={16} /> New goal
               </Link>
             )}
             {open.length > 1 && (
-              <a href="#found" className="inline-flex h-10 items-center gap-1 px-2 text-[13.5px] font-semibold text-white/70 transition hover:text-white">
+              <a href="#found" className={cx("inline-flex h-10 items-center gap-1 px-2 text-[13.5px] font-semibold transition", t.ghost)}>
                 See what we found <ArrowRight size={14} />
               </a>
             )}
           </div>
 
           {!quiet && <div className="mt-auto grid grid-cols-2 gap-x-6 gap-y-4 pt-8 sm:grid-cols-4">
-            <Mini href="/approvals" label="Needs you" value={<Num n={ov.waiting_on_you} />} hot={ov.waiting_on_you > 0} />
-            <Mini href="/goals" label="Live goals on pace" value={<><Num n={onTrack} /><span className="text-white/40">/{live}</span></>} />
-            <Mini href="/work" label="Done this week" value={<Num n={ov.actions_this_week} />} />
-            <Mini href="/settings" label="Spent this month" value={usd(ov.spend_this_month.total)} sub={ov.budget_total ? `of ${usd(ov.budget_total)}` : undefined} />
+            <Mini t={t} href="/approvals" label="Needs you" value={<Num n={ov.waiting_on_you} />} hot={ov.waiting_on_you > 0} />
+            <Mini t={t} href="/goals" label="Live goals on pace" value={<><Num n={onTrack} /><span className={t.miniDim}>/{live}</span></>} />
+            <Mini t={t} href="/work" label="Done this week" value={<Num n={ov.actions_this_week} />} />
+            <Mini t={t} href="/settings" label="Spent this month" value={usd(ov.spend_this_month.total)} sub={ov.budget_total ? `of ${usd(ov.budget_total)}` : undefined} />
           </div>}
         </div>
 
-        <div className="rise min-w-0 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-inset ring-white/10 backdrop-blur-sm" style={{ animationDelay: "150ms" }}>
+        <div className={cx("rise min-w-0 rounded-2xl p-4 ring-1 ring-inset", t.panel)} style={{ animationDelay: "150ms" }}>
           {showFeed ? (
             <>
-              <div className="mb-3 flex items-center gap-2 text-[12px] font-semibold text-white/50">
+              <div className={cx("mb-3 flex items-center gap-2 text-[12px] font-semibold", t.panelLabel)}>
                 {ov.now ? <><span className="signal-dot" /> Working now</> : <><Activity size={13} /> Latest from your AI team</>}
               </div>
               {ov.now && (
-                <Link href="/work" className="mb-2 block rounded-xl bg-lime-300/10 px-3 py-2.5 ring-1 ring-inset ring-lime-300/25 transition hover:bg-lime-300/15">
-                  <span className="block truncate text-[13.5px] font-semibold text-lime-100">{ov.now.title}</span>
-                  <span className="block truncate text-[11.5px] text-white/50">{ov.now.campaign_name || "Oton"}</span>
+                <Link href="/work" className={cx("mb-2 block rounded-xl px-3 py-2.5 ring-1 ring-inset transition", t.nowBox)}>
+                  <span className={cx("block truncate text-[13.5px] font-semibold", t.nowTitle)}>{ov.now.title}</span>
+                  <span className={cx("block truncate text-[12px]", t.feedMeta)}>{ov.now.campaign_name || "Oton"}</span>
                 </Link>
               )}
               <ul className="space-y-0.5">
                 {feed.filter((a) => a.id !== ov.now?.id).slice(0, ov.now ? 4 : 5).map((a, i) => (
                   <li key={a.id} className="rise" style={{ animationDelay: `${250 + i * 90}ms` }}>
-                    <Link href={a.campaign_id ? `/goals/${a.campaign_id}` : "/work"} className="flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition hover:bg-white/5">
-                      <span className={cx("mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full", a.status === "failed" ? "bg-red-400" : "bg-lime-300")} />
+                    <Link href={a.campaign_id ? `/goals/${a.campaign_id}` : "/work"} className={cx("flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition", t.feedHover)}>
+                      <span className={cx("mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full", a.status === "failed" ? "bg-red-400" : t.feedDot)} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] text-white/90">{a.title}</span>
-                        <span className="block truncate text-[11.5px] text-white/40">{a.campaign_name ? `${a.campaign_name} · ` : ""}{timeAgo(a.created_at)}</span>
+                        <span className={cx("block truncate text-[13px]", t.feedText)}>{a.title}</span>
+                        <span className={cx("block truncate text-[12px]", t.feedMeta)}>{a.campaign_name ? `${a.campaign_name} · ` : ""}{timeAgo(a.created_at)}</span>
                       </span>
                     </Link>
                   </li>
@@ -329,24 +352,24 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
             </>
           ) : (
             <>
-              <div className="mb-1 flex items-center gap-2 text-[12px] font-semibold text-white/50">
-                <span className="h-2 w-2 rounded-full bg-white/30" /> Right now: idle
+              <div className={cx("mb-1 flex items-center gap-2 text-[12px] font-semibold", t.panelLabel)}>
+                <span className={cx("h-2 w-2 rounded-full", t.idleDot)} /> Right now: idle
               </div>
-              <p className="mb-3 text-[12.5px] text-white/50">What Oton could be doing for {orgName} today:</p>
+              <p className={cx("mb-3 text-[12.5px]", t.panelLabel)}>What Oton could be doing for {orgName} today:</p>
               <ul className="space-y-1.5">
                 {idle.map((goal, i) => {
                   const on = goal.status !== "draft";
                   return (
-                    <li key={goal.id} className="rise flex items-center gap-2.5 rounded-lg border border-dashed border-white/15 px-3 py-2" style={{ animationDelay: `${250 + i * 90}ms` }}>
-                      <span className={cx("min-w-0 flex-1 truncate text-[13px]", on ? "text-white/90" : "text-white/55")}>{goal.name}</span>
-                      {on ? <span className="rounded-full bg-lime-300/15 px-2 py-0.5 text-[11px] font-semibold text-lime-200">On</span>
+                    <li key={goal.id} className={cx("rise flex items-center gap-2.5 rounded-lg border border-dashed px-3 py-2", t.idleLi)} style={{ animationDelay: `${250 + i * 90}ms` }}>
+                      <span className={cx("min-w-0 flex-1 truncate text-[13px]", on ? t.idleOn : t.idleOff)}>{goal.name}</span>
+                      {on ? <span className={cx("rounded-full px-2 py-0.5 text-[12px] font-semibold", t.chipOn)}>On</span>
                         : goal.can_manage !== false
-                          ? <button onClick={() => onStart(goal)} className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/70 transition hover:bg-lime-300 hover:text-ink">Off · turn on</button>
-                          : <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/50">Off</span>}
+                          ? <button onClick={() => onStart(goal)} className={cx("rounded-full px-2 py-0.5 text-[12px] font-semibold transition", t.chipBtn)}>Turn on</button>
+                          : <span className={cx("rounded-full px-2 py-0.5 text-[12px] font-semibold", t.chipOff)}>Off</span>}
                     </li>
                   );
                 })}
-                {!idle.length && <li className="text-[13px] text-white/55">No goals set up yet.</li>}
+                {!idle.length && <li className={cx("text-[13px]", t.idleOff)}>No goals set up yet.</li>}
               </ul>
             </>
           )}
@@ -361,11 +384,11 @@ function Num({ n }: { n: number }) {
   return <span ref={ref} className="tabular-nums">{num(Math.round(v))}</span>;
 }
 
-function Mini({ href, label, value, sub, hot }: { href: string; label: string; value: ReactNode; sub?: string; hot?: boolean }) {
+function Mini({ t, href, label, value, sub, hot }: { t: typeof DARK; href: string; label: string; value: ReactNode; sub?: string; hot?: boolean }) {
   return (
     <Link href={href} className="group min-w-0">
-      <div className={cx("text-[26px] font-semibold leading-none tracking-tight", hot ? "text-amber-300" : "text-white")}>{value}</div>
-      <div className="mt-1.5 truncate text-[12px] text-white/50 transition group-hover:text-white/80">{label}{sub ? ` · ${sub}` : ""}</div>
+      <div className={cx("text-[26px] font-semibold leading-none tracking-tight", hot ? t.miniHot : t.miniVal)}>{value}</div>
+      <div className={cx("mt-1.5 truncate text-[12px] transition", t.miniLabel)}>{label}{sub ? ` (${sub})` : ""}</div>
     </Link>
   );
 }

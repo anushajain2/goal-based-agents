@@ -83,9 +83,9 @@ export function AutonomySetup({ autonomy, inPlan, choice, onChange, team, multip
               className={cx("rounded-lg border px-3 py-2.5 text-left transition", on ? "border-brand-500 bg-brand-50/60 ring-1 ring-brand-500" : "border-line hover:border-stone-400")}>
               <span className="flex items-center gap-1.5 text-[13.5px] font-bold">
                 {on && <Check size={14} className="text-brand-600" />} {p.label}
-                {autonomy.recommended === k && <span className="ml-auto rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10.5px] font-semibold text-emerald-800">Recommended</span>}
+                {autonomy.recommended === k && <span className="ml-auto rounded-full bg-emerald-100 px-1.5 py-0.5 text-[12px] font-semibold text-emerald-800">Recommended</span>}
               </span>
-              <span className="mt-1 block text-[11.5px] leading-snug text-muted">{p.summary}</span>
+              <span className="mt-1 block text-[12px] leading-snug text-muted">{p.summary}</span>
             </button>
           );
         })}
@@ -100,22 +100,22 @@ export function AutonomySetup({ autonomy, inPlan, choice, onChange, team, multip
             <div className="min-w-0 flex-1 basis-56">
               <div className="flex items-center gap-1.5 text-[13px] font-semibold">
                 {r.label}
-                {choice.overrides[r.key] && <span className="rounded bg-stone-100 px-1 text-[10.5px] font-semibold text-stone-600">changed</span>}
+                {choice.overrides[r.key] && <span className="rounded bg-stone-100 px-1 text-[12px] font-semibold text-stone-600">changed</span>}
               </div>
-              <div className="text-[11.5px] leading-snug text-muted">{r.why || r.description}</div>
-              <div className={cx("mt-0.5 text-[11.5px] font-semibold", r.mode === "auto" ? "text-emerald-700" : r.mode === "heads_up" ? "text-sky-700" : r.mode === "ask" ? "text-signal-700" : "text-stone-400")}>{r.gain}</div>
+              <div className="text-[12px] leading-snug text-muted">{r.why || r.description}</div>
+              <div className={cx("mt-0.5 text-[12px] font-semibold", r.mode === "auto" ? "text-emerald-700" : r.mode === "heads_up" ? "text-sky-700" : r.mode === "ask" ? "text-signal-700" : "text-stone-400")}>{r.gain}</div>
             </div>
             <div className="flex flex-col items-end gap-1">
               <RowModes row={r} onChange={(m) => setRow(r, m, m === "auto" || m === "heads_up" ? r.daily_cap ?? defaultCap(autonomy, r.key) : null)} />
               {(r.mode === "auto" || r.mode === "heads_up") && (
-                <label className="flex items-center gap-1 text-[11px] text-muted">
+                <label className="flex items-center gap-1 text-[12px] text-muted">
                   At most
                   <input inputMode="numeric" aria-label={`Daily limit for ${r.label}`} value={r.daily_cap ?? ""} placeholder="no limit"
                     onChange={(e) => {
                       const v = e.target.value.replace(/[^0-9]/g, "");
                       setRow(r, r.mode, v ? Math.min(1000, Math.max(1, Number(v))) : null);
                     }}
-                    className="h-6 w-14 rounded border border-line px-1.5 text-[11.5px] text-ink" />
+                    className="h-6 w-14 rounded border border-line px-1.5 text-[12px] text-ink" />
                   a day
                 </label>
               )}
@@ -133,7 +133,7 @@ export function AutonomySetup({ autonomy, inPlan, choice, onChange, team, multip
       {autonomy.personal_candidates.length > 0 && (
         <div className="rounded-lg bg-stone-50 px-3 py-2.5">
           <div className="flex items-center gap-1.5 text-[12.5px] font-semibold"><UserRound size={13} /> Is any of these someone&apos;s personal profile?</div>
-          <p className="text-[11.5px] text-muted">Posts, replies and messages there always ask first, whatever you picked above: it&apos;s that person&apos;s name and reputation.</p>
+          <p className="text-[12px] text-muted">Posts, replies and messages there always ask first, whatever you picked above: it&apos;s that person&apos;s name and reputation.</p>
           <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
             {autonomy.personal_candidates.map((p) => (
               <label key={p.key} className="flex items-center gap-1.5 text-[12.5px]">
@@ -146,7 +146,7 @@ export function AutonomySetup({ autonomy, inPlan, choice, onChange, team, multip
         </div>
       )}
 
-      <p className="text-[11.5px] leading-snug text-muted">
+      <p className="text-[12px] leading-snug text-muted">
         {out.length > 0 && <>A <b className="text-sky-800">heads-up</b> shows in Needs you and goes out after {autonomy.heads_up_minutes} minutes unless someone edits or stops it. </>}
         Even when something is allowed, it still asks if the content is sensitive (prices, legal or health claims, competitors, complaints), if it
         doesn&apos;t pass the quality check, or once it reaches the daily limit. After a few approvals you didn&apos;t change, it suggests asking
@@ -167,7 +167,7 @@ function defaultCap(a: Autonomy, key: string) {
 function RowModes({ row, onChange }: { row: AutonomyRow; onChange: (m: Mode) => void }) {
   const options = modesFor({ key: row.key, default: "ask" }).filter((m) => !(row.key === "spend_money" && m === "auto"));
   return (
-    <div className="inline-flex shrink-0 overflow-hidden rounded-md border border-line text-[11.5px] font-semibold">
+    <div className="inline-flex shrink-0 overflow-hidden rounded-md border border-line text-[12px] font-semibold">
       {options.map((m) => (
         <button key={m} type="button" onClick={() => m !== row.mode && onChange(m)} title={MODE_WORDS[m].long("the team")}
           className={cx("inline-flex items-center gap-1 px-2 py-1 transition", row.mode === m ? cx(MODE_STYLE[m], "ring-0") : "bg-white text-muted hover:bg-stone-50")}>

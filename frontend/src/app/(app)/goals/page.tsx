@@ -122,7 +122,7 @@ function GoalsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-left text-[13px]">
-              <thead className="text-[11.5px] font-semibold text-stone-400">
+              <thead className="text-[12px] font-semibold text-stone-400">
                 <tr>
                   <th className="w-16 px-5 py-3 font-semibold">On</th>
                   <th className="px-2 py-3 font-semibold">Goal</th>
@@ -164,7 +164,7 @@ function GoalsPage() {
                         {c.last_activity ? (
                           <>
                             <div className="line-clamp-2 text-[12.5px] text-stone-700">{c.last_activity.title}</div>
-                            <div className="mt-0.5 text-[11.5px] text-muted">{timeAgo(c.last_activity.at)}</div>
+                            <div className="mt-0.5 text-[12px] text-muted">{timeAgo(c.last_activity.at)}</div>
                           </>
                         ) : <span className="text-muted">Not started</span>}
                       </td>

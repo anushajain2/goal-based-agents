@@ -149,7 +149,7 @@ function People() {
                 )}
               </>
             ) : (
-              <span className="text-xs text-muted">{ROLE_LABEL[m.role]} · {m.department_ids.map(deptName).join(", ") || "No department"}</span>
+              <span className="text-xs text-muted">{ROLE_LABEL[m.role]}, {m.department_ids.map(deptName).join(", ") || "no department"}</span>
             )}
           </li>
         ))}
@@ -165,7 +165,7 @@ function People() {
                   <li key={i.id} className="flex flex-wrap items-center gap-2 rounded-md bg-stone-50 px-3 py-1.5 text-sm">
                     <Mail size={14} className="text-muted" />
                     <span className="min-w-0 flex-1 truncate">{i.email}</span>
-                    <span className="text-xs text-muted">{ROLE_LABEL[i.role as keyof typeof ROLE_LABEL] || i.role} · {i.department_ids.map(deptName).join(", ") || "No department"}</span>
+                    <span className="text-xs text-muted">{ROLE_LABEL[i.role as keyof typeof ROLE_LABEL] || i.role}, {i.department_ids.map(deptName).join(", ") || "no department"}</span>
                     <Button size="sm" variant="ghost" onClick={() => act(() => api(`/api/invitations/${i.id}`, { method: "DELETE" }))}>Cancel</Button>
                   </li>
                 ))}
@@ -239,10 +239,10 @@ function Permissions() {
                 <b>{g.action_label}</b>
                 {g.mode === "heads_up" ? " after a heads-up" : g.mode === "ask" ? ": always asks" : " without asking"}
                 {g.scope ? <> on {g.scope}</> : " anywhere"}
-                {g.spend_limit_usd ? ` · up to ${usd(g.spend_limit_usd)} each` : ""}
-                {g.daily_cap ? ` · up to ${g.daily_cap} a day` : ""}
+                {g.spend_limit_usd ? `, up to ${usd(g.spend_limit_usd)} each` : ""}
+                {g.daily_cap ? `, up to ${g.daily_cap} a day` : ""}
                 <span className="block text-xs text-muted">
-                  {levelText(g)} · since {new Date(g.created_at).toLocaleDateString()}
+                  {levelText(g)}, since {new Date(g.created_at).toLocaleDateString()}
                 </span>
               </span>
               <Button size="sm" variant="danger" onClick={async () => {

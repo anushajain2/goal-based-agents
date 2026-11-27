@@ -65,7 +65,7 @@ export function MetricChart({ points, label }: { points: Point[]; label: string 
       </svg>
       {hover !== null && (
         <div className="pointer-events-none absolute right-2 top-1 rounded-md border border-line bg-white px-2 py-1 text-xs shadow-sm">
-          <b className="tabular">{num(points[hover].value)}</b> {label} · {new Date(points[hover].recorded_at).toLocaleString()}
+          <b className="tabular">{num(points[hover].value)}</b> {label}, {new Date(points[hover].recorded_at).toLocaleString()}
         </div>
       )}
     </div>

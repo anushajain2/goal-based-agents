@@ -27,12 +27,12 @@ export function ConnectChecklist({ only = "any" }: { only?: "any" | "missing_liv
         </span>
         <span className="mt-1.5 flex flex-wrap gap-1.5">
           {data.tools.slice(0, 8).map((t) => (
-            <span key={t.key} className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold ring-1 ring-inset",
+            <span key={t.key} className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ring-1 ring-inset",
               t.status !== "missing" ? "bg-emerald-50 text-emerald-700 ring-emerald-100" : "bg-stone-50 text-stone-600 ring-stone-200")}>
               {t.status !== "missing" && <Check size={10} />} {t.label}
             </span>
           ))}
-          {data.tools.length > 8 && <span className="text-[11.5px] text-muted">+{data.tools.length - 8} more</span>}
+          {data.tools.length > 8 && <span className="text-[12px] text-muted">+{data.tools.length - 8} more</span>}
         </span>
       </span>
       <span className="flex items-center gap-3">

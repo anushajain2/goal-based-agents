@@ -162,7 +162,7 @@ function GoalPage() {
               {num(c.target.progress)}<span className="text-base font-semibold text-muted"> / {num(c.target.target)}</span>
             </div>
             <ProgressBar pct={Math.min(100, ((c.target.progress || 0) / c.target.target) * 100)} className="mt-2" />
-            <div className="mt-1 truncate text-xs text-muted">{c.primary_metric}{c.target.days_left != null ? ` · ${Math.ceil(c.target.days_left)}d left` : ""}</div>
+            <div className="mt-1 truncate text-xs text-muted">{c.primary_metric}{c.target.days_left != null ? `, ${Math.ceil(c.target.days_left)} days left` : ""}</div>
           </Card>
         ) : (
           <Card className="p-4">
@@ -182,7 +182,7 @@ function GoalPage() {
           <div className="tabular mt-1 text-2xl font-bold">{usd(c.budget.spent)} <span className="text-base font-semibold text-muted">/ {usd(c.budget.total)}</span></div>
           <ProgressBar pct={budgetPct} tone="gray" className="mt-2" />
           <div className="mt-1 text-xs text-muted">
-            AI {usd(c.budget.ai_usage)} · other {usd(c.budget.other_spend)}{c.budget.daily_cap ? ` · today ${usd(c.budget.today)}/${usd(c.budget.daily_cap)}` : ""}
+            AI {usd(c.budget.ai_usage)}, other spending {usd(c.budget.other_spend)}{c.budget.daily_cap ? `, today ${usd(c.budget.today)} of ${usd(c.budget.daily_cap)}` : ""}
           </div>
           {c.budget_basis?.starter && c.can_manage !== false && c.status !== "completed" && (
             <button disabled={busy} onClick={async () => {
@@ -306,7 +306,7 @@ function ResultsTab({ c, sessions }: { c: Campaign; sessions: Session[] }) {
                     <td>{m.metric}</td>
                     <td className="tabular text-right font-semibold">{num(m.value)}</td>
                     <td className="truncate pl-3 text-muted">
-                      <span className={cx("mr-1.5 rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold", m.verified ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500")}>
+                      <span className={cx("mr-1.5 rounded-full px-1.5 py-0.5 text-[12px] font-semibold", m.verified ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500")}>
                         {m.verified ? "Measured" : "Reported"}
                       </span>{m.source}
                     </td>
@@ -373,7 +373,7 @@ function GuardrailsTab({ campaignId, canEdit }: { campaignId: string; canEdit: b
                 <span className="flex-1">
                   {g.action_label} on <b>{g.scope}</b>
                   {g.spend_limit_usd ? ` (up to ${usd(g.spend_limit_usd)})` : ""}
-                  {g.level !== "goal" && <span className="text-xs text-muted"> · {levelName(g.level)}</span>}
+                  {g.level !== "goal" && <span className="text-xs text-muted"> ({levelName(g.level)})</span>}
                 </span>
                 {canEdit && g.level === "goal" && (
                   <Button size="sm" variant="danger" onClick={async () => { await api(`/api/grants/${g.id}`, { method: "DELETE" }); reloadGrants(); }}>

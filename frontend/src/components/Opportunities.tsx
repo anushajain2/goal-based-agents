@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, Chevro
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, ScoreRow, usd, Visibility } from "@/lib/api";
+import { andMore, api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, ScoreRow, usd, Visibility } from "@/lib/api";
 import { TeamTag } from "./team";
 import { cx, ErrorNote } from "./ui";
 
@@ -142,11 +142,11 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
                 {/* The problem, and the proof */}
                 <div className="min-w-0 p-6 md:p-7">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[11.5px] font-semibold text-red-700 ring-1 ring-inset ring-red-100">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold text-red-700 ring-1 ring-inset ring-red-100">
                       <AlertTriangle size={12} /> Gap
                     </span>
                     <Pull n={f.pull} />
-                    <span className="text-[11.5px] font-medium text-stone-400">{CONFIDENCE[f.confidence]}</span>
+                    <span className="text-[12px] font-medium text-stone-400">{CONFIDENCE[f.confidence]}</span>
                     {isNew(f) && <span className="rounded-full bg-lime-200 px-2 py-0.5 text-[12px] font-bold text-lime-900">New</span>}
                   </div>
                   <h3 className="display mt-3 max-w-[40ch] text-[24px] leading-[1.15] text-red-700">{f.title}</h3>
@@ -301,7 +301,7 @@ function Pull({ n }: { n?: number }) {
   if (!n) return null;
   const label = n >= 4 ? "High impact" : n === 3 ? "Medium impact" : "Worth fixing";
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas px-2.5 py-1 text-[11.5px] font-semibold text-stone-700 ring-1 ring-inset ring-line">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-canvas px-2.5 py-1 text-[12px] font-semibold text-stone-700 ring-1 ring-inset ring-line">
       <span className="flex items-end gap-[2px]" aria-hidden>
         {[1, 2, 3, 4, 5].map((k) => <span key={k} className={cx("w-[3px] rounded-sm", k <= n ? "bg-brand-600" : "bg-stone-200")} style={{ height: 4 + k * 1.5 }} />)}
       </span>
@@ -341,7 +341,7 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
       {f.estimate && (
         <div className="relative mt-4 rounded-xl bg-lime-300/10 px-3.5 py-2.5 ring-1 ring-inset ring-lime-300/25">
           <div className="text-[14px] font-semibold leading-snug text-lime-100">{f.estimate}</div>
-          {f.assumption && <div className="mt-0.5 text-[11.5px] leading-snug text-white/45">{f.assumption}</div>}
+          {f.assumption && <div className="mt-0.5 text-[12px] leading-snug text-white/45">{f.assumption}</div>}
         </div>
       )}
       {f.impact && <p className="relative mt-4 text-[13.5px] leading-relaxed text-white/70">{f.impact}</p>}
@@ -353,7 +353,7 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
           </button>
         ) : goal && canStart && goal.can_manage !== false ? (
           <button onClick={() => onStart(goal)} className="group flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 py-3 text-[14.5px] font-bold text-ink shadow-[0_8px_24px_-8px_rgba(190,242,100,0.6)] transition hover:bg-lime-200">
-            {multi ? "Start step 1" : "Turn on the fix"}{price ? <span className="tabular font-semibold text-ink/60">· {usd(price)}</span> : null}
+            {multi ? "Start step 1" : "Turn on the fix"}{price ? <span className="tabular font-semibold text-ink/60">for {usd(price)}</span> : null}
             <ArrowRight size={16} className="transition group-hover:translate-x-0.5" />
           </button>
         ) : null}
@@ -362,7 +362,7 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
             {multi ? "Step 1: " : "Goal: "}<span className="font-medium text-white/75">{goal.name}</span>
           </button>
         )}
-        {multi && <p className="mt-1 text-center text-[11.5px] text-white/40">The full fix: {usd(total)} over {weeks(span)}. Go further only if it works.</p>}
+        {multi && <p className="mt-1 text-center text-[12px] text-white/40">The full fix: {usd(total)} over {weeks(span)}. Go further only if it works.</p>}
       </div>
     </aside>
   );
@@ -394,7 +394,7 @@ function Steps({ steps, total, goalFor, canStart, busy, onStart, onOpen, onFurth
                 </span>
               )}
               <div className="flex items-center gap-2 text-[12px] font-bold">
-                <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[10.5px]", live ? "bg-emerald-500 text-white" : i === 0 ? "bg-brand-600 text-white" : "bg-stone-100 text-stone-500")}>
+                <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[12px]", live ? "bg-emerald-500 text-white" : i === 0 ? "bg-brand-600 text-white" : "bg-stone-100 text-stone-500")}>
                   {live ? <Check size={11} strokeWidth={3} /> : last ? <Flag size={10} /> : i + 1}
                 </span>
                 <span className={i === 0 ? "text-brand-700" : "text-muted"}>{i === 0 ? "Start here" : last ? "Full result" : `Step ${i + 1}`}</span>
@@ -410,7 +410,7 @@ function Steps({ steps, total, goalFor, canStart, busy, onStart, onOpen, onFurth
               <div className="mt-auto flex items-end justify-between gap-2 pt-4">
                 <div className="min-w-0">
                   <div className="tabular text-[17px] font-bold leading-none text-ink">{usd(m.total_usd)}</div>
-                  <div className="mt-1 truncate text-[11px] text-muted" title={m.paid_items.map((p) => `${p.item}: ${usd(p.usd)}`).join(", ")}>
+                  <div className="mt-1 truncate text-[12px] text-muted" title={m.paid_items.map((p) => `${p.item}: ${usd(p.usd)}`).join(", ")}>
                     AI work {usd(m.ai_usd)}{m.paid_usd ? ` + ${usd(m.paid_usd)} spend` : ""}
                   </div>
                 </div>
@@ -498,7 +498,7 @@ function Findable({ v, name }: { v: Visibility; name: string }) {
                             )}
                             {s.competitors_ahead.length > 0 && <div className="text-muted">Ahead: {s.competitors_ahead.join(", ")}</div>}
                             {s.ai_overview && (
-                              <div className={cx("text-[11.5px] font-medium", s.ai_overview.mentioned ? "text-emerald-700" : "text-red-700")}>
+                              <div className={cx("text-[12px] font-medium", s.ai_overview.mentioned ? "text-emerald-700" : "text-red-700")}>
                                 AI Overview {s.ai_overview.mentioned ? "cites you" : s.ai_overview.competitors.length ? `cites ${s.ai_overview.competitors.join(", ")}` : "doesn't cite you"}
                               </div>
                             )}
@@ -580,7 +580,7 @@ function Scorecard({ rows, name }: { rows: ScoreRow[]; name: string }) {
               <tr key={r.key} className="align-top">
                 <td className="px-5 py-2.5">
                   <div className="font-semibold text-ink">{r.label}</div>
-                  {r.note && <div className="text-[11.5px] text-muted">{r.note}</div>}
+                  {r.note && <div className="text-[12px] text-muted">{r.note}</div>}
                 </td>
                 <td className="px-3 py-2.5">
                   <span className={cx("inline-flex items-start gap-1.5 font-medium", r.you.status === "bad" ? "text-red-700" : r.you.status === "good" ? "text-emerald-700" : "text-ink")}>
@@ -618,7 +618,7 @@ export function MissingSummary({ profile, goals }: { profile: CompanyProfile | n
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100"><Search size={17} /></span>
       <span className="min-w-0 flex-1">
         <span className="block text-[14.5px] font-semibold">{open.length} thing{open.length === 1 ? "" : "s"} you&apos;re missing out on</span>
-        <span className="mt-0.5 block truncate text-[13px] text-muted">{open.slice(0, 3).map((f) => f.title).join(" · ")}</span>
+        <span className="mt-0.5 block truncate text-[13px] text-muted">{andMore(open.map((f) => f.title))}</span>
       </span>
       <span className="inline-flex shrink-0 items-center gap-1 self-center text-[13px] font-semibold text-brand-700">Turn on fixes <ArrowRight size={14} className="transition group-hover:translate-x-0.5" /></span>
     </Link>

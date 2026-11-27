@@ -23,7 +23,7 @@ export function BudgetBreakdown({ basis, total, pace, compact }: {
       {basis.paid_spend_usd > 0 && <div>+ {usd(basis.paid_spend_usd)} it may spend on ads or purchases</div>}
       <div>
         = <b>{usd(basis.suggested_usd)}</b> suggested
-        {total !== undefined && Math.abs(total - basis.suggested_usd) >= 0.01 && <> · you set <b>{usd(total)}</b></>}
+        {total !== undefined && Math.abs(total - basis.suggested_usd) >= 0.01 && <>; you set <b>{usd(total)}</b></>}
       </div>
       {basis.starter && basis.full_usd ? (
         <div>The whole goal ({Math.round(basis.full_days || 30)} days) would take about {usd(basis.full_usd)}. Add more once you&apos;ve seen results.</div>
@@ -53,7 +53,7 @@ export function BudgetCalculator({ cycleHours, endDate, onUse }: { cycleHours: s
         <Button size="sm" type="button" onClick={() => onUse(basis.suggested_usd)}>Use {usd(basis.suggested_usd)}</Button>
       </div>
       <BudgetBreakdown basis={basis} compact />
-      <p className="mt-1 text-[11.5px] text-muted">Add more if it will run ads or buy things. {endDate ? "" : "Assumes it runs for 30 days; set a deadline to change that."}</p>
+      <p className="mt-1 text-[12px] text-muted">Add more if it will run ads or buy things. {endDate ? "" : "Assumes it runs for 30 days; set a deadline to change that."}</p>
     </div>
   );
 }

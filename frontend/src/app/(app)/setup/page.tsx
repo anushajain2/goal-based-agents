@@ -126,7 +126,7 @@ function ResearchLive({ info }: { info: SetupInfo }) {
                 );
               })}
             </ol>
-            {info.setup!.cost_usd > 0 && <p className="mt-6 text-[11.5px] text-white/40">Research cost so far {usd(info.setup!.cost_usd)}, paid by the workspace, not a goal&apos;s budget.</p>}
+            {info.setup!.cost_usd > 0 && <p className="mt-6 text-[12px] text-white/40">Research cost so far {usd(info.setup!.cost_usd)}, paid by the workspace, not a goal&apos;s budget.</p>}
           </div>
         </div>
       </section>

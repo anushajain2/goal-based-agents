@@ -59,7 +59,7 @@ export function AgentAvatar({ name, size = 36, state }: { name: string; size?: n
 export function PersonAvatar({ name, size = 28, title }: { name: string; size?: number; title?: string }) {
   const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
   return (
-    <span title={title || name} className="inline-grid shrink-0 place-items-center rounded-full bg-stone-100 text-[11px] font-bold text-stone-700 ring-2 ring-white" style={{ width: size, height: size }}>
+    <span title={title || name} className="inline-grid shrink-0 place-items-center rounded-full bg-stone-100 text-[12px] font-bold text-stone-700 ring-2 ring-white" style={{ width: size, height: size }}>
       {initials || "?"}
     </span>
   );
