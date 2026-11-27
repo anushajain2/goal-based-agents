@@ -191,7 +191,7 @@ class CycleRunner:
 
             try:
                 result = await self.claude.create(
-                    campaign_id=campaign_id, run_id=run_id, purpose="work step", role="worker",
+                    campaign_id=campaign_id, run_id=run_id, purpose="work step", task="work",
                     system=system, tools=tools, messages=messages,
                     max_web_searches=MAX_WEB_SEARCHES_PER_CALL, agent_loop=True,
                 )

@@ -336,7 +336,8 @@ async def get_org(s: AsyncSession = Depends(get_session), me: Member = Depends(c
     return {
         "org": {"id": org.id, "name": org.name, "website": org.website, "description": org.description,
                 "profile": org.profile},
-        "me": {**_user(me.user), "role": me.role, "department_ids": sorted(me.department_ids), "is_admin": me.is_admin},
+        "me": {**_user(me.user), "role": me.role, "department_ids": sorted(me.department_ids), "is_admin": me.is_admin,
+               "is_operator": get_settings().is_operator(me.user.email)},
         "departments": [
             {
                 "id": d.id, "name": d.name, "kind": d.kind,

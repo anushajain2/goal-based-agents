@@ -86,7 +86,7 @@ async def check_action(
         purpose="guardrail check",
         system=_SYSTEM,
         messages=[{"role": "user", "content": prompt}],
-        role="checker",
+        task="rule_check",
         max_tokens=4000,
         output_format=_SCHEMA,
     )

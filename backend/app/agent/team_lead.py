@@ -22,7 +22,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 
 from app.agent import packs
-from app.agent.llm import MeteredClaude
+from app.agent.llm import MeteredClaude, usage_org
 from app.agent.org_setup import company_context
 from app.db import session_scope
 from app.models import (
@@ -405,6 +405,7 @@ async def run_review(review_id: str, claude: MeteredClaude | None = None) -> Non
         review = await s.get(LeadReview, review_id)
         dept = await s.get(Department, review.department_id)
         org = await s.get(Organization, dept.org_id)
+        usage_org.set(dept.org_id)
         left = dept.lead_monthly_cap_usd - await spent_this_month(s, dept.id)
         if left <= 0:
             review.status, review.error, review.locked_by = "failed", (
@@ -422,7 +423,7 @@ async def run_review(review_id: str, claude: MeteredClaude | None = None) -> Non
     cost, raw, used, sources, nudged = Decimal("0"), None, [], [], False
     try:
         for _ in range(MAX_TURNS):
-            result = await claude.create(campaign_id=None, run_id=None, purpose="Reviewer review", role="planner",
+            result = await claude.create(campaign_id=None, run_id=None, purpose="Reviewer review", task="reviewer",
                                          system=system, messages=messages, tools=tools, max_tokens=8000,
                                          max_web_searches=MAX_WEB)
             cost += result.cost

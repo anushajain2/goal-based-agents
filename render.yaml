@@ -83,6 +83,14 @@ envVarGroups:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      # Who runs this Oton (comma-separated emails): they see AI cost by task at /ops/costs
+      - key: OPERATOR_EMAILS
+        sync: false
+      # Optional per-task models, e.g. {"session_strategist": "worker"} (names in backend/app/agent/llm.py)
+      - key: TASK_MODELS
+        sync: false
+      - key: TASK_EFFORTS
+        sync: false
       # Error reports (optional)
       - key: SENTRY_DSN
         sync: false

@@ -58,6 +58,15 @@ class Settings(BaseSettings):
     worker_effort: str = "medium"
     checker_model: str = "claude-haiku-5-5"
     checker_effort: str = "low"
+    # Per task (see app/agent/llm.py TASKS for the names and their default slot): a slot name
+    # (planner / worker / checker) or a model ID, and an effort. JSON, e.g.
+    #   TASK_MODELS={"session_strategist": "worker", "findings": "claude-opus-5-5"}
+    #   TASK_EFFORTS={"goal_steps": "low"}
+    task_models: dict[str, str] = {}
+    task_efforts: dict[str, str] = {}
+    # People who run this Oton (comma-separated emails): they see AI cost by task across all
+    # organizations (/ops/costs).
+    operator_emails: str = ""
     agent_max_tokens: int = 16000
     # Hard ceiling on model calls in a single optimization cycle (runaway guard).
     max_model_calls_per_cycle: int = 60
@@ -151,6 +160,10 @@ class Settings(BaseSettings):
     # MCP servers on this computer or your network (e.g. http://localhost:8001/mcp). Set to
     # false when Oton is hosted for others, so nobody can point it at internal machines.
     allow_private_mcp: bool = True
+
+    def is_operator(self, email: str | None) -> bool:
+        ops = {e.strip().lower() for e in self.operator_emails.split(",") if e.strip()}
+        return bool(email) and email.lower() in ops
 
     @property
     def production(self) -> bool:

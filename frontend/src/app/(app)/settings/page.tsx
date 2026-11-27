@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Building2, Chrome, ExternalLink, Globe, KeyRound, Mail, Plug, Plus, RefreshCw, Server, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { ArrowRight, Building2, Chrome, ExternalLink, Gauge, Globe, KeyRound, Mail, Plug, Plus, RefreshCw, Server, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 
 import Link from "next/link";
@@ -26,6 +26,7 @@ export default function SettingsPage() {
       <Organization />
       <People />
       <Staffing />
+      <OperatorCosts />
       <Link href="/connections" className="flex items-center gap-3 rounded-2xl border border-line bg-white px-5 py-4 shadow-[var(--shadow-card)] transition hover:shadow-[var(--shadow-pop)]">
         <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-600"><Plug size={17} /></span>
         <span className="min-w-0 flex-1"><b className="block text-[14px] font-semibold">Connections</b><span className="text-[13px] text-muted">Apps, sites, GitHub, databases and your own tools now have their own page.</span></span>
@@ -42,6 +43,19 @@ const ROLE_INFO: { role: "planner" | "worker" | "checker"; title: string; text: 
   { role: "worker", title: "Does the work", text: "Carries out the plan step by step: research, browsing, writing, using apps. Most of the calls, so a fast, cheaper model." },
   { role: "checker", title: "Checks every outgoing action", text: "A quick yes/no review against your guardrails before anything is posted, sent or spent." },
 ];
+
+/** Only for the people who run this Oton (OPERATOR_EMAILS). */
+function OperatorCosts() {
+  const { data: org } = useApi<OrgInfo>("/api/org", { live: false });
+  if (!org?.me.is_operator) return null;
+  return (
+    <Link href="/ops/costs" className="flex items-center gap-3 rounded-2xl border border-line bg-white px-5 py-4 shadow-[var(--shadow-card)] transition hover:shadow-[var(--shadow-pop)]">
+      <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-600"><Gauge size={17} /></span>
+      <span className="min-w-0 flex-1"><b className="block text-[14px] font-semibold">AI cost by task</b><span className="text-[13px] text-muted">What each kind of model call costs, across every organization, and which model runs it.</span></span>
+      <ArrowRight size={16} className="text-stone-400" />
+    </Link>
+  );
+}
 
 function Staffing() {
   const { data } = useApi<{ models: Record<string, string> }>("/api/status", { live: false });

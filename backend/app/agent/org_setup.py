@@ -21,7 +21,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 
-from app.agent.llm import MeteredClaude
+from app.agent.llm import MeteredClaude, usage_org
 from app.db import session_scope
 from app.models import Agent, Campaign, Department, Membership, Organization, OrgSetup, Role, utcnow
 from app.org import CATEGORY_KEYS, DEPARTMENT_PRESETS, PRESET_NAMES, add_department
@@ -116,6 +116,11 @@ Write a factual brief (about 500-900 words) with these sections:
 - Recent news from the last 12 months, with dates.
 - Competitors and how they position against them.
 - Signals about current priorities and challenges.
+
+Every fact that matters (funding, revenue, headcount, customers, launches, news, competitors) ends \
+with its source URL in brackets, and every number also with a short quote from that source, e.g. \
+"Raised $3M seed in March 2026 [https://news.example/acme] ("Acme has raised $3 million...")". Leave \
+out what you can't source, or write "Unknown".
 
 End with a "Sources:" list of the URLs you relied on."""
 
@@ -369,7 +374,7 @@ async def research_company(claude: MeteredClaude, setup_id: str, name: str, webs
     texts, sources, searches = [], [], 0
     for _ in range(MAX_CONTINUATIONS + 1):
         result = await claude.create(
-            campaign_id=None, run_id=None, purpose="setup research", role="worker",
+            campaign_id=None, run_id=None, purpose="setup research", task="company_research",
             system=RESEARCH_SYSTEM, messages=messages, tools=tools, max_tokens=16000,
             max_web_searches=MAX_SEARCHES,
         )
@@ -422,7 +427,7 @@ async def classify_company(claude: MeteredClaude, setup_id: str | None, name: st
                f"Research:\n{(research or '(none)')[:8000]}\n\nWebsite text:\n{(site_text or '(none)')[:4000]}\n\n"
                f"Types:\n{types}\n\nSizes:\n{sizes}")
     try:
-        result = await claude.create(campaign_id=None, run_id=None, purpose="setup company type", role="checker",
+        result = await claude.create(campaign_id=None, run_id=None, purpose="setup company type", task="company_type",
                                      system=CLASSIFY_SYSTEM, messages=[{"role": "user", "content": content}],
                                      max_tokens=1000, output_format=classify_schema())
         data = json.loads(_texts(result.content))
@@ -455,7 +460,7 @@ async def profile_company(claude: MeteredClaude, setup_id: str, name: str, websi
     content = (f"Company: {name}\nWebsite: {website or '(none)'}\nWhat the founders say it does: {description or '(not given)'}\n\n"
                f"Research:\n{(research or '(none)')[:12000]}\n\nWebsite text:\n{(site_text or '(none)')[:8000]}\n\n"
                f"Types:\n{types}\n\nSizes:\n{sizes_text()}")
-    result = await claude.create(campaign_id=None, run_id=None, purpose="setup profile", role="worker",
+    result = await claude.create(campaign_id=None, run_id=None, purpose="setup profile", task="company_profile",
                                  system=PROFILE_SYSTEM, messages=[{"role": "user", "content": content}],
                                  max_tokens=4000, output_format=profile_schema())
     try:
@@ -475,7 +480,7 @@ async def plan_team(claude: MeteredClaude, setup_id: str, name: str, website: st
     task = task or (ADD_TASK.format(existing=", ".join(existing or []) or "nothing yet",
                                     include=", ".join(include_names(include))) if include else FULL_TASK)
     result = await claude.create(
-        campaign_id=None, run_id=None, purpose="setup plan", role="planner",
+        campaign_id=None, run_id=None, purpose="setup plan", task="suggest_goals",
         system=PLAN_SYSTEM.format(sizes=sizes_text(), max_per_dept=MAX_GOALS_PER_DEPARTMENT, max_later=MAX_LATER,
                                   max_agents=MAX_AGENTS_PER_DEPARTMENT, step_guidance=STEP_GUIDANCE,
                                   catalog=packs.catalog_text())
@@ -756,6 +761,7 @@ async def run_org_setup(setup_id: str, claude: MeteredClaude | None = None) -> N
         setup = await s.get(OrgSetup, setup_id)
         org = await s.get(Organization, setup.org_id)
         org_id, requested_by = org.id, setup.requested_by
+        usage_org.set(org_id)
         name, website, description = org.name, org.website, org.description
         mode = mode_of(setup.plan)
         setup.steps = setup.steps or initial_steps(mode)

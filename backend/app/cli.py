@@ -94,7 +94,14 @@ def main() -> None:
     d.add_argument("email")
     d.add_argument("--yes", action="store_true", help="Don't ask for confirmation")
     sub.add_parser("whatsapp-templates", help="Submit the WhatsApp message templates for Meta's approval")
+    c = sub.add_parser("costs", help="AI cost by task (all organizations)")
+    c.add_argument("--days", type=int, default=30)
     args = parser.parse_args()
+
+    if args.command == "costs":
+        for line in asyncio.run(cost_lines(args.days)):
+            print(line)
+        return
 
     if args.command == "whatsapp-templates":
         for line in asyncio.run(create_whatsapp_templates()):
@@ -125,6 +132,19 @@ def main() -> None:
         for line in asyncio.run(delete_user(args.email)):
             print(line)
         print("Done. That email can now sign up again and go through onboarding.")
+
+
+async def cost_lines(days: int) -> list[str]:
+    from app.services import costs
+
+    async with session_scope() as s:
+        data = await costs.by_task(s, days)
+    out = [f"AI cost by task, last {days} days: ${data['total_usd']:.2f} over {data['calls']} calls", ""]
+    out.append(f"{'Task':40} {'Model':22} {'Effort':7} {'Calls':>7} {'Cost':>10} {'Avg':>9} {'Share':>6}")
+    for t in data["tasks"]:
+        out.append(f"{t['label'][:40]:40} {t['model'][:22]:22} {t['effort'][:7]:7} {t['calls']:>7} "
+                   f"{'$' + format(t['cost_usd'], '.2f'):>10} {'$' + format(t['avg_usd'], '.4f'):>9} {t['share']:>6.0%}")
+    return out
 
 
 async def create_whatsapp_templates() -> list[str]:

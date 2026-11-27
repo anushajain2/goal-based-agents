@@ -12,7 +12,7 @@ import logging
 import shutil
 from decimal import Decimal
 
-from app.agent.llm import MeteredClaude
+from app.agent.llm import MeteredClaude, usage_org
 from app.config import get_settings
 from app.db import session_scope
 from app.models import Campaign, Deliverable, Department, LaunchVideo, Organization, RequestKind, UserRequest, utcnow
@@ -39,6 +39,7 @@ async def run_video(video_id: str, claude: MeteredClaude | None = None) -> None:
     async with session_scope() as s:
         v = await s.get(LaunchVideo, video_id)
         org = await s.get(Organization, v.org_id)
+        usage_org.set(v.org_id)
         url, fmt, notes, campaign_id, name = v.url, v.format, v.notes, v.campaign_id, org.name if org else ""
     job = get_settings().data_dir / "videos" / video_id
     cost = Decimal("0")

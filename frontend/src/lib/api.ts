@@ -343,7 +343,7 @@ export type SetupInfo = {
 };
 export type OrgInfo = {
   org: { id: string; name: string; website: string; description: string; profile: CompanyProfile | null };
-  me: Person & { role: "owner" | "admin" | "member"; department_ids: string[]; is_admin: boolean };
+  me: Person & { role: "owner" | "admin" | "member"; department_ids: string[]; is_admin: boolean; is_operator?: boolean };
   departments: DepartmentInfo[];
   members: (Person & { role: "owner" | "admin" | "member"; department_ids: string[] })[];
   invitations: { id: string; email: string; role: string; department_ids: string[]; head_department_ids: string[]; created_at: string }[];

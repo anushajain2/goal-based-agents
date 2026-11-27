@@ -30,7 +30,7 @@ from sqlalchemy import select
 
 from app.agent import checks as catalog
 from app.agent.playbook import OUTREACH_KNOWHOW
-from app.agent.llm import MeteredClaude
+from app.agent.llm import MeteredClaude, usage_org
 from app.catalog import TOOLS
 from app.db import session_scope
 from app.models import Agent, Campaign, Department, Membership, Organization, Role, utcnow
@@ -180,7 +180,7 @@ async def search_visibility(claude: MeteredClaude, queries: list[dict], mine: st
     results: dict[str, list[dict]] = {}
     cost = Decimal("0")
     for _ in range(MAX_CONTINUATIONS + 1):
-        result = await claude.create(campaign_id=None, run_id=None, purpose="search visibility", role="checker",
+        result = await claude.create(campaign_id=None, run_id=None, purpose="search visibility", task="search_ranking",
                                      system=SEARCH_SYSTEM, messages=messages, tools=tools, max_tokens=2000,
                                      max_web_searches=len(queries))
         cost += result.cost
@@ -222,7 +222,7 @@ async def ai_answers(claude: MeteredClaude, queries: list[dict], name: str, mine
                      competitors: list[dict]) -> tuple[list[dict], Decimal]:
     """What an AI assistant recommends for the same questions, and whether the company is in it."""
     asked = "\n".join(f"- {q['query']}" for q in queries)
-    result = await claude.create(campaign_id=None, run_id=None, purpose="AI answer visibility", role="worker",
+    result = await claude.create(campaign_id=None, run_id=None, purpose="AI answer visibility", task="ai_recommend",
                                  system=AI_SYSTEM, messages=[{"role": "user", "content": asked}], max_tokens=3000,
                                  output_format=ai_schema())
     raw = json.loads(_texts(result.content) or "{}")
@@ -291,7 +291,9 @@ site, its LinkedIn page, news) and their LinkedIn and X profiles.
 - For each account, count the posts from the last 30 days and add up likes (reactions) and comments \
 (replies) on them. Read public posts: search for them (e.g. site:linkedin.com/posts "<company>"; \
 site:x.com <handle>) and open the posts and profile pages you can. Count only what you saw; if an \
-account's posts can't be read, give null rather than a guess, and say why in the note.
+account's posts can't be read, give null rather than a guess, and say why in the note. coverage says \
+how much you saw: "verified" (you saw the account's posts for the whole 30 days), "partial" (some \
+posts or some days only: the counts are a floor) or "blocked" (you couldn't see its posts; counts null).
 - Also look at the first page of each company's own accounts (and its YouTube or Product Hunt page if \
 linked) for a launch, demo or explainer video, and note its views or engagement when shown.
 - Public information only. Founders' public posts about their company may be counted; never judge \
@@ -305,11 +307,12 @@ def social_schema() -> dict:
         "name": {"type": "string", "description": "The account name, e.g. the company or the founder's name"},
         "platform": {"type": "string", "enum": ["linkedin", "x"]},
         "url": {"type": "string"},
+        "coverage": {"type": "string", "enum": ["verified", "partial", "blocked"]},
         "posts_30d": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
         "engagement_30d": {"anyOf": [{"type": "integer"}, {"type": "null"}],
                            "description": "Likes/reactions plus comments/replies on those posts"},
         "note": {"type": "string"}},
-        "required": ["company", "who", "name", "platform", "url", "posts_30d", "engagement_30d", "note"],
+        "required": ["company", "who", "name", "platform", "url", "coverage", "posts_30d", "engagement_30d", "note"],
         "additionalProperties": False}
     video = {"type": "object", "properties": {
         "company": {"type": "string"}, "found": {"type": "boolean"}, "where": {"type": "string"},
@@ -338,7 +341,7 @@ async def read_social(claude: MeteredClaude, name: str, website: str, competitor
              {"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": SOCIAL_USES}]
     cost = Decimal("0")
     for _ in range(MAX_CONTINUATIONS + 1):
-        result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", role="worker",
+        result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", task="social_read",
                                      system=SOCIAL_SYSTEM, messages=messages, tools=tools, max_tokens=6000,
                                      max_web_searches=SOCIAL_USES, output_format=social_schema())
         cost += result.cost
@@ -355,16 +358,19 @@ async def read_social(claude: MeteredClaude, name: str, website: str, competitor
 def social_rows(social: dict, name: str, competitors: list[dict]) -> list[dict]:
     """Scorecard rows: you vs competitors on LinkedIn, X, founders, and launch videos."""
     names = [name] + [c["name"] for c in competitors]
-    accounts = social.get("accounts") or []
+    # An account that couldn't be read has no numbers, whatever came back.
+    accounts = [{**a, "posts_30d": None, "engagement_30d": None} if a.get("coverage") == "blocked" else a
+                for a in social.get("accounts") or []]
     note = "Read from public posts by AI; approximate"
 
     def fmt(a: dict | None) -> str | None:
         if not a:
             return None
-        if a.get("posts_30d") is None:
+        if a.get("posts_30d") is None or a.get("coverage") == "blocked":
             return "Couldn't read"
         eng = a.get("engagement_30d")
-        return f"{a['posts_30d']} posts" + (f" · {eng:,} likes and comments" if eng is not None else "")
+        shown = f"{a['posts_30d']} posts" + (f" · {eng:,} likes and comments" if eng is not None else "")
+        return shown + (" (at least: only partly visible)" if a.get("coverage") == "partial" else "")
 
     def find(company: str, who: str, platform: str) -> list[dict]:
         return [a for a in accounts if a.get("company", "").lower() == company.lower() and a.get("who") == who
@@ -642,7 +648,7 @@ async def look(claude: MeteredClaude, name: str, website: str, description: str,
                  {"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": WEB_PER_CHECK}]
         texts, sources, cost = [], [], Decimal("0")
         for _ in range(MAX_CONTINUATIONS + 1):
-            result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", role="worker",
+            result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", task="check_investigation",
                                          system=LOOK_SYSTEM, messages=messages, tools=tools, max_tokens=6000,
                                          max_web_searches=WEB_PER_CHECK)
             cost += result.cost
@@ -676,6 +682,8 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     found, and add the new findings to the earlier ones (returns "new" and the new "goals")."""
     from app.agent import org_setup  # the goal schema, tidying and goal creation live there
 
+    usage_org.set(org_id)
+
     async with session_scope() as s:
         org = await s.get(Organization, org_id)
         name, website, description = org.name, org.website, org.description
@@ -700,7 +708,7 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     if more:  # checks that haven't run yet (all of them again once every one has)
         options = [c for c in options if c.key not in ran_before] or options
     result = await claude.create(
-        campaign_id=None, run_id=None, purpose="opportunity scan", role="worker", system=PICK_SYSTEM,
+        campaign_id=None, run_id=None, purpose="opportunity scan", task="pick_checks", system=PICK_SYSTEM,
         messages=[{"role": "user", "content": PICK_TASK.format(
             name=name, website=website or "(none)", description=description or "(not given)",
             research=(research or "(none)")[:6000], max_queries=MAX_QUERIES,
@@ -811,7 +819,7 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     if found_before:
         task += ("\n\nAlready found and shown to them (don't repeat these or variations of them; find different "
                  "gaps):\n" + "\n".join(f"- {t}" for t in found_before[:40]))
-    result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", role="worker",
+    result = await claude.create(campaign_id=None, run_id=None, purpose="opportunity scan", task="findings",
                                  system=STRUCTURE_SYSTEM.format(threshold=MILESTONES_ABOVE_USD)
                                  + "\n\nFor fixes that reach people one to one (buyers with a trigger, people asking, "
                                    "competitors' unhappy customers):\n" + OUTREACH_KNOWHOW,

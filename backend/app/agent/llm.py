@@ -11,6 +11,7 @@ held while the model is thinking.
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 from dataclasses import dataclass
@@ -25,6 +26,39 @@ from app.models import LedgerEntry, LedgerKind
 from app.services import ledger
 
 log = logging.getLogger(__name__)
+
+# Every kind of model call Oton makes: its name, its default slot and a label for the cost view.
+# The slot's model and effort apply unless TASK_MODELS / TASK_EFFORTS override the task.
+TASKS: dict[str, tuple[str, str]] = {
+    # Strategy and planning
+    "session_strategist": ("planner", "Session strategist"),
+    "goal_plan": ("planner", "Goal plan (how it will do it)"),
+    "suggest_goals": ("planner", "Suggest more goals"),
+    "reviewer": ("planner", "Reviewer review"),
+    "video_storyboard": ("planner", "Launch video storyboard"),
+    # Doing the work
+    "work": ("worker", "Work session steps"),
+    # Web research
+    "company_research": ("worker", "Company research"),
+    "check_investigation": ("worker", "Company check investigations"),
+    "social_read": ("worker", "Social media read"),
+    "search_ranking": ("checker", "Search ranking (no Google data)"),
+    "ai_recommend": ("worker", "Does the AI recommend you? (Claude)"),
+    # Structuring and judgment
+    "pick_checks": ("worker", "Picking the checks"),
+    "findings": ("planner", "Writing the findings"),
+    "company_profile": ("worker", "Company profile"),
+    "company_type": ("checker", "Company type"),
+    "goal_steps": ("worker", "A goal's steps"),
+    # Guardrails and quality
+    "rule_check": ("checker", "Guardrail rule check"),
+    "quality_check": ("worker", "Quality check on drafts"),
+}
+ROLES = ("planner", "worker", "checker")
+
+# The organization a call is for, when it isn't for a goal (setup, the company check, videos):
+# set by those jobs so their usage is counted for the right organization.
+usage_org: contextvars.ContextVar[str | None] = contextvars.ContextVar("usage_org", default=None)
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 CONTEXT_MGMT_BETA = "context-management-2025-06-27"
@@ -77,6 +111,23 @@ def _supports_server_fallback(model: str) -> bool:
     return model.startswith(("claude-opus", "claude-sonnet", "claude-fable"))
 
 
+def slot_model(s, role: str) -> tuple[str, str]:
+    return {
+        "planner": (s.planner_model, s.planner_effort),
+        "worker": (s.worker_model, s.worker_effort),
+        "checker": (s.checker_model, s.checker_effort),
+    }[role]
+
+
+def task_model(s, task: str) -> tuple[str, str]:
+    """The model and effort for a task: its default slot's, unless TASK_MODELS / TASK_EFFORTS say otherwise."""
+    model, effort = slot_model(s, TASKS[task][0])
+    override = (s.task_models or {}).get(task)
+    if override:
+        model, effort = slot_model(s, override) if override in ROLES else (override, effort)
+    return model, (s.task_efforts or {}).get(task) or effort
+
+
 class MeteredClaude:
     def __init__(self, client: anthropic.AsyncAnthropic | None = None):
         settings = get_settings()
@@ -86,12 +137,10 @@ class MeteredClaude:
         self.client = client or anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key or None)
 
     def model_for(self, role: str) -> tuple[str, str]:
-        s = self.settings
-        return {
-            "planner": (s.planner_model, s.planner_effort),
-            "worker": (s.worker_model, s.worker_effort),
-            "checker": (s.checker_model, s.checker_effort),
-        }[role]
+        return slot_model(self.settings, role)
+
+    def model_for_task(self, task: str) -> tuple[str, str]:
+        return task_model(self.settings, task)
 
     async def create(
         self,
@@ -99,7 +148,7 @@ class MeteredClaude:
         campaign_id: str | None,
         run_id: str | None,
         purpose: str,
-        role: str,
+        task: str,
         messages: list[dict],
         system: str | list[dict] | None = None,
         tools: list[dict] | None = None,
@@ -108,7 +157,8 @@ class MeteredClaude:
         max_web_searches: int = 0,
         agent_loop: bool = False,
     ) -> CallResult:
-        model, effort = self.model_for(role)
+        model, effort = self.model_for_task(task)
+        role = TASKS[task][0]
         max_tokens = max_tokens or self.settings.agent_max_tokens
         est_in = estimate_input_tokens(system, tools, messages)
         worst = ledger.worst_case_cost(model, est_in, max_tokens, max_web_searches)
@@ -120,7 +170,7 @@ class MeteredClaude:
             async with session_scope() as s:
                 entry = await ledger.reserve(
                     s, campaign_id, LedgerKind.ai_usage, worst, f"AI: {purpose}", run_id=run_id,
-                    meta={"model": model, "role": role, "purpose": purpose},
+                    meta={"model": model, "role": role, "task": task, "purpose": purpose},
                 )
                 entry_id = entry.id
 
@@ -175,6 +225,7 @@ class MeteredClaude:
 
         served_by = getattr(response, "model", None) or model
         cost = ledger.cost_from_usage(served_by, response.usage)
+        await _record_usage(task, served_by, response.usage, cost, campaign_id)
         if entry_id:
             async with session_scope() as s:
                 await ledger.settle(
@@ -187,6 +238,29 @@ class MeteredClaude:
             cost=cost,
             stop_reason=response.stop_reason,
         )
+
+
+async def _record_usage(task: str, model: str, usage, cost: Decimal, campaign_id: str | None) -> None:
+    """One row per model call, for the cost view (best effort: never fails the call)."""
+    from app.models import Campaign, ModelUsage
+
+    def n(name: str) -> int:
+        return int(getattr(usage, name, 0) or 0)
+
+    searches = getattr(getattr(usage, "server_tool_use", None), "web_search_requests", 0) or 0
+    try:
+        async with session_scope() as s:
+            org_id = usage_org.get()
+            if campaign_id and not org_id:
+                c = await s.get(Campaign, campaign_id)
+                org_id = c.org_id if c else None
+            s.add(ModelUsage(org_id=org_id, campaign_id=campaign_id, task=task, model=model[:80],
+                             input_tokens=n("input_tokens"), output_tokens=n("output_tokens"),
+                             cache_read_tokens=n("cache_read_input_tokens"),
+                             cache_write_tokens=n("cache_creation_input_tokens"), web_searches=int(searches),
+                             cost_usd=cost))
+    except Exception:  # noqa: BLE001
+        log.warning("couldn't record model usage for %s", task, exc_info=True)
 
 
 def _usage_dict(usage) -> dict:

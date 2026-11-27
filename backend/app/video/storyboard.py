@@ -134,7 +134,7 @@ async def write(claude: MeteredClaude, cap: Capture, job: Path, *, name: str, fm
         content.append({"type": "text", "text": f"Screenshot {i}"})
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                                      "data": base64.b64encode(path.read_bytes()).decode()}})
-    result = await claude.create(campaign_id=campaign_id, run_id=run_id, purpose="launch video storyboard", role="planner",
+    result = await claude.create(campaign_id=campaign_id, run_id=run_id, purpose="launch video storyboard", task="video_storyboard",
                                  system=SYSTEM, messages=[{"role": "user", "content": content}], max_tokens=8000,
                                  output_format=schema())
     text = "\n".join(b.get("text", "") for b in result.content if b.get("type") == "text").strip()

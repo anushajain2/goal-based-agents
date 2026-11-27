@@ -91,7 +91,7 @@ async def review(claude: MeteredClaude, *, campaign_id: str, run_id: str | None,
     prompt = (f"Goal it serves: {goal}\nCompany and voice:\n{voice[:1500] or '(not given)'}\n\n"
               f"Checklist:\n" + "\n".join(f"- {c}" for c in checklist)
               + f"\n\nThe work ({title}):\n{content[:6000]}")
-    result = await claude.create(campaign_id=campaign_id, run_id=run_id, purpose="quality check", role="checker",
+    result = await claude.create(campaign_id=campaign_id, run_id=run_id, purpose="quality check", task="quality_check",
                                  system=_SYSTEM, messages=[{"role": "user", "content": prompt}], max_tokens=1500,
                                  output_format=_SCHEMA)
     text = next((b.get("text", "") for b in result.content if b.get("type") == "text"), "")

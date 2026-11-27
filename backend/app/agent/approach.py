@@ -136,7 +136,7 @@ async def generate(claude: MeteredClaude, c: Campaign, milestones: list[dict] | 
               + (f"Milestones:\n{stones}\n\n" if stones else "")
               + f"Tools available: {tools}."
               + (f"\n\n{OUTREACH_KNOWHOW}" if is_outreach(c) else ""))
-    result = await claude.create(campaign_id=c.id, run_id=None, purpose="how this goal gets hit", role="planner",
+    result = await claude.create(campaign_id=c.id, run_id=None, purpose="how this goal gets hit", task="goal_plan",
                                  system=SYSTEM, messages=[{"role": "user", "content": prompt}], max_tokens=6000,
                                  output_format=schema())
     text = "\n".join(b.get("text", "") for b in result.content if b.get("type") == "text")

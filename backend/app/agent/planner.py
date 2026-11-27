@@ -68,7 +68,7 @@ async def make_plan(claude: MeteredClaude, *, campaign_id: str, run_id: str, bri
     from app.agent.approach import PLAN_GUIDANCE
 
     result = await claude.create(
-        campaign_id=campaign_id, run_id=run_id, purpose="plan the session", role="planner",
+        campaign_id=campaign_id, run_id=run_id, purpose="plan the session", task="session_strategist",
         system=_SYSTEM + ("\n\n" + PLAN_GUIDANCE if approach else ""), messages=[{"role": "user", "content": brief}],
         max_tokens=8000, output_format=_schema(approach),
     )

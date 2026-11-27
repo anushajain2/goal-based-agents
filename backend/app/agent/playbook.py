@@ -146,7 +146,7 @@ async def generate_playbook(claude: MeteredClaude, c: Campaign) -> dict:
         "outcomes that show the goal is on track (the first is the goal's own target), e.g. '8 discovery calls held'."
     )
     result = await claude.create(
-        campaign_id=c.id, run_id=None, purpose="plan of action", role="worker",
+        campaign_id=c.id, run_id=None, purpose="plan of action", task="goal_steps",
         system="You plan how Oton will achieve a business goal. It researches, builds lists, "
                "writes, sends, posts and uses the company's apps, and asks a person before anything public, "
                "outgoing or paid. Be concrete and brief. In the steps, don't call it an AI employee, agent or "
