@@ -1,0 +1,26 @@
+{
+  "name": "oton-video",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Launch videos from a company's own website: templates rendered with Remotion.",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "node render.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "5.2.5",
+    "@remotion/bundler": "4.0.547",
+    "@remotion/cli": "4.0.547",
+    "@remotion/renderer": "4.0.547",
+    "@remotion/transitions": "4.0.547",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "remotion": "4.0.547"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.10",
+    "typescript": "5.7.2"
+  }
+}
