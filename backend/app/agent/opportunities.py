@@ -1137,8 +1137,8 @@ def _milestones(raw: list[dict], per: float, basis: str, n: int, org_setup) -> l
                     "ai_usd": budget["ai_usd"], "paid_usd": round(paid, 2), "paid_items": items,
                     "total_usd": budget["suggested_usd"], "goal_id": None, "spec": goal,
                     "does": [st["text"] for st in goal.get("steps") or []][:4]})
-    if len(out) > 1 and sum(m["total_usd"] for m in out) <= MILESTONES_ABOVE_USD:
-        out = out[:1]  # small enough to do in one go
+    if len(out) > 1 and sum(m["total_usd"] for m in out) <= MILESTONES_ABOVE_USD and sum(m["weeks"] for m in out) <= 4:
+        out = out[:1]  # cheap and quick: one job, not a plan (a cheap but long push keeps its steps)
     return out
 
 

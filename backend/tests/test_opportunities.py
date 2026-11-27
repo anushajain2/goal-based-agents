@@ -466,3 +466,21 @@ async def test_correcting_social_profiles_rechecks_just_social_media(with_key, f
         assert li["you"]["url"] == "https://linkedin.com/company/acme-routing" and li["you"]["display"] == "Couldn't read"
         socials = (await c.get("/api/org/socials")).json()
         assert socials["confirmed"]["x"] == "https://x.com/acmeroutes" and len(socials["used"]) == 2
+
+
+def test_a_cheap_but_long_plan_keeps_its_steps():
+    """A long-term goal (quick first step, then months of steady work) stays a plan even when it's
+    cheap; two quick steps that are really one job are merged."""
+    from app.agent import org_setup
+    from app.agent.opportunities import _milestones
+
+    long_push = [{"name": "3 posts that show the product", "outcome": "3 posts live", "weeks": 2, "sessions": 3,
+                  "paid_items": [], "goal": goal("LinkedIn: first 3 posts", "Marketing & demand gen")},
+                 {"name": "Post 3 times a week", "outcome": "500 engaged followers", "weeks": 12, "sessions": 36,
+                  "paid_items": [], "goal": goal("LinkedIn: steady posting", "Marketing & demand gen")}]
+    steps = _milestones(long_push, 0.3, "estimate", 0, org_setup)
+    assert [s["name"] for s in steps] == ["3 posts that show the product", "Post 3 times a week"]
+    assert sum(s["total_usd"] for s in steps) < 100
+
+    quick = [{**long_push[0], "weeks": 1}, {**long_push[1], "weeks": 1, "sessions": 2}]
+    assert len(_milestones(quick, 0.3, "estimate", 0, org_setup)) == 1
