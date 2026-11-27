@@ -104,6 +104,9 @@ class Settings(BaseSettings):
     perplexity_api_key: str | None = None
     perplexity_model: str = "sonar"
     gemini_api_key: str | None = None
+    # LinkedIn and X post counts for the social check (Apify Store actors, pay per result).
+    # Without it, posts are read from public pages, which LinkedIn and X mostly hide.
+    apify_token: str | None = None
     gemini_model: str = "gemini-2.5-flash"
     # What one call costs, for the setup cost shown to people (US$).
     serpapi_cost_usd: float = 0.015
