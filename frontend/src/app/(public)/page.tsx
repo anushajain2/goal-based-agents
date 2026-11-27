@@ -8,11 +8,11 @@ import { FormEvent, PointerEvent, ReactNode, useEffect, useRef, useState } from 
 
 import { BrandMark } from "@/components/Shell";
 import PixelCard from "@/components/reactbits/PixelCard";
-import { HeroBackdrop, heroFromUrl, HeroKey, LIGHT_BASE } from "@/components/HeroBackdrop";
 import { useInView, useLiteMotion, useStory } from "@/lib/motion";
 import { cx } from "@/components/ui";
 
 // The moving backgrounds are WebGL: loaded in the browser only, after the page itself.
+const SoftAurora = dynamic(() => import("@/components/reactbits/SoftAurora"), { ssr: false });
 const PixelBlast = dynamic(() => import("@/components/reactbits/PixelBlast"), { ssr: false });
 
 /** Each team keeps one soft colour: [background, text]. */
@@ -28,9 +28,6 @@ const TEAM: Record<string, [string, string]> = {
 export default function Landing() {
   const [signedIn, setSignedIn] = useState(false);
   const lite = useLiteMotion();
-  const [hero, setHero] = useState<HeroKey>("dark");
-  const light = hero !== "dark";
-  useEffect(() => setHero(heroFromUrl()), []);
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" }).then((r) => setSignedIn(r.ok)).catch(() => null);
   }, []);
@@ -58,31 +55,30 @@ export default function Landing() {
       <section className="relative">
         {/* The first screen is only the hero: headline, the aurora, the website box. The example scan waits below. */}
         <div className="relative flex min-h-[calc(100svh-65px)] flex-col">
-        <HeroBackdrop kind={hero} lite={lite} />
+        <HeroBackdrop lite={lite} />
         <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-5 py-14 text-center">
-          <a href="#checks" className={cx("inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-[13.5px] font-medium backdrop-blur",
-            light ? "border-line bg-white/80 text-stone-700 hover:border-stone-300" : "border-white/15 bg-white/10 text-white/85 hover:border-white/30")}>
-            <span className={cx("rounded-full px-2.5 py-0.5 text-[12px] font-semibold", light ? "bg-brand-600 text-white" : "bg-white text-ink")}>New</span>
+          <a href="#checks" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 py-1 pl-1 pr-3 text-[13.5px] font-medium text-white/85 backdrop-blur hover:border-white/30">
+            <span className="rounded-full bg-white px-2.5 py-0.5 text-[12px] font-semibold text-ink">New</span>
             See if ChatGPT recommends you, or your competitors <ArrowRight size={13} />
           </a>
-          <h1 className={cx("display mx-auto mt-7 max-w-5xl text-balance text-[44px] leading-[1.02] tracking-[-0.05em] sm:text-[64px] lg:text-[80px]", light ? "text-ink" : "text-white")}>
+          <h1 className="display mx-auto mt-7 max-w-5xl text-balance text-[44px] leading-[1.02] tracking-[-0.05em] text-white sm:text-[64px] lg:text-[80px]">
             What are your competitors
             <br />
-            doing that you <Underlined className={light ? "text-brand-600" : "text-lime-300"}>aren&apos;t?</Underlined>
+            doing that you <Underlined className="text-lime-300">aren&apos;t?</Underlined>
           </h1>
-          <div className="mx-auto mt-24 w-full max-w-[560px] sm:mt-32 [@media(max-height:760px)]:mt-20"><WebsiteStart signedIn={signedIn} onDark={!light} /></div>
-          <div className={cx("mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[13.5px]", light ? "text-stone-600" : "text-white/70")}>
+          <div className="mx-auto mt-24 w-full max-w-[560px] sm:mt-32 [@media(max-height:760px)]:mt-20"><WebsiteStart signedIn={signedIn} onDark /></div>
+          <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[13.5px] text-white/70">
             {["Just your website", "Compared with your competitors", "Sources for every finding"].map((t) => (
-              <span key={t} className="inline-flex items-center gap-1.5"><Check size={14} strokeWidth={2.5} className={light ? "text-brand-600" : "text-lime-300"} />{t}</span>
+              <span key={t} className="inline-flex items-center gap-1.5"><Check size={14} strokeWidth={2.5} className="text-lime-300" />{t}</span>
             ))}
           </div>
         </div>
-        <a href="#example" className={cx("relative mx-auto mb-6 flex flex-col items-center gap-1 text-[12.5px] font-medium transition", light ? "text-stone-500 hover:text-ink" : "text-white/45 hover:text-white/80")}>
+        <a href="#example" className="relative mx-auto mb-6 flex flex-col items-center gap-1 text-[12.5px] font-medium text-white/45 transition hover:text-white/80">
           See an example scan <ChevronDown size={16} className="animate-bounce" />
         </a>
         </div>
         <div id="example" className="relative scroll-mt-16 pt-16">
-          <div aria-hidden className={cx("absolute inset-x-0 top-0 h-[320px]", !light && "bg-ink")} style={light ? { background: `linear-gradient(${LIGHT_BASE}, #ffffff)` } : undefined} />
+          <div aria-hidden className="absolute inset-x-0 top-0 h-[320px] bg-ink" />
           <ScanPreview />
         </div>
       </section>
@@ -206,7 +202,7 @@ export default function Landing() {
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_70%)]" />
           <h2 className="display relative mx-auto max-w-3xl text-balance text-[40px] leading-[1.04] sm:text-[60px]">See where you stand.</h2>
           <p className="relative mt-4 text-[17px] text-white/75">All it takes is your website.</p>
-          <div className="relative mx-auto mt-9 max-w-[560px]"><WebsiteStart signedIn={signedIn} onDark={!light} /></div>
+          <div className="relative mx-auto mt-9 max-w-[560px]"><WebsiteStart signedIn={signedIn} onDark /></div>
         </div>
       </section>
 
@@ -350,6 +346,19 @@ function Tile({ icon, title, text, children }: { icon: ReactNode; title: string;
   );
 }
 
+/** The moving background behind the hero: green northern lights on near-black. It ends behind the scan preview. */
+function HeroBackdrop({ lite }: { lite: boolean }) {
+  return (
+    <div aria-hidden className="absolute inset-0 overflow-hidden bg-ink">
+      {lite
+        ? <div className="h-full w-full bg-[radial-gradient(70%_40%_at_50%_45%,rgba(16,185,129,0.45),transparent)]" />
+        : <SoftAurora color1="#d9f99d" color2="#10b981" brightness={1.15} bandHeight={0.45} noiseAmplitude={0.7} />}
+      {/* Shade behind the headline only, so the aurora band below it stays bright. */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(42%_22%_at_50%_33%,rgba(0,0,0,0.5),transparent)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-ink" />
+    </div>
+  );
+}
 
 /** Tilts a card toward the pointer in 3D, with a soft glare where the pointer is. */
 function Tilt({ children, max = 6 }: { children: ReactNode; max?: number }) {
