@@ -13,8 +13,8 @@ type Status = { anthropic_configured: boolean; composio_enabled: boolean; chrome
 const NAV = [
   { href: "/home", label: "Home", icon: Home, match: (p: string) => p === "/home" },
   { href: "/approvals", label: "Needs you", icon: Hand, match: (p: string) => p.startsWith("/approvals") },
-  { href: "/team", label: "Team", icon: Users, match: (p: string) => p.startsWith("/team") || p.startsWith("/setup") },
-  { href: "/goals", label: "Goals", icon: Target, match: (p: string) => p.startsWith("/goals") },
+  { href: "/team", label: "Team", icon: Users, match: (p: string) => p.startsWith("/team") },
+  { href: "/goals", label: "Goals", icon: Target, match: (p: string) => p.startsWith("/goals") || p.startsWith("/setup") },
   { href: "/work", label: "Work log", icon: ListTree, match: (p: string) => p.startsWith("/work") },
   { href: "/connections", label: "Connections", icon: Plug, match: (p: string) => p.startsWith("/connections") },
   { href: "/settings", label: "Settings", icon: Settings, match: (p: string) => p.startsWith("/settings") },

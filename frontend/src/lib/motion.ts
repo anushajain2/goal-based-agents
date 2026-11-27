@@ -53,3 +53,23 @@ export function useStory(times: number[], hold = 4000) {
   }, [seen, key, hold]);
   return [ref, step] as const;
 }
+
+/** Counts up to a number once it's on screen (eased), so stats feel live. Less motion: the number straight away. */
+export function useCountUp(to: number, duration = 1100) {
+  const [ref, seen] = useInView<HTMLSpanElement>();
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    if (!seen) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setV(to);
+    let raf = 0;
+    const start = performance.now();
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / duration);
+      setV(to * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [seen, to, duration]);
+  return [ref, v] as const;
+}
