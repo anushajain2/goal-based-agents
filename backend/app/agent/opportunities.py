@@ -462,10 +462,13 @@ media, a launch video, comparisons, a clear home page) matters more than search 
 - No analytics on the website (in the measurements) is a quick finding: they can't see which \
 channel brings visitors and customers, so they can't double down on what works. The fix is setting \
 up analytics with sign-up/booking events and a weekly channel report.
-- Write plainly and briefly. People skim these. The title makes the stakes obvious in one line, \
-usually by contrast with competitors or with what buyers expect: what they have or do, and what this \
-company is missing (e.g. "Profound shows buyers a demo video; Oton has none", "Competitors answer every \
-bad review; 7 of yours sit unanswered"). Sharp, but only the facts: never exaggerate or invent. The points are 2-4 short facts (who, what, how many, when), not a paragraph; \
+- Write plainly and briefly. People skim these. The title is about this company: what it is missing \
+or getting wrong, and what that costs it, in one line (e.g. "No demo video, so visitors can't see what \
+Oton does", "No analytics, so you can't tell which channel brings customers", "7 bad reviews sit \
+unanswered"). Most titles need no competitor. Bring one in only when the contrast is what makes the gap \
+matter, and then the company comes first and the competitor after (e.g. "Oton has no demo video; \
+Profound shows one on its home page"), never the other way round. Sharp, but only the facts: never \
+exaggerate or invent. The points list this company's facts first and any competitor's after. The points are 2-4 short facts (who, what, how many, when), not a paragraph; \
 "impact" says in one or two plain sentences why it matters to their business (lost deals, revenue, \
 risk), connecting the facts to what they sell.
 - Money: only give an estimate of what the gap costs them when you can state a reasonable \
@@ -540,11 +543,11 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
         "properties": {
             "check": {"type": "string", "enum": check_keys + [""]},
             "team_kind": {"type": "string", "enum": kinds},
-            "title": {"type": "string", "description": "The gap and its stakes in one line, e.g. by contrast with competitors"},
+            "title": {"type": "string", "description": "This company's gap and what it costs, in one line; a competitor only if needed, and after the company"},
             "evidence": {"type": "string", "description": "What was seen, in one short sentence"},
             "points": {"type": "array", "items": {"type": "string"},
                        "description": "2-4 short bullets of exactly what was seen (names, numbers, dates), "
-                                      "each under 18 words"},
+                                      "each under 18 words; this company's facts first, competitors' after"},
             "impact": {"type": "string", "description": "Why this matters for this company's business: one or two "
                                                         "plain sentences, under 35 words"},
             "estimate": {"type": "string", "description": "What the gap costs them, as a range, or ''"},

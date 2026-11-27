@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronRight, ChevronUp, Flag, Loader2, Plug, RefreshCw, Search, Target, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Loader2, Plug, RefreshCw, Search, Target, TrendingUp } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { andMore, api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, ScoreRow, usd, useApi, Visibility } from "@/lib/api";
 import { TeamTag } from "./team";
@@ -235,6 +235,8 @@ function Unlock({ groups, org }: {
     }
   }
 
+  const row = useRef<HTMLDivElement>(null);
+  const scroll = (dir: number) => row.current?.scrollBy({ left: dir * 300, behavior: "smooth" });
   const teams = groups.map((g) => ({
     kind: g.team_kind,
     tools: [...new Map(g.checks.map((c) => [c.tool, { tool: c.tool, label: c.label, key: c.key }])).values()],
@@ -243,15 +245,21 @@ function Unlock({ groups, org }: {
     <div className="overflow-hidden rounded-2xl border border-brand-200 bg-brand-50/60 p-5 md:p-6">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Plug size={18} /></span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-[17px] font-bold leading-snug">Want more areas of improvement?</div>
           <p className="mt-0.5 text-[14px] text-stone-700">Connect your tools so we can analyze more information and suggest goals.</p>
         </div>
+        {teams.length > 1 && (
+          <div className="hidden shrink-0 gap-1 sm:flex">
+            <button onClick={() => scroll(-1)} aria-label="Previous teams" className="grid h-9 w-9 place-items-center rounded-full border border-line bg-white text-stone-500 hover:text-ink"><ChevronLeft size={16} /></button>
+            <button onClick={() => scroll(1)} aria-label="More teams" className="grid h-9 w-9 place-items-center rounded-full border border-line bg-white text-stone-500 hover:text-ink"><ChevronRight size={16} /></button>
+          </div>
+        )}
       </div>
       {err && <div className="mt-3"><ErrorNote>{err}</ErrorNote></div>}
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div ref={row} className="-mx-5 mt-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:thin] md:-mx-6 md:scroll-px-6 md:px-6">
         {teams.map((t) => (
-          <div key={t.kind} className="rounded-xl bg-white p-4 ring-1 ring-inset ring-line">
+          <div key={t.kind} className="w-[280px] shrink-0 snap-start rounded-xl bg-white p-4 ring-1 ring-inset ring-line">
             <TeamTag name={teamName(t.kind, org)} />
             <div className="mt-3 flex flex-wrap gap-2">
               {t.tools.map((x) => connected.has(x.tool.toLowerCase()) ? (
