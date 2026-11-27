@@ -174,9 +174,9 @@ async def test_suggest_more_goals_plans_goals_per_function_from_the_research(wit
         assert first["cycle_hours"] == 6  # snapped to a schedule people can pick
         assert first["agent"]["id"] == sales["agents"][0]["id"]
         full = (await c.get(f"/api/campaigns/{first['id']}")).json()
-        # Suggested goals start with a one-week budget: every 6h for 7 days = 28 sessions x $0.30 = $8.40 -> $10,
+        # Suggested goals start with a one-week budget: every 6h for 7 days = 28 sessions x $0.30 = $8.40 -> $9,
         # and keep the estimate for the whole goal (120 sessions -> $40) for when people continue.
-        assert first["budget"]["total"] == 10
+        assert first["budget"]["total"] == 9
         basis = full["budget_basis"]
         assert (basis["sessions"], basis["starter"], basis["full_usd"], basis["basis"]) == (28, True, 40, "typical")
         assert first["first_deliverable"] == "40 leads with a drafted email each"
@@ -347,8 +347,8 @@ async def test_switching_older_suggestions_to_starter_budgets(with_key, fake_sit
                 g.budget_total = 40
                 g.budget_basis = {"days": 30, "sessions": 120}
         r = (await c.post("/api/org/setup/starter-budgets")).json()
-        assert r["changed"] == 4 and r["before_usd"] == 160 and r["after_usd"] == 40
-        assert {g["budget"]["total"] for g in (await c.get("/api/campaigns")).json()} == {10}
+        assert r["changed"] == 4 and r["before_usd"] == 160 and r["after_usd"] == 36
+        assert {g["budget"]["total"] for g in (await c.get("/api/campaigns")).json()} == {9}
         assert (await c.post("/api/org/setup/starter-budgets")).json()["changed"] == 0
 
 

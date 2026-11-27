@@ -60,7 +60,7 @@ def test_budget_formula():
     assert (b["sessions"], b["suggested_usd"]) == (14, 55)  # 14 x 0.30 + 50 = 54.2 -> 55
     # One-off work (DNS records, a page) is priced by the sessions it needs, not a session every cycle for weeks.
     b = estimate.compute(0.30, cycle_hours=6, days=42, max_sessions=3)
-    assert (b["sessions"], b["suggested_usd"]) == (3, 5)
+    assert (b["sessions"], b["suggested_usd"]) == (3, 1)  # 3 x 0.30 = 0.90 -> $1, not $5
     assert estimate.compute(0.30, cycle_hours=24, days=7, max_sessions=50)["sessions"] == 7  # never more than the cycles
 
 
