@@ -160,14 +160,6 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
                       </li>
                     ))}
                   </ul>
-                  {(f.sources || []).length > 0 && (
-                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11.5px] text-muted">Sources</span>
-                      {[...new Set(f.sources.map(domainOf).filter(Boolean))].slice(0, 4).map((d) => (
-                        <span key={d} className="rounded-full bg-canvas px-2 py-0.5 text-[11.5px] font-medium text-stone-600 ring-1 ring-inset ring-line">{d}</span>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 {/* The prize: what fixing it gets you, and the one move to start */}
@@ -199,7 +191,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 bg-white/70 px-4 py-3 text-[13.5px] font-semibold text-brand-700 transition hover:border-stone-400 hover:bg-white">
           {expanded ? <>Show less <ChevronUp size={15} /></> : (
             <>
-              Show all{hiddenCount > 0 ? ` ${listed.length} findings` : ""}
+              Show all{hiddenCount > 0 ? " findings" : ""}
               {extras.length > 0 && <span className="font-normal text-muted">{hiddenCount > 0 ? ", plus " : ": "}{extras.join(", ")}</span>}
               <ChevronDown size={15} />
             </>
@@ -301,7 +293,8 @@ function TurnOn({ goal, canStart, onStart }: { goal: Campaign; canStart: boolean
   );
 }
 
-const domainOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+/** "Email records set" -> "email records set", so "3 of 3 email records set" reads as a sentence (keeps acronyms). */
+const lower = (x: string) => (/^[A-Z][A-Z]/.test(x) ? x : x.charAt(0).toLowerCase() + x.slice(1));
 
 /** How much they'll want to fix it (the check's 1-5 "pull"), as an impact meter. */
 function Pull({ n }: { n?: number }) {
@@ -332,19 +325,16 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
       <div className="relative text-[11px] font-bold uppercase tracking-[0.1em] text-lime-300">What fixing it gets you</div>
 
       {f.metric_now && f.metric_goal && (
-        <div className="relative mt-4">
-          {f.metric_name && <div className="text-[12.5px] text-white/55">{f.metric_name}</div>}
-          <div className="mt-2 flex items-center gap-3">
-            <div className="min-w-0">
-              <div className="text-[10.5px] font-semibold uppercase tracking-wide text-white/40">Now</div>
-              <div className="truncate text-[26px] font-bold leading-tight text-red-300">{f.metric_now}</div>
+        <div className="relative mt-4 space-y-2">
+          {([["Today", f.metric_now, "text-red-300"], ["After the fix", f.metric_goal, "text-lime-300"]] as const).map(([when, v, tone]) => (
+            <div key={when} className="rounded-xl bg-white/[0.06] px-3.5 py-2.5 ring-1 ring-inset ring-white/10">
+              <div className="text-[10.5px] font-semibold uppercase tracking-wide text-white/45">{when}</div>
+              <div className="mt-0.5 leading-snug">
+                <span className={cx("text-[20px] font-bold", tone)}>{v}</span>
+                {f.metric_name && <span className="text-[13px] text-white/65"> {lower(f.metric_name)}</span>}
+              </div>
             </div>
-            <ArrowRight size={20} className="shrink-0 text-white/35" />
-            <div className="min-w-0">
-              <div className="text-[10.5px] font-semibold uppercase tracking-wide text-white/40">Goal</div>
-              <div className="truncate text-[26px] font-bold leading-tight text-lime-300">{f.metric_goal}</div>
-            </div>
-          </div>
+          ))}
         </div>
       )}
 

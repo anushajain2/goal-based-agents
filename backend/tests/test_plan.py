@@ -58,6 +58,10 @@ def test_budget_formula():
     assert (b["sessions"], b["ai_usd"], b["suggested_usd"]) == (120, 36.0, 40)
     b = estimate.compute(0.30, cycle_hours=24, days=14, paid_spend=50)
     assert (b["sessions"], b["suggested_usd"]) == (14, 55)  # 14 x 0.30 + 50 = 54.2 -> 55
+    # One-off work (DNS records, a page) is priced by the sessions it needs, not a session every cycle for weeks.
+    b = estimate.compute(0.30, cycle_hours=6, days=42, max_sessions=3)
+    assert (b["sessions"], b["suggested_usd"]) == (3, 5)
+    assert estimate.compute(0.30, cycle_hours=24, days=7, max_sessions=50)["sessions"] == 7  # never more than the cycles
 
 
 async def test_budget_basis_on_goals_and_from_history():

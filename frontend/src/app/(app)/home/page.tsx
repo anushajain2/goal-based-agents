@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, ArrowRight, Check, CheckCircle2, Hand, Plus, Sparkles, Zap } from "lucide-react";
+import { Activity, ArrowRight, Check, Hand, Plus, Sparkles, Zap } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,8 +17,9 @@ import { WorkLog } from "@/components/WorkLog";
 import { YourRole } from "@/components/YourRole";
 import { GoalPanel } from "@/components/GoalPanel";
 import { StartGoal } from "@/components/StartGoal";
+import { Opportunities } from "@/components/Opportunities";
 import { ActivityItem, Campaign, num, Opportunity, OrgInfo, Overview, SetupInfo, timeAgo, usd, useApi, UserRequest } from "@/lib/api";
-import { useCountUp, useInView, useLiteMotion } from "@/lib/motion";
+import { useCountUp, useLiteMotion } from "@/lib/motion";
 import { CATEGORIES, FEATURED, findUseCase } from "@/lib/useCases";
 
 const SoftAurora = dynamic(() => import("@/components/reactbits/SoftAurora"), { ssr: false });
@@ -86,7 +87,20 @@ export default function HomePage() {
       {researchBanner}
       <ConnectChecklist only="missing_live" />
 
-      {gaps.length > 0 && <Gaps open={open} fixing={fixing} orgName={orgName} onStart={(g) => setStarting([g])} onOpen={setPanel} />}
+      {open.length > 0 && (
+        <section id="found" className="scroll-mt-6">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 className="text-[20px] font-bold tracking-tight">What we found for {orgName}</h2>
+              <p className="text-[13.5px] text-muted">Gaps and opportunities to grow, each with a fix ready to turn on. Nothing runs or costs anything until you do.</p>
+            </div>
+            <Link href="/opportunities" className="inline-flex items-center gap-0.5 text-[13px] font-semibold text-muted hover:text-ink">All findings <ArrowRight size={13} /></Link>
+          </div>
+          <Opportunities profile={org?.org.profile} org={org} goals={goals} orgName={orgName} canStart
+            onStart={setStarting} onOpen={setPanel} titled={false} preview={3} recheck={false}
+            only={(f) => !!f.goal_id && byId.get(f.goal_id)?.status === "draft"} />
+        </section>
+      )}
 
       {otherIdeas.length > 0 && (
         <Link href="/goals?tab=ideas" className="group flex items-center gap-4 rounded-2xl border border-line bg-white px-5 py-4 shadow-[var(--shadow-card)] transition hover:border-stone-300 hover:shadow-[var(--shadow-pop)]">
@@ -207,7 +221,6 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
 }) {
   const delivered = actionsEver > 0 || results > 0;
   const top = open.find((x) => x.goal.can_manage !== false);
-  const gapWord = (n: number) => `${n} gap${n === 1 ? "" : "s"}`;
 
   let headline: ReactNode;
   let sub: ReactNode;
@@ -218,15 +231,15 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
     sub = <>
       {results > 0 && <><b className="font-semibold text-white">{num(results)} results</b> so far. </>}
       {live > 0 ? `${live} goal${live === 1 ? " is" : "s are"} live. ` : <span className="text-amber-200">Nothing is running right now. </span>}
-      {open.length ? <span className="text-amber-200">{gapWord(open.length)} still open, each with a fix ready.</span>
-        : fixing.length ? "Every gap we found is being worked on."
+      {open.length ? <span className="text-amber-200">There&apos;s more to fix, each with a fix ready to turn on.</span>
+        : fixing.length ? "Everything we found is being worked on."
           : ideas.length ? `${ideas.length} more goals picked for ${orgName} are ready to turn on.` : ""}
     </>;
   } else if (live > 0) {
     headline = <>Your AI team <span className="text-lime-300">just got to work</span></>;
-    sub = <>{live} goal{live === 1 ? " is" : "s are"} live; the first drafts usually land within a day.{open.length ? <> <span className="text-amber-200">{gapWord(open.length)} still have nothing working on them.</span></> : ""}</>;
+    sub = <>{live} goal{live === 1 ? " is" : "s are"} live; the first drafts usually land within a day.{open.length ? <> <span className="text-amber-200">More gaps we found still have nothing working on them.</span></> : ""}</>;
   } else if (open.length) {
-    headline = <>{gapWord(open.length)} {open.length === 1 ? "is" : "are"} costing {orgName} customers. <span className="text-amber-200">Nothing is fixing {open.length === 1 ? "it" : "them"} yet.</span></>;
+    headline = <>We found gaps and opportunities for {orgName} to grow. <span className="text-amber-200">Nothing is working on them yet.</span></>;
     sub = <>Each one has a goal ready to go. Nothing runs, and nothing is spent, until you turn it on.</>;
   } else {
     headline = <>Your AI team is <span className="text-amber-200">waiting for its first goal</span></>;
@@ -276,9 +289,9 @@ function Pulse({ lite, ov, log, hello, orgName, live, onTrack, results, actionsE
               </Link>
             )}
             {open.length > 1 && (
-              <Link href="/opportunities" className="inline-flex h-10 items-center gap-1 px-2 text-[13.5px] font-semibold text-white/70 transition hover:text-white">
-                See all {open.length} gaps <ArrowRight size={14} />
-              </Link>
+              <a href="#found" className="inline-flex h-10 items-center gap-1 px-2 text-[13.5px] font-semibold text-white/70 transition hover:text-white">
+                See what we found <ArrowRight size={14} />
+              </a>
             )}
           </div>
 
@@ -356,75 +369,6 @@ function Mini({ href, label, value, sub, hot }: { href: string; label: string; v
       <div className={cx("text-[26px] font-semibold leading-none tracking-tight", hot ? "text-amber-300" : "text-white")}>{value}</div>
       <div className="mt-1.5 truncate text-[12px] text-white/50 transition group-hover:text-white/80">{label}{sub ? ` · ${sub}` : ""}</div>
     </Link>
-  );
-}
-
-/** What the company check found: a bar of every gap (fixed or open), the open ones with a one-click fix, then the ones being fixed. */
-function Gaps({ open, fixing, orgName, onStart, onOpen }: {
-  open: Gap[]; fixing: Gap[]; orgName: string; onStart: (g: Campaign) => void; onOpen: (g: Campaign) => void;
-}) {
-  const [ref, seen] = useInView<HTMLDivElement>();
-  const total = open.length + fixing.length;
-  return (
-    <section>
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 className="text-[18px] font-bold tracking-tight">
-            {open.length ? <>What {orgName} is missing out on</> : <>Every gap we found is being fixed</>}
-          </h2>
-          <p className="text-[13px] text-muted">
-            Fixing <b className="font-semibold text-ink">{fixing.length} of {total}</b>{open.length ? <> · <span className="font-semibold text-red-700">{open.length} still open</span></> : ""}
-          </p>
-        </div>
-        <Link href="/opportunities" className="inline-flex items-center gap-0.5 text-[13px] font-semibold text-muted hover:text-ink">All findings <ArrowRight size={13} /></Link>
-      </div>
-
-      <div ref={ref} className="mb-4 flex h-2 gap-1">
-        {[...fixing, ...open].map((x, i) => (
-          <span key={x.goal.id} className="relative flex-1 overflow-hidden rounded-full bg-red-100">
-            {i < fixing.length && (
-              <span className="absolute inset-0 origin-left rounded-full bg-brand-600 transition-transform duration-700 ease-out"
-                style={{ transform: seen ? "scaleX(1)" : "scaleX(0)", transitionDelay: `${i * 120}ms` }} />
-            )}
-          </span>
-        ))}
-      </div>
-
-      <div className={cx("grid gap-3 md:grid-cols-2", Math.min(open.length, 6) + fixing.length === 4 ? "" : "lg:grid-cols-3")}>
-        {fixing.map(({ f, goal }, i) => (
-          <Link key={goal.id} href={`/goals/${goal.id}`} className="rise flex flex-col rounded-2xl border border-brand-100 bg-gradient-to-b from-brand-50/70 to-white p-4 shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-pop)]" style={{ animationDelay: `${i * 80}ms` }}>
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-brand-700">
-              {goal.status === "completed" ? <><CheckCircle2 size={13} /> Fixed</> : goal.status === "active" ? <><span className="signal-dot scale-75" /> Being fixed</> : <>Paused</>}
-            </div>
-            <h3 className="mt-2 line-clamp-2 text-[14.5px] font-semibold leading-snug">{goal.name}</h3>
-            <p className="mt-1 line-clamp-2 text-[12px] text-muted">{f.title}</p>
-            <div className="mt-auto pt-3">
-              {goal.target?.target ? <TargetLine goal={goal} compact /> : <GoalProgress c={goal} compact />}
-              {goal.last_activity && <p className="mt-2 truncate text-[11.5px] text-muted">Latest: {goal.last_activity.title} · {timeAgo(goal.last_activity.at)}</p>}
-            </div>
-          </Link>
-        ))}
-        {open.slice(0, 6).map(({ f, goal }, i) => (
-          <article key={goal.id} className="rise flex flex-col rounded-2xl border border-red-100 bg-white p-4 shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-pop)]" style={{ animationDelay: `${(fixing.length + i) * 80}ms` }}>
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-red-600">
-              <span className="relative flex h-2 w-2"><span className="absolute inset-0 animate-ping rounded-full bg-red-400 opacity-60" /><span className="relative h-2 w-2 rounded-full bg-red-500" /></span>
-              Open
-            </div>
-            <h3 className="mt-2 line-clamp-3 text-[14.5px] font-semibold leading-snug text-ink">{f.title}</h3>
-            {f.estimate ? <p className="mt-1.5 line-clamp-2 text-[12.5px] font-medium text-red-700">{f.estimate}</p>
-              : f.impact ? <p className="mt-1.5 line-clamp-2 text-[12.5px] text-muted">{f.impact}</p> : null}
-            <div className="mt-auto flex items-center gap-2 pt-4">
-              <button onClick={() => onOpen(goal)} className="min-w-0 flex-1 truncate text-left text-[12px] text-muted hover:text-ink">Fix: <span className="font-medium text-stone-700">{goal.name}</span></button>
-              {goal.can_manage !== false && (
-                <button onClick={() => onStart(goal)} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-brand-600 px-3 text-[12.5px] font-semibold text-white transition hover:bg-brand-700">
-                  Turn on <ArrowRight size={13} />
-                </button>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
   );
 }
 
