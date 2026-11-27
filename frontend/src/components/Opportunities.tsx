@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Lightbulb, Loader2, Plug, Search, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Loader2, Plug, Search, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -111,15 +111,13 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
           const facts = factsOf(f);
           return (
             <article key={i} className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-[var(--shadow-card)]">
-              <div className="flex items-center gap-2">
-                <TeamTag name={teamName(f.team_kind, org)} />
-                <span className="text-[11.5px] font-medium text-muted">{CONFIDENCE[f.confidence]}</span>
-              </div>
-              <h3 className="mt-3 flex max-w-[60ch] items-start gap-2 text-[19px] font-semibold leading-snug tracking-[-0.015em] text-red-700">
+              <h3 className="flex max-w-[60ch] items-start gap-2 text-[19px] font-semibold leading-snug tracking-[-0.015em] text-red-700">
                 <AlertTriangle size={20} className="mt-[3px] shrink-0" aria-label="Problem" /><span>{f.title}</span>
               </h3>
 
-              <div className="mt-5 text-[11.5px] font-semibold uppercase tracking-wide text-muted">What we found</div>
+              <div className="mt-5 text-[11.5px] font-semibold uppercase tracking-wide text-muted">
+                What we found <span className="font-medium normal-case tracking-normal text-stone-400">· {CONFIDENCE[f.confidence]}</span>
+              </div>
               <ul className="mt-2 max-w-[75ch] space-y-2">
                 {facts.map((x, k) => (
                   <li key={k} className="flex gap-3 text-[14.5px] leading-relaxed text-stone-800">
@@ -130,13 +128,11 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
               </ul>
 
               {f.impact && (
-                <div className="mt-5 max-w-[75ch] rounded-xl border-l-4 border-signal-500 bg-signal-50 px-4 py-3.5">
-                  <div className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-signal-800">
-                    <Lightbulb size={14} /> Why this matters
-                  </div>
-                  <p className="mt-1.5 text-[15px] leading-relaxed text-ink">{f.impact}</p>
+                <div className="mt-5 max-w-[75ch]">
+                  <div className="text-[11.5px] font-semibold uppercase tracking-wide text-muted">Why it matters</div>
+                  <p className="mt-1.5 text-[14.5px] leading-relaxed text-stone-700">{f.impact}</p>
                   {f.estimate && (
-                    <p className="mt-2 text-[13px] text-signal-800">
+                    <p className="mt-1.5 text-[13px] text-muted">
                       <b className="font-semibold">{f.estimate}</b>{f.assumption && <span> · {f.assumption}</span>}
                     </p>
                   )}
