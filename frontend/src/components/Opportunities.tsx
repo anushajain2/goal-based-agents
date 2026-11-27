@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Loader2, Plug, RefreshCw, Search, Target, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Loader2, Plug, RefreshCw, Search, ShieldCheck, Target, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -362,10 +362,18 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
               {multi ? "Set up AI to work on step 1" : "Set up AI to work on this goal"}
               <ArrowRight size={16} className="shrink-0 transition group-hover:translate-x-0.5" />
             </button>
-            {price ? <p className="tabular mt-2 text-center text-[12.5px] text-white/55">{usd(price)} budget, a hard limit. Nothing runs until you say so.</p> : null}
+            {price ? (
+              <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-white/[0.07] px-3.5 py-2.5 ring-1 ring-inset ring-white/15">
+                <ShieldCheck size={17} className="mt-0.5 shrink-0 text-lime-300" />
+                <p className="text-[13.5px] leading-snug text-white/75">
+                  <b className="tabular text-[16px] font-bold text-white">{usd(price)}</b> budget, a hard limit.{" "}
+                  <span className="font-semibold text-white">Nothing runs until you say so.</span>
+                </p>
+              </div>
+            ) : null}
           </>
         ) : null}
-        {multi && <p className="mt-1 text-center text-[12px] text-white/40">The full fix: {usd(total)} over {weeks(span)}. Go further only if it works.</p>}
+        {multi && <p className="mt-2 text-center text-[13px] text-white/60">The full fix: <b className="tabular font-semibold text-white/85">{usd(total)}</b> over {weeks(span)}. Go further only if it works.</p>}
       </div>
     </aside>
   );

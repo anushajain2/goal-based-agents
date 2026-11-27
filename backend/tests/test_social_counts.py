@@ -96,19 +96,22 @@ async def test_counts_each_accounts_posts_from_the_last_30_days(apify):
     # A retweet isn't the account's own post; handles match whatever their case.
     assert (route_x["posts_30d"], route_x["engagement_30d"], route_x["coverage"]) == (1, 8, "verified")
     # An account with no posts in 30 days is a real zero, not unknown.
-    assert (acme_x["posts_30d"], acme_x["coverage"], acme_x["note"]) == (0, "verified", "No posts in the last 30 days")
+    assert (acme_x["posts_30d"], acme_x["coverage"]) == (0, "verified")
+    assert acme_x["note"] == "0 public posts in the last 30 days; none in 90 days"
+    # The 90-day rhythm: the 40-day-old post counts here, not in the 30 days.
+    assert (acme_li["posts_90d"], acme_li["last_post_days_ago"]) == (3, 2) and acme_li["longest_gap_days"] in (49, 50)
     # An account with no URL is left as it was.
     assert route_li == ACCOUNTS[4]
     # One LinkedIn run (companies and people together) and one X run, own posts only.
     li_in = apify["inputs"]["harvestapi~linkedin-company-posts"]
     assert li_in["targetUrls"] == ["https://www.linkedin.com/company/acme", "https://www.linkedin.com/in/rita"]
-    assert li_in["includeReposts"] is False and li_in["postedLimit"] == "month"
+    assert li_in["includeReposts"] is False and li_in["postedLimit"] == "3months"
     x_in = apify["inputs"]["apidojo~tweet-scraper"]
     assert [t.split(" since:")[0] for t in x_in["searchTerms"]] == ["from:acme", "from:routeco"]
     assert all("-filter:retweets" in t and "-filter:replies" in t for t in x_in["searchTerms"])
     # The token goes in a header, never the URL; the cost is counted.
     assert apify["auth"] == {"Bearer test-token"}
-    assert cost == Decimal("0.001") * 2 + Decimal("0.002") * 3 + Decimal("0.0004") * 1
+    assert cost == Decimal("0.001") * 2 + Decimal("0.002") * 4 + Decimal("0.0004") * 1
 
 
 async def test_a_guessed_x_handle_is_not_counted(apify):
@@ -139,7 +142,7 @@ async def test_scorecard_says_the_numbers_were_counted(apify):
     accounts, _ = await social.count_posts(ACCOUNTS, linked_x={"routeco"})
     rows = social_rows({"accounts": accounts}, "Acme", [{"name": "Routeco", "domain": "routeco.test"}])
     li = next(r for r in rows if r["key"] == "social_linkedin")
-    assert li["you"]["display"] == "2 posts · 17 likes and comments"
+    assert li["you"]["display"].startswith("2 posts · 17 likes and comments (3 in 90 days, last 2 days ago, longest gap")
     assert li["note"] == "Counted from each account's public posts"
 
 
@@ -173,9 +176,9 @@ async def test_the_social_read_puts_back_the_company_names_and_counts(apify):
     assert social_read["videos"][0]["company"] == "Acme"
     rows = social_rows(social_read, "Acme", comps)
     li = next(r for r in rows if r["key"] == "social_linkedin")
-    assert li["you"]["display"] == "2 posts · 17 likes and comments"
+    assert li["you"]["display"].startswith("2 posts · 17 likes and comments (3 in 90 days")
     x = next(r for r in rows if r["key"] == "social_x")
-    assert x["others"] == [{"name": "Routeco", "display": "1 post · 8 likes and comments"}]  # linked from its site
+    assert x["others"][0]["display"].startswith("1 post · 8 likes and comments (1 in 90 days, last 3 days ago")  # linked from its site
     assert cost > Decimal("0.1")
 
 
@@ -199,9 +202,9 @@ async def test_profiles_a_site_links_to_are_used_and_blank_ones_mean_none_found(
     sites = {"routeco.test": {"socials": {"x": "RouteCo", "linkedin": "linkedin.com/company/acme"}}}
     social_read, _ = await read_social(Blank(), "Acme", "acme.test", comps, sites)
     rows = {r["key"]: r for r in social_rows(social_read, "Acme", comps)}
-    assert rows["social_x"]["others"] == [{"name": "Routeco", "display": "1 post · 8 likes and comments"}]
+    assert rows["social_x"]["others"][0]["display"].startswith("1 post · 8 likes and comments")
     assert rows["social_linkedin"]["you"]["display"] == "No account found"
-    assert rows["social_linkedin"]["others"] == [{"name": "Routeco", "display": "2 posts · 17 likes and comments"}]
+    assert rows["social_linkedin"]["others"][0]["display"].startswith("2 posts · 17 likes and comments")
 
 
 async def test_linkedin_pages_found_by_name_only_when_clearly_theirs(apify):
@@ -211,3 +214,12 @@ async def test_linkedin_pages_found_by_name_only_when_clearly_theirs(apify):
                      "Oton": "https://www.linkedin.com/company/otonai"}  # no website listed; address is otonai
     assert apify["inputs"]["harvestapi~linkedin-company"] == {"searches": ["Arkestro", "Oton", "Routeco"]}
     assert cost == Decimal("0.001") + Decimal("0.004") * 3
+
+
+def test_rhythm_shows_bursts_and_stalls():
+    """Posted a lot two months ago, then stopped: the gap and the last post say so."""
+    burst = [{"at": ago(d)} for d in (60, 59, 58, 57, 55)]
+    r = social.rhythm(burst, NOW)
+    assert (r["posts_90d"], r["last_post_days_ago"], r["longest_gap_days"]) == (5, 55, 55)
+    assert social.rhythm_text({**r, "coverage": "verified"}) == "5 in 90 days, last 55 days ago, longest gap 55 days"
+    assert social.rhythm([], NOW) == {"posts_90d": 0, "last_post_days_ago": None, "longest_gap_days": 90}

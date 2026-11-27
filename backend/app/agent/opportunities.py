@@ -497,7 +497,9 @@ def social_rows(social: dict, name: str, competitors: list[dict]) -> list[dict]:
         n = a["posts_30d"]
         shown = f"{n} post{'' if n == 1 else 's'}" + (
             f" · {eng:,} {'like or comment' if eng == 1 else 'likes and comments'}" if eng is not None else "")
-        return shown + (" (at least: only partly visible)" if a.get("coverage") == "partial" else "")
+        shown += " (at least: only partly visible)" if a.get("coverage") == "partial" else ""
+        beat = social_counts.rhythm_text({**a, "coverage": a.get("coverage_90d", "verified")})
+        return shown + (f" ({beat})" if beat else "")
 
     def find(company: str, who: str, platform: str) -> list[dict]:
         return [a for a in accounts if a.get("company", "").lower() == company.lower() and a.get("who") == who
@@ -580,7 +582,8 @@ made from their website (story, motion, music and share copy), then the posts th
 LinkedIn and X; posting waits for their OK.
 - Social media: give the numbers side by side (posts and likes + comments in the last 30 days, for \
 the company page and the founders), and make the goal about posting better content more often to \
-win engagement and inbound deals.
+win engagement and inbound deals. Read the 90-day rhythm in brackets too: bursts of posts with long \
+gaps, or a last post weeks ago, mean they tried and stalled.
 - Search ranking: only make a finding about it when the measured searches show real demand (more \
 than about 100 a month) or the company is local, an agency or an online store. Search and AI-assistant \
 visibility (Google, ChatGPT, Perplexity, Gemini) together get one finding at most.
@@ -616,6 +619,21 @@ pad: if no extra spend is needed, list none.
 really needs. Count the actual work, not one per cycle: DNS records 1-2; a short video made from the \
 website 2-4 (script, record, edit); a comparison page 2-3; setting up analytics 2-3; a profile or \
 listing 1-2. Ongoing work (posting, outreach, answering reviews) needs one per cycle over its weeks.
+- One finding, at least, is a long-term goal: the one this company most likely cares about most right \
+now, as 2-3 milestones even when it isn't expensive. Step 1 is quick, with a result they'll see within a \
+week or two; the later steps are the longer push, over weeks to months, to the outcome that matters \
+(e.g. "3 posts that show the product, this week", then "post 3 times a week and reach 500 engaged \
+followers on LinkedIn in 3 months"). Choose it from evidence of what they care about, and say why in \
+its impact:
+  - The strongest sign is something they already do, but unevenly: posts in bursts with long gaps or a \
+last post weeks ago, a blog started and left, reviews answered some months and not others. They tried, \
+so they care; steady work is what's missing.
+  - Then what their stage and the way they sell run on: an early B2B startup on the founders' network, \
+outbound and a launch; a local business on reviews and Maps; an online store on search and ads; and \
+what competitors visibly win with.
+  - Something they have never started (no account at all, no blog) is a weaker sign: choose it only if \
+their market clearly runs on it.
+  The other findings can stay quick, single fixes.
 - A goal's steps are what a skilled person would actually do to hit that goal.
 - In anything written for people, don't call it an AI employee, agent or lead: talk about the goal \
 and say Oton does the work."""
