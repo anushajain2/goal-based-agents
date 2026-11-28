@@ -96,45 +96,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
     }
   }
 
-  return (
-    <section id="missing" className="scroll-mt-6 space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        {titled ? (
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold"><Search size={18} className="text-brand-600" /> What you&apos;re missing out on</h2>
-            <p className="text-sm text-muted">What we found about {orgName}, with evidence. Each gap has a goal ready to turn on, and big ones come in steps with their price.</p>
-          </div>
-        ) : <div />}
-        <div className="flex flex-wrap items-center gap-2">
-        {canStart && recheck && (
-          <button onClick={checkAgain} disabled={busy === "recheck"} title="Run the company check again with the latest checks (your goals stay)"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-60">
-            {busy === "recheck" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Check again
-          </button>
-        )}
-        {canStart && unique.length > 1 && (
-          <button onClick={() => onStart(unique)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700">
-            Start {unique.length} first steps <ArrowRight size={15} />
-          </button>
-        )}
-        </div>
-      </div>
-      {err && <ErrorNote>{err}</ErrorNote>}
-      {details && !collapsed && (found.checks || []).some((c) => c.why) && (
-        <div className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
-          <span className="text-muted">What we checked, and why:</span>
-          {found.checks!.map((c) => (
-            <span key={c.key} title={c.why ? `${c.why}${c.expect ? ` · Expected: ${c.expect}` : ""}` : undefined}
-              className="cursor-help rounded-full border border-line bg-white px-2.5 py-0.5 font-medium text-stone-700">{c.title}</span>
-          ))}
-        </div>
-      )}
-
-      {details && !collapsed && found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) && <Findable v={found.visibility} name={orgName} />}
-      {details && !collapsed && (found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} social={found.social} canEdit={canStart} />}
-
-      <div className="space-y-4">
-        {shownFindings.map(({ f, i }) => {
+  const renderCard = ({ f, i }: { f: Opportunity; i: number }) => {
           const steps = f.milestones || [];
           const goal = f.goal_id ? byId.get(f.goal_id) : undefined;
           const facts = factsOf(f);
@@ -183,8 +145,63 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
               ) : null}
             </article>
           );
-        })}
+  };
+  // New checks say which kind of fix each is; older ones: a fix in steps counts as long-term.
+  const horizonOf = (f: Opportunity) => f.horizon ?? ((f.milestones || []).length > 1 ? "ongoing" : "quick");
+  const quickOnes = shownFindings.filter((x) => horizonOf(x.f) === "quick");
+  const longOnes = shownFindings.filter((x) => horizonOf(x.f) === "ongoing");
+  const grouped = shownFindings.some((x) => x.f.horizon) && quickOnes.length > 0 && longOnes.length > 0;
+
+  return (
+    <section id="missing" className="scroll-mt-6 space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        {titled ? (
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-bold"><Search size={18} className="text-brand-600" /> What you&apos;re missing out on</h2>
+            <p className="text-sm text-muted">What we found about {orgName}, with evidence. Each gap has a goal ready to turn on, and big ones come in steps with their price.</p>
+          </div>
+        ) : <div />}
+        <div className="flex flex-wrap items-center gap-2">
+        {canStart && recheck && (
+          <button onClick={checkAgain} disabled={busy === "recheck"} title="Run the company check again with the latest checks (your goals stay)"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-60">
+            {busy === "recheck" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Check again
+          </button>
+        )}
+        {canStart && unique.length > 1 && (
+          <button onClick={() => onStart(unique)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700">
+            Start {unique.length} first steps <ArrowRight size={15} />
+          </button>
+        )}
+        </div>
       </div>
+      {err && <ErrorNote>{err}</ErrorNote>}
+      {details && !collapsed && (found.checks || []).some((c) => c.why) && (
+        <div className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
+          <span className="text-muted">What we checked, and why:</span>
+          {found.checks!.map((c) => (
+            <span key={c.key} title={c.why ? `${c.why}${c.expect ? ` · Expected: ${c.expect}` : ""}` : undefined}
+              className="cursor-help rounded-full border border-line bg-white px-2.5 py-0.5 font-medium text-stone-700">{c.title}</span>
+          ))}
+        </div>
+      )}
+
+      {details && !collapsed && found.visibility && (found.visibility.search.length > 0 || found.visibility.ai.length > 0) && <Findable v={found.visibility} name={orgName} />}
+      {details && !collapsed && (found.scorecard || []).length > 0 && <Scorecard rows={found.scorecard!} name={orgName} social={found.social} canEdit={canStart} />}
+
+      {grouped ? (
+        <>
+          <Group title="Quick fixes" text="One-off fixes Oton finishes in days, each for a fixed one-time cost." count={quickOnes.length}>
+            {quickOnes.map(renderCard)}
+          </Group>
+          <Group title="Long-term goals" count={longOnes.length}
+            text="Results that take steady work. Oton keeps working toward each one and never spends more than its weekly limit. Stop any time.">
+            {longOnes.map(renderCard)}
+          </Group>
+        </>
+      ) : (
+        <div className="space-y-4">{shownFindings.map(renderCard)}</div>
+      )}
 
       {!collapsed && (found.unlock || []).length > 0 && (
         <Unlock groups={found.unlock!} org={org} goals={goals || []} canStart={canStart} onStart={onStart} onOpen={onOpen} />
@@ -203,6 +220,18 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
         </button>
       )}
     </section>
+  );
+}
+
+function Group({ title, text, count, children }: { title: string; text: string; count: number; children: React.ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="flex items-center gap-2 text-[17px] font-bold">{title} <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[12px] font-semibold text-stone-600">{count}</span></h3>
+        <p className="text-[13px] text-muted">{text}</p>
+      </div>
+      <div className="space-y-4">{children}</div>
+    </div>
   );
 }
 
@@ -317,11 +346,16 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
   const price = steps[0]?.total_usd ?? goal?.budget?.total;
   const total = f.total_usd || steps.reduce((t, m) => t + m.total_usd, 0);
   const span = steps.reduce((t, m) => t + m.weeks, 0);
+  const weekly = f.weekly_usd ?? goal?.weekly_cap ?? null;
+  if (f.horizon === "ongoing" && weekly) {
+    return <LongTermPrize f={f} goal={goal} weekly={weekly} canStart={canStart} onStart={onStart} onOpen={onOpen} />;
+  }
+  const quick = f.horizon === "quick";
   return (
     <aside className="relative flex min-w-0 flex-col overflow-hidden bg-ink p-6 text-white md:p-7">
       <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-lime-300/20 blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-emerald-500/20 blur-3xl" />
-      <div className="relative text-[12px] font-bold text-lime-300">{multi ? "The goal for step 1" : "The goal that fixes it"}</div>
+      <div className="relative text-[12px] font-bold text-lime-300">{multi ? "The goal for step 1" : quick ? "Quick fix" : "The goal that fixes it"}</div>
 
       {goal ? (
         <button onClick={() => onOpen(goal)}
@@ -359,13 +393,75 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
         ) : goal && canStart && goal.can_manage !== false ? (
           <>
             <button onClick={() => onStart(goal)} className="group flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 px-3 py-3 text-[14.5px] font-bold text-ink shadow-[0_8px_24px_-8px_rgba(190,242,100,0.6)] transition hover:bg-lime-200">
-              {multi ? "Set up AI to work on step 1" : "Set up AI to work on this goal"}
+              {multi ? "Set up AI to work on step 1" : quick ? "Fix it now" : "Set up AI to work on this goal"}
               <ArrowRight size={16} className="shrink-0 transition group-hover:translate-x-0.5" />
             </button>
-            {price ? <p className="tabular mt-2 text-center text-[12.5px] text-white/55">{usd(price)} budget, a hard limit. Nothing runs until you say so.</p> : null}
+            {price ? (
+              <p className="tabular mt-2 text-center text-[12.5px] text-white/55">
+                {quick ? <><b className="font-semibold text-white/80">{usd(price)} one-time cost</b>, a hard limit. Nothing runs until you say so.</>
+                  : <>{usd(price)} budget, a hard limit. Nothing runs until you say so.</>}
+              </p>
+            ) : null}
           </>
         ) : null}
         {multi && <p className="mt-1 text-center text-[12px] text-white/40">The full fix: {usd(total)} over {weeks(span)}. Go further only if it works.</p>}
+      </div>
+    </aside>
+  );
+}
+
+/** A long-term goal: the objective, what Oton keeps doing for it, and the most it spends a week. */
+function LongTermPrize({ f, goal, weekly, canStart, onStart, onOpen }: {
+  f: Opportunity; goal: Campaign | undefined; weekly: number; canStart: boolean; onStart: (g: Campaign) => void; onOpen: (g: Campaign) => void;
+}) {
+  const live = goal && goal.status !== "draft";
+  const week = goal?.budget?.week;
+  return (
+    <aside className="relative flex min-w-0 flex-col overflow-hidden bg-ink p-6 text-white md:p-7">
+      <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-lime-300/20 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-emerald-500/20 blur-3xl" />
+      <div className="relative text-[12px] font-bold text-lime-300">Long-term goal</div>
+      <div className="relative mt-2 text-[22px] font-bold leading-snug text-lime-300">{f.objective || goal?.name}</div>
+      {goal && (
+        <button onClick={() => onOpen(goal)} className="relative mt-1 inline-flex items-center gap-0.5 self-start text-[12.5px] text-white/55 transition hover:text-white">
+          {goal.name} <ChevronRight size={12} />
+        </button>
+      )}
+
+      {(f.keeps_doing || []).length > 0 && (
+        <div className="relative mt-5">
+          <div className="text-[12px] font-semibold text-white/50">What Oton keeps doing</div>
+          <ul className="mt-1.5 space-y-1.5">
+            {f.keeps_doing!.map((x) => (
+              <li key={x} className="flex gap-2 text-[13.5px] leading-snug text-white/85">
+                <Check size={14} className="mt-0.5 shrink-0 text-lime-300" /> <span>{x}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="relative mt-5 rounded-xl bg-white/[0.07] px-4 py-3 ring-1 ring-inset ring-white/15">
+        <div className="tabular text-[20px] font-bold text-white">Up to {usd(weekly)} <span className="text-[14px] font-semibold text-white/60">a week</span></div>
+        <div className="mt-0.5 text-[12px] leading-snug text-white/55">
+          {live && week != null ? <>{usd(week)} spent this week. </> : null}
+          It never spends more than this in a week and works toward the goal until you stop it.
+        </div>
+      </div>
+
+      <div className="relative mt-auto pt-6">
+        {live ? (
+          <button onClick={() => onOpen(goal!)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300/15 py-3 text-[14px] font-semibold text-lime-200 ring-1 ring-inset ring-lime-300/30 transition hover:bg-lime-300/20">
+            <span className="signal-dot" /> AI is working on this goal
+          </button>
+        ) : goal && canStart && goal.can_manage !== false ? (
+          <>
+            <button onClick={() => onStart(goal)} className="group flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 px-3 py-3 text-[14.5px] font-bold text-ink shadow-[0_8px_24px_-8px_rgba(190,242,100,0.6)] transition hover:bg-lime-200">
+              Start working toward this <ArrowRight size={16} className="shrink-0 transition group-hover:translate-x-0.5" />
+            </button>
+            <p className="mt-2 text-center text-[12px] text-white/50">Nothing runs until you say so. Stop any time.</p>
+          </>
+        ) : null}
       </div>
     </aside>
   );

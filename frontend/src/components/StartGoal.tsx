@@ -346,7 +346,7 @@ function GoalReview({ goal, modeOf, team }: { goal: Campaign; modeOf: (k: string
             {[goal.department?.name, book && stepCounts(book.steps, modeOf, team || "an OK")].filter(Boolean).join(", ")}
           </span>
         </span>
-        <span className="shrink-0 text-sm font-semibold">{usd(goal.budget.total)}</span>
+        <span className="shrink-0 text-sm font-semibold">{goal.weekly_cap ? `${usd(goal.weekly_cap)}/week` : usd(goal.budget.total)}</span>
         <ChevronDown size={16} className="shrink-0 text-muted" />
       </button>
     );
@@ -367,10 +367,17 @@ function GoalReview({ goal, modeOf, team }: { goal: Campaign; modeOf: (k: string
         </div>
       )}
       <div className="rounded-lg border border-line bg-white px-3 py-2.5">
+        {goal.weekly_cap ? (
+          <>
+            <div className="mb-1 text-xs font-semibold text-muted">Budget: up to {usd(goal.weekly_cap)} a week, a hard limit</div>
+            <p className="text-[12.5px] text-stone-700">A long-term goal: Oton keeps working toward it every week and never spends more than {usd(goal.weekly_cap)} in a week. When a week&apos;s limit is used up, it waits for Monday. Stop it any time.</p>
+          </>
+        ) : <>
         <div className="mb-1 text-xs font-semibold text-muted">Budget: {usd(goal.budget.total)}{goal.budget_basis?.starter ? " for the first week" : ""}, a hard limit</div>
         {goal.budget_basis?.starter
           ? <p className="text-[12.5px] text-stone-700">About {goal.budget_basis.sessions} work sessions. When it&apos;s used up, work pauses and you decide whether to add more (the whole goal would take about {usd(goal.budget_basis.full_usd || 0)}).</p>
           : goal.budget_basis ? <BudgetBreakdown basis={goal.budget_basis} total={goal.budget.total} compact /> : <p className="text-xs text-muted">When it runs out, work pauses.</p>}
+        </>}
       </div>
     </div>
   );

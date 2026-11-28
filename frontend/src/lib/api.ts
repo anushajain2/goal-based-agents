@@ -14,7 +14,14 @@ export type Budget = {
   remaining: number;
   today: number;
   daily_cap: number | null;
+  week?: number;  // spent this week (Monday to Sunday), for goals with a weekly limit
+  weekly_cap?: number | null;
 };
+
+/** A goal's budget in a few words: "up to $3 a week" for long-term goals, else its total. */
+export function budgetText(c: { weekly_cap?: number | null; budget: { total: number } }): string {
+  return c.weekly_cap ? `up to ${usd(c.weekly_cap)} a week` : usd(c.budget.total);
+}
 
 export type Campaign = {
   id: string;
@@ -54,6 +61,7 @@ export type Campaign = {
   next_cycle_at: string | null;
   end_date: string | null;
   daily_cap: number | null;
+  weekly_cap?: number | null;  // long-term goals: the most it spends in a week
   budget_total: number;
   cycle_hours: number;
   current_run: { id: string; status: string; cycle_number: number; summary: string | null; error: string | null; waiting_for?: "computer" | "people" | null } | null;
@@ -335,6 +343,8 @@ export type Opportunity = {
   check?: string; milestones?: Milestone[]; total_usd?: number | null;
   metric_name?: string; metric_now?: string; metric_goal?: string; pull?: number; found_at?: string;
   profiles?: SocialUsed;
+  // quick: a one-off fix for a fixed one-time cost; ongoing: a long-term goal with a weekly spending limit
+  horizon?: "quick" | "ongoing"; objective?: string; keeps_doing?: string[]; weekly_usd?: number | null;
 };
 export type LaterFunction = { kind: string; name: string; when: string };
 export const SIZE_LABEL: Record<string, string> = { tiny: "1-10 people", small: "11-50 people", mid: "51-250 people", large: "250+ people" };

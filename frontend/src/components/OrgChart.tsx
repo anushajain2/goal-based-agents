@@ -4,7 +4,7 @@ import { Hand, Mail, Plus, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { api, Campaign, DepartmentInfo, OrgInfo, Person, usd } from "@/lib/api";
+import { api, budgetText, Campaign, DepartmentInfo, OrgInfo, Person, usd } from "@/lib/api";
 import { TargetLine } from "./Target";
 import { LeadCard } from "./TeamLead";
 import { PersonAvatar } from "./team";
@@ -226,7 +226,7 @@ function GoalChips({ goals, onGoalClick, muted }: { goals: Campaign[]; onGoalCli
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate font-medium">{g.name}</span>
-                <span className="shrink-0 text-[12px] text-muted">{g.status === "draft" ? usd(g.budget.total) : g.status === "active" ? (g.pending_requests ? "Needs you" : "Live") : "Paused"}</span>
+                <span className="shrink-0 text-[12px] text-muted">{g.status === "draft" ? budgetText(g) : g.status === "active" ? (g.pending_requests ? "Needs you" : "Live") : "Paused"}</span>
               </span>
               {g.target?.target && <span className="mt-0.5 block"><TargetLine goal={g} compact /></span>}
             </span>

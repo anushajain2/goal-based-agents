@@ -157,7 +157,10 @@ function GoalsPage() {
                       </td>
                       <td className="px-2 py-3.5"><GoalProgress c={c} /></td>
                       <td className="px-2 py-3.5">
-                        <div className="tabular text-[13px] font-medium">{usd(c.budget.spent)} <span className="font-normal text-muted">of {usd(c.budget.total)}</span></div>
+                        <div className="tabular text-[13px] font-medium">
+                          {c.weekly_cap ? <>{usd(c.budget.week || 0)} <span className="font-normal text-muted">of {usd(c.weekly_cap)} this week</span></>
+                            : <>{usd(c.budget.spent)} <span className="font-normal text-muted">of {usd(c.budget.total)}</span></>}
+                        </div>
                         <ProgressBar pct={pct} tone="gray" className="mt-1.5" />
                       </td>
                       <td className="max-w-[280px] px-5 py-3.5">

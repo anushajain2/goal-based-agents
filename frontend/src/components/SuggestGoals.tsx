@@ -5,7 +5,7 @@ import { useCallback, useEffect, useImperativeHandle, useState, forwardRef } fro
 
 import { RunProgress } from "./RunProgress";
 import { Card, ErrorNote } from "./ui";
-import { api, Campaign, SetupInfo, usd } from "@/lib/api";
+import { api, budgetText, Campaign, SetupInfo, usd } from "@/lib/api";
 
 export type SuggestGoalsHandle = { reload: () => void };
 
@@ -91,7 +91,7 @@ export const SuggestGoals = forwardRef<SuggestGoalsHandle, {
                 <button onClick={() => onOpen(g)} className="min-w-0 flex-1 text-left">
                   <span className="block truncate text-[14px] font-semibold">{g.name}</span>
                   <span className="block truncate text-[12.5px] text-muted">
-                    {g.department?.name ? `${g.department.name}: ` : ""}{g.suggested_reason || g.first_deliverable || `${usd(g.budget.total)} budget`}
+                    {g.department?.name ? `${g.department.name}: ` : ""}{g.suggested_reason || g.first_deliverable || (g.weekly_cap ? budgetText(g) : `${usd(g.budget.total)} budget`)}
                   </span>
                 </button>
                 <button onClick={() => onStart([g])} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-brand-600 px-3 text-[12.5px] font-semibold text-white hover:bg-brand-700">

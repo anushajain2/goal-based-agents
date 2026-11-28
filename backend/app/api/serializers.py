@@ -133,7 +133,8 @@ async def campaign_json(s: AsyncSession, c: Campaign, full: bool = False, me=Non
         "pending_requests": pending, "cycles_completed": c.cycles_completed,
         "next_cycle_at": c.next_cycle_at.isoformat() if c.next_cycle_at else None,
         "end_date": c.end_date.isoformat() if c.end_date else None,
-        "daily_cap": _f(c.daily_cap), "budget_total": _f(c.budget_total), "cycle_hours": c.cycle_hours,
+        "daily_cap": _f(c.daily_cap), "weekly_cap": _f(c.weekly_cap), "budget_total": _f(c.budget_total),
+        "cycle_hours": c.cycle_hours,
         "current_run": {
             "id": current_run.id, "status": current_run.status, "cycle_number": current_run.cycle_number,
             "summary": current_run.summary, "error": current_run.error,

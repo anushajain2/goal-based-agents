@@ -84,7 +84,9 @@ export function GoalPanel({ goal, onClose, onStart, onRemoved }: {
 
           <section>
             <h3 className="mb-1 text-[12px] font-bold text-muted">Cost</h3>
-            {basis?.starter ? (
+            {goal.weekly_cap ? (
+              <p className="text-[13px]">Up to <b>{usd(goal.weekly_cap)} a week</b>, a hard limit. A long-term goal: Oton keeps working toward it every week until you stop it.</p>
+            ) : basis?.starter ? (
               <p className="text-[13px]">
                 <b>{usd(goal.budget.total)}</b> covers the first week (about {basis.sessions} work sessions). The whole goal would take about{" "}
                 {usd(basis.full_usd || 0)} over {Math.round(basis.full_days || 30)} days; add more once you&apos;ve seen results.

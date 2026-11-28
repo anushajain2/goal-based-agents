@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import logging
 import re
 from decimal import Decimal
@@ -601,21 +602,20 @@ exaggerate or invent. The points list this company's facts first and any competi
 risk), connecting the facts to what they sell.
 - Money: only give an estimate of what the gap costs them when you can state a reasonable \
 assumption, as a range. Never present a guess as a fact.
-- Fixing it: if an existing goal would fix the gap, link it by id. Otherwise propose the work.
-  When fully fixing it is a big job that would cost more than about ${threshold} (for example SEO \
-or AI-answer visibility for competitive searches, paid ads, PR, a marketplace launch), split it \
-into 2-3 milestones: a first step that's cheap and quick with a concrete outcome they'll see (e.g. \
-"page 1 for 3 long-tail searches in 6 weeks"), then bigger steps up to the full result (e.g. "top 3 \
-for the main search in 6 months"). Each milestone is a goal for the right team, with how often the \
-AI employee works on it, how many weeks, how many work sessions it really needs (one-off setup \
-work like DNS records, a profile or a page takes a few sessions, not weeks of them), and any real \
-money it needs beyond the AI's own work \
-(ads, tools, freelancers, directory fees, PR distribution), itemised with realistic prices. Don't \
-pad: if no extra spend is needed, list none.
-  Smaller fixes get a single new goal and no milestones, and "sessions": the work sessions the fix \
-really needs. Count the actual work, not one per cycle: DNS records 1-2; a short video made from the \
-website 2-4 (script, record, edit); a comparison page 2-3; setting up analytics 2-3; a profile or \
-listing 1-2. Ongoing work (posting, outreach, answering reviews) needs one per cycle over its weeks.
+- Fixing it: if an existing goal would fix the gap, link it by id. Otherwise propose a goal, and say \
+which kind of fix it is ("horizon"):
+  quick: a one-off piece of work Oton can finish within about two weeks, after which the gap is gone \
+(DNS records, analytics, a comparison page, a launch video, a profile or directory listing, a clearer \
+home page headline). Give "sessions": the work sessions it really needs, counting the actual work, not \
+one per cycle: DNS records 1-2; a short video made from the website 2-4; a comparison page 2-3; \
+setting up analytics 2-3; a profile or listing 1-2. It runs once, for a fixed one-time cost.
+  ongoing: a result that only comes from steady work over months (followers and engagement, search \
+rankings, reviews, a pipeline of meetings, a community presence). Give "objective": the long-term \
+result in one line with a number (e.g. "10K+ followers across LinkedIn and X"); "keeps_doing": 3-4 \
+short things Oton will keep doing every week, in plain words; the goal's cycle_hours (how often it \
+works); and "weekly_paid_usd": real money it needs each week beyond Oton's own work (ads, tools, \
+directory fees), usually 0. It runs with a weekly spending limit until they stop it.
+  Choose quick when a one-off really fixes it; don't stretch a one-off into an ongoing goal.
 - A goal's steps are what a skilled person would actually do to hit that goal.
 - In anything written for people, don't call it an AI employee, agent or lead: talk about the goal \
 and say Oton does the work."""
@@ -649,23 +649,6 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
     # the schema ("compiled grammar is too large") and every scan fails at this last step.
     goal = {"$ref": "#/$defs/goal"}
     kinds = [k for k, _ in DEPARTMENT_PRESETS] + ["custom"]
-    milestone = {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string", "description": "e.g. 'Page 1 for 3 long-tail searches'"},
-            "outcome": {"type": "string", "description": "What they'll have at the end, concretely"},
-            "weeks": {"type": "number"},
-            "sessions": {"type": "integer", "description": (
-                "Work sessions this step really needs. One-off jobs (DNS records, a profile, a page or two, "
-                "a video) need 1-6; ongoing work (posting, outreach, SEO) needs one per cycle over the weeks")},
-            "paid_items": {"type": "array", "items": {
-                "type": "object", "properties": {"item": {"type": "string"}, "usd": {"type": "number"}},
-                "required": ["item", "usd"], "additionalProperties": False}},
-            "goal": goal,
-        },
-        "required": ["name", "outcome", "weeks", "sessions", "paid_items", "goal"],
-        "additionalProperties": False,
-    }
     finding = {
         "type": "object",
         "properties": {
@@ -688,13 +671,17 @@ def findings_schema(goal_schema: dict, check_keys: list[str]) -> dict:
             "source_urls": {"type": "array", "items": {"type": "string"}},
             "goal_id": {"type": "string", "description": "Id of an existing goal that fixes this, or ''"},
             "new_goal": {"anyOf": [goal, {"type": "null"}]},
-            "milestones": {"type": "array", "items": milestone},
-            "sessions": {"type": "integer", "description": (
-                "For a new_goal: work sessions the fix really needs (one-off jobs 1-6), or 0")},
+            "horizon": {"type": "string", "enum": ["quick", "ongoing"]},
+            "sessions": {"type": "integer", "description": "quick: work sessions the fix really needs (1-6); ongoing: 0"},
+            "objective": {"type": "string", "description": "ongoing: the long-term result with a number, e.g. "
+                                                           "'10K+ followers across LinkedIn and X'; quick: ''"},
+            "keeps_doing": {"type": "array", "items": {"type": "string"},
+                            "description": "ongoing: 3-4 short things Oton keeps doing every week; quick: []"},
+            "weekly_paid_usd": {"type": "number", "description": "ongoing: real money per week beyond Oton's own work, usually 0"},
         },
         "required": ["check", "team_kind", "title", "evidence", "points", "impact", "estimate", "assumption", "confidence",
-                     "metric_name", "metric_now", "metric_goal", "pull",
-                     "source_urls", "goal_id", "new_goal", "milestones", "sessions"],
+                     "metric_name", "metric_now", "metric_goal", "pull", "source_urls", "goal_id", "new_goal",
+                     "horizon", "sessions", "objective", "keeps_doing", "weekly_paid_usd"],
         "additionalProperties": False,
     }
     return {"type": "json_schema", "schema": {
@@ -990,7 +977,8 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
     for f in balanced([f for f in raw.get("findings") or [] if f.get("title") and f.get("evidence")
                        and _norm_title(f["title"]) not in seen_titles]):
         goal_id = f.get("goal_id") if f.get("goal_id") in known else ""
-        fix_usd = None
+        fix_usd = weekly_usd = None
+        horizon = "ongoing" if f.get("horizon") == "ongoing" else "quick"
         steps = _milestones(f.get("milestones") or [], per, basis, n, org_setup)
         if steps:
             # Step 1 is ready to turn on now; later steps become goals when someone asks for them.
@@ -1001,7 +989,13 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
                 goal_id = goal_id or first
         elif not goal_id and f.get("new_goal"):
             goal = org_setup._tidy_goal(f["new_goal"])
-            if goal:
+            if goal and horizon == "ongoing":
+                # Long-term: runs until stopped, never spending more than the weekly limit.
+                cap, weekly_basis = weekly_limit(per, goal["cycle_hours"], float(f.get("weekly_paid_usd") or 0), basis, n)
+                goal.update(weekly_cap_usd=cap, budget_usd=round(cap * WEEKS_CEILING, 2),
+                            budget_basis={**weekly_basis, "ongoing": True})
+                weekly_usd = cap
+            elif goal:
                 need = int(f.get("sessions") or 0)
                 goal["budget_basis"] = (
                     {**estimate.compute(per, goal["cycle_hours"], goal["duration_days"], goal["paid_spend_usd"],
@@ -1010,6 +1004,7 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
                     estimate.starter(per, goal["cycle_hours"], goal["duration_days"], goal["paid_spend_usd"], basis, n))
                 goal["budget_usd"] = goal["budget_basis"]["suggested_usd"]
                 fix_usd = goal["budget_usd"]
+            if goal:
                 goal_id = await create_goal(org_id, requested_by, f["team_kind"], goal) or ""
                 if goal_id:
                     created.append(goal_id)
@@ -1026,6 +1021,10 @@ async def scan(claude: MeteredClaude, org_id: str, requested_by: str | None, res
             "goal_id": goal_id or None,
             "milestones": steps,
             "total_usd": round(sum(m["total_usd"] for m in steps), 2) if steps else fix_usd,
+            "horizon": horizon,
+            "objective": str(f.get("objective") or "")[:140] if horizon == "ongoing" else "",
+            "keeps_doing": [str(x)[:140] for x in f.get("keeps_doing") or [] if str(x).strip()][:4] if horizon == "ongoing" else [],
+            "weekly_usd": weekly_usd,
         })
     fresh = {
         "findings": findings, "unlock": catalog.unlockable(pack_key), "scanned_at": scanned_at,
@@ -1098,6 +1097,20 @@ def balanced(found: list[dict]) -> list[dict]:
         if other:
             top = top[:-1] + [other]
     return top
+
+
+WEEKS_CEILING = 52  # a long-term goal's overall budget: a year at its weekly limit (it can be stopped any time)
+
+
+def weekly_limit(per_session: float, cycle_hours: float, paid_weekly: float, basis: str, n: int) -> tuple[float, dict]:
+    """The weekly spending limit for a long-term goal: its work sessions in a week at the cost of one
+    session, plus any real money it needs each week, rounded up to a plain number."""
+    sessions = math.ceil(7 * 24 / max(cycle_hours, 1))
+    raw = sessions * per_session + max(paid_weekly, 0)
+    cap = math.ceil(raw) if raw < 10 else math.ceil(raw / 5) * 5
+    return float(max(cap, 1)), {"weekly_cap_usd": float(max(cap, 1)), "sessions_per_week": sessions,
+                                "per_session_usd": round(per_session, 3), "paid_weekly_usd": round(max(paid_weekly, 0), 2),
+                                "cycle_hours": cycle_hours, "basis": basis, "history_sessions": n}
 
 
 def _milestones(raw: list[dict], per: float, basis: str, n: int, org_setup) -> list[dict]:

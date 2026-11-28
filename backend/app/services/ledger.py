@@ -10,7 +10,7 @@ daily cap, it is refused and the caller pauses. After the fact the reservation i
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select
@@ -34,9 +34,16 @@ WEB_SEARCH_USD_PER_REQUEST = Decimal("0.01")  # $10 per 1,000 searches
 
 
 class BudgetExceeded(Exception):
-    def __init__(self, message: str, remaining: Decimal):
+    def __init__(self, message: str, remaining: Decimal, which: str = "budget"):
         super().__init__(message)
         self.remaining = remaining
+        self.which = which  # "budget" | "daily cap" | "weekly limit"
+
+
+def week_start(now: datetime | None = None) -> datetime:
+    """Monday 00:00 UTC of this week: weekly limits count from here."""
+    now = now or datetime.now(UTC)
+    return (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def _q(x: Decimal) -> Decimal:
@@ -92,6 +99,8 @@ class BudgetState:
     spend: Decimal
     today: Decimal
     daily_cap: Decimal | None
+    week: Decimal = Decimal("0")
+    weekly_cap: Decimal | None = None
 
     @property
     def committed(self) -> Decimal:
@@ -108,10 +117,16 @@ class BudgetState:
         return max(Decimal(0), self.daily_cap - self.today)
 
     @property
+    def remaining_this_week(self) -> Decimal | None:
+        if self.weekly_cap is None:
+            return None
+        return max(Decimal(0), self.weekly_cap - self.week)
+
+    @property
     def available(self) -> Decimal:
-        """What can still be committed right now (respects the daily cap)."""
-        today = self.remaining_today
-        return self.remaining if today is None else min(self.remaining, today)
+        """What can still be committed right now (respects the daily cap and the weekly limit)."""
+        limits = [x for x in (self.remaining_today, self.remaining_this_week) if x is not None]
+        return min([self.remaining, *limits])
 
     def as_dict(self) -> dict:
         return {
@@ -123,6 +138,8 @@ class BudgetState:
             "remaining": float(self.remaining),
             "today": float(self.today),
             "daily_cap": float(self.daily_cap) if self.daily_cap is not None else None,
+            "week": float(self.week),
+            "weekly_cap": float(self.weekly_cap) if self.weekly_cap is not None else None,
         }
 
 
@@ -155,6 +172,15 @@ async def budget_state(session: AsyncSession, campaign: Campaign) -> BudgetState
             )
         )
     ).scalar_one()
+    week = Decimal("0")
+    if campaign.weekly_cap is not None:
+        week = (
+            await session.execute(
+                select(func.coalesce(func.sum(LedgerEntry.amount_usd), 0)).where(
+                    LedgerEntry.campaign_id == campaign.id, active, LedgerEntry.created_at >= week_start()
+                )
+            )
+        ).scalar_one()
     return BudgetState(
         total=Decimal(campaign.budget_total),
         settled=settled,
@@ -163,6 +189,8 @@ async def budget_state(session: AsyncSession, campaign: Campaign) -> BudgetState
         spend=spend,
         today=_q(Decimal(str(today))),
         daily_cap=Decimal(campaign.daily_cap) if campaign.daily_cap is not None else None,
+        week=_q(Decimal(str(week))),
+        weekly_cap=Decimal(campaign.weekly_cap) if campaign.weekly_cap is not None else None,
     )
 
 
@@ -183,9 +211,11 @@ async def reserve(
     state = await budget_state(session, campaign)
     amount = _q(Decimal(amount))
     if amount > state.available:
-        which = "daily cap" if state.remaining_today is not None and amount > state.remaining_today else "budget"
+        which = ("weekly limit" if state.remaining_this_week is not None and amount > state.remaining_this_week
+                 and state.remaining_this_week < state.remaining
+                 else "daily cap" if state.remaining_today is not None and amount > state.remaining_today else "budget")
         raise BudgetExceeded(
-            f"Not enough {which} left: need ${amount:.4f}, available ${state.available:.4f}", state.available
+            f"Not enough {which} left: need ${amount:.4f}, available ${state.available:.4f}", state.available, which
         )
     entry = LedgerEntry(
         campaign_id=campaign_id,

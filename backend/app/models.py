@@ -488,6 +488,9 @@ class Campaign(Base):
 
     budget_total: Mapped[Decimal] = mapped_column(Money)
     daily_cap: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    # Long-term goals: the most it spends in a calendar week (Monday to Sunday, UTC). When it's used
+    # up, work pauses until Monday instead of stopping the goal.
+    weekly_cap: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     end_date: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     status: Mapped[str] = mapped_column(String(20), default=CampaignStatus.draft.value)

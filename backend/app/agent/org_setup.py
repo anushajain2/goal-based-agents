@@ -723,6 +723,7 @@ async def _add_goals(s, org_id: str, requested_by: str | None, agent: Agent, goa
             key_results=g.get("key_results") or default_key_results(g["primary_metric"], g["target_value"]),
             budget_basis={**g["budget_basis"], "chosen_usd": g["budget_usd"]},
             playbook={"steps": g["steps"], "source": "setup"} if g["steps"] else None,
+            weekly_cap=Decimal(str(g["weekly_cap_usd"])) if g.get("weekly_cap_usd") else None,
         )
         targets.plan_first(c, g["target_value"], g.get("target_period", "week"), set_by="setup")
         s.add(c)

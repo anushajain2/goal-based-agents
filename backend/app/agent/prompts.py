@@ -143,6 +143,9 @@ def campaign_brief(
         f"Total ${budget['total']:.2f}; spent ${budget['spent']:.2f} "
         f"(AI ${budget['ai_usage']:.2f}, other ${budget['other_spend']:.2f}); remaining ${budget['remaining']:.2f}"
         + (f"; daily cap ${budget['daily_cap']:.2f}, used today ${budget['today']:.2f}" if budget["daily_cap"] else ""),
+        *([f"This is a long-term goal with a weekly limit of ${budget['weekly_cap']:.2f} (Monday to Sunday): "
+           f"${budget['week']:.2f} used so far this week. Spread the work over the week and do everything you "
+           "can within it; when it's used up, work pauses until Monday."] if budget.get("weekly_cap") else []),
         "",
         "## Guardrails",
     ]

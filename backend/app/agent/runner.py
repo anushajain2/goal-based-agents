@@ -489,8 +489,14 @@ class CycleRunner:
             run = await s.get(AgentRun, run_id)
             budget = await ledger.budget_state(s, campaign)
             daily = budget.remaining_today is not None and budget.remaining_today < budget.remaining
+            weekly = budget.remaining_this_week is not None and budget.remaining_this_week < budget.remaining
             run.status = RunStatus.stopped.value
-            if daily:
+            if weekly and not (daily and budget.remaining_today < budget.remaining_this_week):
+                # This week's limit reached: back on Monday, the goal stays on.
+                monday = ledger.week_start() + timedelta(days=7, minutes=5)
+                campaign.next_cycle_at = monday
+                title = f"This week's limit (${budget.weekly_cap:.2f}) is used up: back to work on Monday"
+            elif daily:
                 # Daily cap reached: pick up again tomorrow, campaign stays active.
                 tomorrow = (utcnow() + timedelta(days=1)).replace(hour=0, minute=5, second=0, microsecond=0)
                 campaign.next_cycle_at = tomorrow

@@ -8,7 +8,7 @@ import { useState } from "react";
 import { GoalPanel } from "./GoalPanel";
 import { StartGoal } from "./StartGoal";
 import { UseCaseLibrary } from "./UseCaseLibrary";
-import { andMore, Campaign, OrgInfo, usd } from "@/lib/api";
+import { andMore, budgetText, Campaign, OrgInfo, usd } from "@/lib/api";
 import { USE_CASES } from "@/lib/useCases";
 
 /** The Goals page's "Goal ideas" tab: a pointer to what the company check found (on Find
@@ -47,7 +47,7 @@ export function GoalIdeas({ org, goals, onChanged }: { org: OrgInfo | null | und
                 <button onClick={() => setPanel(g)} className="min-w-0 flex-1 text-left">
                   <span className="block truncate text-[14.5px] font-semibold">{g.name}</span>
                   <span className="block truncate text-[12.5px] text-muted">
-                    {g.department?.name ? `${g.department.name}: ` : ""}{g.first_deliverable || `${usd(g.budget.total)} budget`}
+                    {g.department?.name ? `${g.department.name}: ` : ""}{g.first_deliverable || (g.weekly_cap ? budgetText(g) : `${usd(g.budget.total)} budget`)}
                   </span>
                 </button>
                 <button onClick={() => setStarting([g])} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-brand-600 px-3 text-[12.5px] font-semibold text-white hover:bg-brand-700">

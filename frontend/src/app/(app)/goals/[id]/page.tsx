@@ -178,12 +178,21 @@ function GoalPage() {
         <Kpi label="Cost per result" value={usd(c.cost_per_result)} sub={c.results.results ? `${num(c.results.results)} results so far` : "Shown once results come in"} />
         <Kpi label="Actions taken" value={num(c.actions_taken)} sub={`${c.cycles_completed} work session${c.cycles_completed === 1 ? "" : "s"}${avgSession !== null ? ` · ~${usd(avgSession)} each` : ""}`} />
         <Card className="p-4">
+          {c.weekly_cap ? (
+            <>
+              <div className="text-xs font-semibold text-muted">Spent this week</div>
+              <div className="tabular mt-1 text-2xl font-bold">{usd(c.budget.week || 0)} <span className="text-base font-semibold text-muted">/ {usd(c.weekly_cap)}</span></div>
+              <ProgressBar pct={Math.min(100, ((c.budget.week || 0) / c.weekly_cap) * 100)} tone="gray" className="mt-2" />
+              <div className="mt-1 text-xs text-muted">The most it spends in a week; it waits for Monday once that&apos;s used. {usd(c.budget.spent)} in all so far.</div>
+            </>
+          ) : <>
           <div className="text-xs font-semibold text-muted">Spent</div>
           <div className="tabular mt-1 text-2xl font-bold">{usd(c.budget.spent)} <span className="text-base font-semibold text-muted">/ {usd(c.budget.total)}</span></div>
           <ProgressBar pct={budgetPct} tone="gray" className="mt-2" />
           <div className="mt-1 text-xs text-muted">
             AI {usd(c.budget.ai_usage)}, other spending {usd(c.budget.other_spend)}{c.budget.daily_cap ? `, today ${usd(c.budget.today)} of ${usd(c.budget.daily_cap)}` : ""}
           </div>
+          </>}
           {c.budget_basis?.starter && c.can_manage !== false && c.status !== "completed" && (
             <button disabled={busy} onClick={async () => {
               setBusy(true);

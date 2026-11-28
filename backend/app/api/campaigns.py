@@ -88,6 +88,7 @@ class CampaignPatch(BaseModel):
     channels: list[str] | None = None
     budget_total: Decimal | None = Field(default=None, gt=0)
     daily_cap: Decimal | None = None
+    weekly_cap: Decimal | None = Field(default=None, gt=0)  # long-term goals: the most it spends a week
     end_date: datetime | None = None
     cycle_hours: float | None = Field(default=None, ge=0.5, le=72)
     agent_id: str | None = None  # hand the goal to another AI employee
