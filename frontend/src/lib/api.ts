@@ -18,9 +18,14 @@ export type Budget = {
   weekly_cap?: number | null;
 };
 
-/** A goal's budget in a few words: "up to $3 a week" for long-term goals, else its total. */
+/** A weekly limit in plain words: "$3 per week" (no cents when it's a round number). */
+export function perWeek(v: number): string {
+  return `${Number.isInteger(v) ? `$${v}` : usd(v)} per week`;
+}
+
+/** A goal's budget in a few words: "max $3 per week" for long-term goals, else its total. */
 export function budgetText(c: { weekly_cap?: number | null; budget: { total: number } }): string {
-  return c.weekly_cap ? `up to ${usd(c.weekly_cap)} a week` : usd(c.budget.total);
+  return c.weekly_cap ? `max ${perWeek(c.weekly_cap)}` : usd(c.budget.total);
 }
 
 export type Campaign = {

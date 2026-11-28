@@ -18,7 +18,7 @@ import { Badge, Button, Card, CardHeader, cx, Empty, ErrorNote, Field, Input, Ta
 import { CATEGORY_ICON } from "@/components/UseCaseLibrary";
 import { HowItsGoing } from "@/components/GoalEngine";
 import { ViewToggle, WorkLog } from "@/components/WorkLog";
-import { ActivityItem, api, Campaign, Exclusion, Grant, Level, num, Person, Session, timeAgo, usd, useApi, UserRequest, PERIOD_WORD, Period } from "@/lib/api";
+import { ActivityItem, api, Campaign, Exclusion, Grant, Level, num, Person, Session, perWeek, timeAgo, usd, useApi, UserRequest, PERIOD_WORD, Period } from "@/lib/api";
 import { CATEGORIES } from "@/lib/useCases";
 
 type Tab = "work" | "results" | "guardrails" | "settings";
@@ -181,9 +181,9 @@ function GoalPage() {
           {c.weekly_cap ? (
             <>
               <div className="text-xs font-semibold text-muted">Spent this week</div>
-              <div className="tabular mt-1 text-2xl font-bold">{usd(c.budget.week || 0)} <span className="text-base font-semibold text-muted">/ {usd(c.weekly_cap)}</span></div>
+              <div className="tabular mt-1 text-2xl font-bold">{usd(c.budget.week || 0)} <span className="text-base font-semibold text-muted">of {usd(c.weekly_cap)} max</span></div>
               <ProgressBar pct={Math.min(100, ((c.budget.week || 0) / c.weekly_cap) * 100)} tone="gray" className="mt-2" />
-              <div className="mt-1 text-xs text-muted">The most it spends in a week; it waits for Monday once that&apos;s used. {usd(c.budget.spent)} in all so far.</div>
+              <div className="mt-1 text-xs text-muted">Max budget: {perWeek(c.weekly_cap)}. It waits for Monday once that&apos;s used. {usd(c.budget.spent)} in all so far.</div>
             </>
           ) : <>
           <div className="text-xs font-semibold text-muted">Spent</div>

@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Loader2, Plug, RefreshCw, Search, ShieldCheck, Target, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Loader2, Plug, RefreshCw, Search, ShieldCheck, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { andMore, api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, ScoreRow, SocialUsed, usd, useApi, Visibility } from "@/lib/api";
+import { andMore, api, Campaign, CompanyProfile, Milestone, OrgInfo, Opportunity, perWeek, ScoreRow, SocialUsed, usd, useApi, Visibility } from "@/lib/api";
 import { ProfilesUsed, profileLabel } from "./SocialProfiles";
 import { TeamTag } from "./team";
 import { cx, ErrorNote } from "./ui";
@@ -359,8 +359,7 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
 
       {goal ? (
         <button onClick={() => onOpen(goal)}
-          className="group relative mt-3 flex w-full items-start gap-3 rounded-2xl bg-white/[0.07] p-4 text-left ring-1 ring-inset ring-white/15 transition hover:bg-white/[0.1]">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-lime-300 text-ink"><Target size={17} /></span>
+          className="group relative mt-3 flex w-full items-start gap-3 rounded-2xl bg-white/[0.05] p-4 text-left ring-1 ring-inset ring-white/10 transition hover:bg-white/[0.08]">
           <span className="min-w-0">
             <span className="block text-[16px] font-semibold leading-snug text-white">{goal.name}</span>
             <span className="mt-1 inline-flex items-center gap-0.5 text-[12px] text-white/50 transition group-hover:text-white/80">See the plan <ChevronRight size={12} /></span>
@@ -425,11 +424,6 @@ function LongTermPrize({ f, goal, weekly, canStart, onStart, onOpen }: {
       <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-emerald-500/20 blur-3xl" />
       <div className="relative text-[12px] font-bold text-lime-300">Long-term goal</div>
       <div className="relative mt-2 text-[22px] font-bold leading-snug text-lime-300">{f.objective || goal?.name}</div>
-      {goal && (
-        <button onClick={() => onOpen(goal)} className="relative mt-1 inline-flex items-center gap-0.5 self-start text-[12.5px] text-white/55 transition hover:text-white">
-          {goal.name} <ChevronRight size={12} />
-        </button>
-      )}
 
       {(f.keeps_doing || []).length > 0 && (
         <div className="relative mt-5">
@@ -445,10 +439,11 @@ function LongTermPrize({ f, goal, weekly, canStart, onStart, onOpen }: {
       )}
 
       <div className="relative mt-5 rounded-xl bg-white/[0.07] px-4 py-3 ring-1 ring-inset ring-white/15">
-        <div className="tabular text-[20px] font-bold text-white">Up to {usd(weekly)} <span className="text-[14px] font-semibold text-white/60">a week</span></div>
+        <div className="text-[12px] font-semibold text-white/50">Max budget</div>
+        <div className="tabular text-[20px] font-bold text-white">{perWeek(weekly)}</div>
         <div className="mt-0.5 text-[12px] leading-snug text-white/55">
           {live && week != null ? <>{usd(week)} spent this week. </> : null}
-          It never spends more than this in a week and works toward the goal until you stop it.
+          Oton never spends more than this in a week, and keeps working toward the goal until you stop it.
         </div>
       </div>
 
