@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Loader2, Plug, RefreshCw, Search, Target, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flag, Loader2, Plug, RefreshCw, Search, ShieldCheck, Target, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -129,7 +129,7 @@ export function Opportunities({ profile, org, goals, orgName, onStart, onOpen, c
                 </div>
 
                 {/* The prize: what fixing it gets you, and the one move to start */}
-                <Prize f={f} goal={steps.length > 1 ? goalFor(i, 0) : goal} steps={steps} canStart={canStart}
+                <Prize f={f} goal={steps.length > 1 ? goalFor(i, 0) ?? goal : goal} steps={steps} canStart={canStart}
                   onStart={(g) => onStart([g])} onOpen={onOpen} />
               </div>
 
@@ -397,14 +397,17 @@ function Prize({ f, goal, steps, canStart, onStart, onOpen }: {
               <ArrowRight size={16} className="shrink-0 transition group-hover:translate-x-0.5" />
             </button>
             {price ? (
-              <p className="tabular mt-2 text-center text-[12.5px] text-white/55">
-                {quick ? <><b className="font-semibold text-white/80">{usd(price)} one-time cost</b>, a hard limit. Nothing runs until you say so.</>
-                  : <>{usd(price)} budget, a hard limit. Nothing runs until you say so.</>}
-              </p>
+              <div className="mt-3 text-center">
+                <p className="flex items-center justify-center gap-1.5 text-[14px] text-white/80">
+                  <ShieldCheck size={15} className="shrink-0 text-lime-300" />
+                  <span><b className="tabular text-[15px] font-bold text-white">{usd(price)}</b> {quick ? "one-time cost" : "budget"}, a hard limit</span>
+                </p>
+                <p className="mt-0.5 text-[13px] text-white/60">Nothing runs until you say so.</p>
+              </div>
             ) : null}
           </>
         ) : null}
-        {multi && <p className="mt-1 text-center text-[12px] text-white/40">The full fix: {usd(total)} over {weeks(span)}. Go further only if it works.</p>}
+        {multi && <p className="mt-3 text-center text-[13px] text-white/60">The full fix: <b className="tabular font-semibold text-white/85">{usd(total)}</b> over {weeks(span)}. Go further only if it works.</p>}
       </div>
     </aside>
   );

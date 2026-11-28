@@ -498,7 +498,9 @@ def social_rows(social: dict, name: str, competitors: list[dict]) -> list[dict]:
         n = a["posts_30d"]
         shown = f"{n} post{'' if n == 1 else 's'}" + (
             f" · {eng:,} {'like or comment' if eng == 1 else 'likes and comments'}" if eng is not None else "")
-        return shown + (" (at least: only partly visible)" if a.get("coverage") == "partial" else "")
+        shown += " (at least: only partly visible)" if a.get("coverage") == "partial" else ""
+        beat = social_counts.rhythm_text({**a, "coverage": a.get("coverage_90d", "verified")})
+        return shown + (f" ({beat})" if beat else "")
 
     def find(company: str, who: str, platform: str) -> list[dict]:
         return [a for a in accounts if a.get("company", "").lower() == company.lower() and a.get("who") == who
@@ -581,7 +583,8 @@ made from their website (story, motion, music and share copy), then the posts th
 LinkedIn and X; posting waits for their OK.
 - Social media: give the numbers side by side (posts and likes + comments in the last 30 days, for \
 the company page and the founders), and make the goal about posting better content more often to \
-win engagement and inbound deals.
+win engagement and inbound deals. Read the 90-day rhythm in brackets too: bursts of posts with long \
+gaps, or a last post weeks ago, mean they tried and stalled.
 - Search ranking: only make a finding about it when the measured searches show real demand (more \
 than about 100 a month) or the company is local, an agency or an online store. Search and AI-assistant \
 visibility (Google, ChatGPT, Perplexity, Gemini) together get one finding at most.
@@ -616,6 +619,17 @@ short things Oton will keep doing every week, in plain words; the goal's cycle_h
 works); and "weekly_paid_usd": real money it needs each week beyond Oton's own work (ads, tools, \
 directory fees), usually 0. It runs with a weekly spending limit until they stop it.
   Choose quick when a one-off really fixes it; don't stretch a one-off into an ongoing goal.
+- One finding, at least, is a long-term goal: the one this company most likely cares about most right \
+now. Choose it from evidence of what they care about, and say why in its impact:
+  - The strongest sign is something they already do, but unevenly: posts in bursts with long gaps or a \
+last post weeks ago, a blog started and left, reviews answered some months and not others. They tried, \
+so they care; steady work is what's missing.
+  - Then what their stage and the way they sell run on: an early B2B startup on the founders' network, \
+outbound and a launch; a local business on reviews and Maps; an online store on search and ads; and \
+what competitors visibly win with.
+  - Something they have never started (no account at all, no blog) is a weaker sign: choose it only if \
+their market clearly runs on it.
+  The other findings can stay quick fixes.
 - A goal's steps are what a skilled person would actually do to hit that goal.
 - In anything written for people, don't call it an AI employee, agent or lead: talk about the goal \
 and say Oton does the work."""
@@ -1132,8 +1146,8 @@ def _milestones(raw: list[dict], per: float, basis: str, n: int, org_setup) -> l
                     "ai_usd": budget["ai_usd"], "paid_usd": round(paid, 2), "paid_items": items,
                     "total_usd": budget["suggested_usd"], "goal_id": None, "spec": goal,
                     "does": [st["text"] for st in goal.get("steps") or []][:4]})
-    if len(out) > 1 and sum(m["total_usd"] for m in out) <= MILESTONES_ABOVE_USD:
-        out = out[:1]  # small enough to do in one go
+    if len(out) > 1 and sum(m["total_usd"] for m in out) <= MILESTONES_ABOVE_USD and sum(m["weeks"] for m in out) <= 4:
+        out = out[:1]  # cheap and quick: one job, not a plan (a cheap but long push keeps its steps)
     return out
 
 
@@ -1172,7 +1186,11 @@ async def create_goal(org_id: str, requested_by: str | None, team_kind: str, goa
         s.add(agent)
         await s.flush()
     org = await s.get(Organization, org_id)
-    names = {x.lower() for (x,) in (await s.execute(select(Campaign.name).where(Campaign.org_id == org_id))).all()}
+    existing = {n.lower(): i for i, n in (await s.execute(
+        select(Campaign.id, Campaign.name).where(Campaign.org_id == org_id).order_by(Campaign.created_at))).all()}
+    if str(goal.get("name") or "").lower() in existing:  # the same goal already exists (e.g. the team plan made it)
+        return existing[goal["name"].lower()]
+    names = set(existing)
     created: dict = {"goals": []}
     await org_setup._add_goals(s, org_id, requested_by, agent, [goal], names,
                                org_setup.company_context(org, org.profile or {}), created)

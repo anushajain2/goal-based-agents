@@ -20,6 +20,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from email.utils import parsedate_to_datetime
+from itertools import pairwise
 
 from app.config import get_settings
 
@@ -37,7 +38,8 @@ LINKEDIN_PER_POST = Decimal("0.002")
 X_PER_TWEET = Decimal("0.0004")
 PER_RUN = Decimal("0.001")
 DAYS = 30
-MAX_POSTS = 60  # per account: enough for anyone posting twice a day
+HISTORY_DAYS = 90  # the rhythm: posting in bursts with long gaps reads differently from steady posting
+MAX_POSTS = 100  # per account, over the 90 days
 WAIT_SECONDS = 150
 
 
@@ -148,7 +150,7 @@ def _num(v) -> int:
 
 async def _linkedin(urls: list[str], since: datetime) -> dict[str, list[dict]] | None:
     items = await _run(LINKEDIN_ACTOR, {
-        "targetUrls": urls, "maxPosts": MAX_POSTS, "postedLimit": "month",
+        "targetUrls": urls, "maxPosts": MAX_POSTS, "postedLimit": "3months",
         "includeReposts": False, "includeQuotePosts": True, "scrapeReactions": False, "scrapeComments": False,
     }, "type,linkedinUrl,postedAt,engagement,postVideo,query")
     if items is None:
@@ -185,6 +187,29 @@ async def _x(handles: list[str], since: datetime) -> dict[str, list[dict]] | Non
     return out
 
 
+def rhythm(posts: list[dict], now: datetime) -> dict:
+    """Posts in the last 90 days, days since the last one, and the longest gap without one."""
+    times = sorted(p["at"] for p in posts)
+    if not times:
+        return {"posts_90d": 0, "last_post_days_ago": None, "longest_gap_days": HISTORY_DAYS}
+    edges = [now - timedelta(days=HISTORY_DAYS), *times, now]
+    gap = max((b - a).days for a, b in pairwise(edges))
+    return {"posts_90d": len(times), "last_post_days_ago": (now - times[-1]).days, "longest_gap_days": gap}
+
+
+def rhythm_text(a: dict) -> str:
+    """'14 in 90 days, last 3 days ago, longest gap 41 days', or '' when not counted."""
+    n = a.get("posts_90d")
+    if n is None:
+        return ""
+    if not n:
+        return f"none in {HISTORY_DAYS} days"
+    last = a.get("last_post_days_ago")
+    when = "today" if last == 0 else "yesterday" if last == 1 else f"{last} days ago"
+    return (f"{n}{'+' if a.get('coverage') == 'partial' else ''} in {HISTORY_DAYS} days, last {when}, "
+            f"longest gap {a.get('longest_gap_days')} days")
+
+
 def _x_of(a: dict, linked_x: set[str] | None) -> str | None:
     """The account's X handle, if it's an x.com URL or a handle a company's site links to."""
     url = str(a.get("url") or "")
@@ -195,20 +220,23 @@ def _x_of(a: dict, linked_x: set[str] | None) -> str | None:
 
 
 async def count_posts(accounts: list[dict], linked_x: set[str] | None = None) -> tuple[list[dict], Decimal]:
-    """The same accounts, with posts_30d and engagement_30d counted from their actual posts.
+    """The same accounts, with posts_30d and engagement_30d counted from their actual posts, and
+    their rhythm over 90 days (posts_90d, last_post_days_ago, longest_gap_days).
 
     Accounts Apify can't place (no usable URL, or a bare X handle no site links to) or whose
     run failed come back unchanged."""
     if not enabled():
         return accounts, Decimal(0)
-    since = datetime.now(UTC) - timedelta(days=DAYS)
+    now = datetime.now(UTC)
+    since = now - timedelta(days=DAYS)
+    history = now - timedelta(days=HISTORY_DAYS)
     li = sorted({u for a in accounts if a.get("platform") == "linkedin" and (u := linkedin_url(a.get("url") or ""))})
     xs = sorted({h for a in accounts if a.get("platform") == "x" and (h := _x_of(a, linked_x))})
 
     async def none():
         return None
 
-    li_posts, x_posts = await asyncio.gather(_linkedin(li, since) if li else none(), _x(xs, since) if xs else none(),
+    li_posts, x_posts = await asyncio.gather(_linkedin(li, history) if li else none(), _x(xs, history) if xs else none(),
                                              return_exceptions=True)
     li_posts = li_posts if isinstance(li_posts, dict) else None
     x_posts = x_posts if isinstance(x_posts, dict) else None
@@ -230,11 +258,19 @@ async def count_posts(accounts: list[dict], linked_x: set[str] | None = None) ->
         if found is None:
             out.append(a)
             continue
-        videos = sum(1 for p in found if p["video"])
-        out.append({**a, "url": a.get("url") or key, "coverage": "partial" if len(found) >= MAX_POSTS else "verified",
-                    "posts_30d": len(found), "engagement_30d": sum(p["engagement"] for p in found),
-                    "videos_30d": videos, "source": "apify",
-                    "note": (f"Counted from {len(found)} public post{'s' if len(found) != 1 else ''} in the last {DAYS} days"
-                             + (f", {videos} with video" if videos else "") if found
-                             else f"No posts in the last {DAYS} days")})
+        recent = [p for p in found if p["at"] >= since]
+        videos = sum(1 for p in recent if p["video"])
+        # At the cap, the 90-day count is a floor; the 30-day count is still exact if the cap
+        # reached back past 30 days.
+        capped = len(found) >= MAX_POSTS
+        row = {**a, "url": a.get("url") or key, "source": "apify",
+               "coverage": "partial" if capped and min(p["at"] for p in found) >= since else "verified",
+               "posts_30d": len(recent), "engagement_30d": sum(p["engagement"] for p in recent), "videos_30d": videos,
+               **rhythm(found, now)}
+        if capped:
+            row["coverage_90d"] = "partial"
+        row["note"] = (f"{len(recent)} public post{'s' if len(recent) != 1 else ''} in the last {DAYS} days"
+                       + (f", {videos} with video" if videos else "")
+                       + f"; {rhythm_text({**row, 'coverage': row.get('coverage_90d', 'verified')})}")
+        out.append(row)
     return out, cost

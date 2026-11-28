@@ -244,6 +244,9 @@ async def test_a_fix_goes_to_the_closest_team_when_its_own_is_missing(with_key, 
         assert goal_id  # no IT team: Engineering takes it
         made = next(x for x in (await c.get("/api/campaigns")).json() if x["id"] == goal_id)
         assert made["agent"]["name"] == "Eng Agent"
+        # The same goal again (e.g. the team plan already made it): linked, not dropped or duplicated.
+        assert await create_goal(org["org"]["id"], None, "it", {**spec, "name": "add a dmarc record"}) == goal_id
+        assert [x["name"] for x in (await c.get("/api/campaigns")).json()].count("Add a DMARC record") == 1
 
 
 async def test_practical_checks_get_the_measured_social_and_video_numbers(with_key, fake_site, monkeypatch):
@@ -466,3 +469,21 @@ async def test_correcting_social_profiles_rechecks_just_social_media(with_key, f
         assert li["you"]["url"] == "https://linkedin.com/company/acme-routing" and li["you"]["display"] == "Couldn't read"
         socials = (await c.get("/api/org/socials")).json()
         assert socials["confirmed"]["x"] == "https://x.com/acmeroutes" and len(socials["used"]) == 2
+
+
+def test_a_cheap_but_long_plan_keeps_its_steps():
+    """A long-term goal (quick first step, then months of steady work) stays a plan even when it's
+    cheap; two quick steps that are really one job are merged."""
+    from app.agent import org_setup
+    from app.agent.opportunities import _milestones
+
+    long_push = [{"name": "3 posts that show the product", "outcome": "3 posts live", "weeks": 2, "sessions": 3,
+                  "paid_items": [], "goal": goal("LinkedIn: first 3 posts", "Marketing & demand gen")},
+                 {"name": "Post 3 times a week", "outcome": "500 engaged followers", "weeks": 12, "sessions": 36,
+                  "paid_items": [], "goal": goal("LinkedIn: steady posting", "Marketing & demand gen")}]
+    steps = _milestones(long_push, 0.3, "estimate", 0, org_setup)
+    assert [s["name"] for s in steps] == ["3 posts that show the product", "Post 3 times a week"]
+    assert sum(s["total_usd"] for s in steps) < 100
+
+    quick = [{**long_push[0], "weeks": 1}, {**long_push[1], "weeks": 1, "sessions": 2}]
+    assert len(_milestones(quick, 0.3, "estimate", 0, org_setup)) == 1
